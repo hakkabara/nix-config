@@ -6,6 +6,7 @@
     ./git.nix
     ./nix-dev.nix
     ./vscode.nix
+    ./ssh.nix
   ];
   home = {
     username = "hakkabara";

@@ -8,3 +8,9 @@ creation_rules:
       - age:
           - *surf_vm
           - *recovery
+
+  - path_regex: ^secrets/shared/ssh-personal-infra$
+    key_groups:
+      - age:
+          - *surf_vm
+          - *recovery

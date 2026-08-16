@@ -41,7 +41,6 @@
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              users.hakkabara = ./users/hakkabara;
             };
           }
         ];

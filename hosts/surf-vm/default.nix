@@ -14,6 +14,13 @@
     ../../modules/nixos/desktop/plasma.nix
     ../../modules/nixos/security/sops.nix
   ];
+
+  home-manager.users.hakkabara = {
+    imports = [
+      ../../users/hakkabara
+      ../../modules/home/ssh/personal-infra.nix
+    ];
+  };
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [
     "nix-command"
