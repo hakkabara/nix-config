@@ -2,16 +2,16 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      ../../modules/nixos/virtualization/vmware.nix
-      ../../modules/nixos/audio/pipewire.nix
-      ../../modules/nixos/desktop/plasma.nix
-    ];
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    ../../modules/nixos/virtualization/vmware.nix
+    ../../modules/nixos/audio/pipewire.nix
+    ../../modules/nixos/desktop/plasma.nix
+  ];
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [
     "nix-command"
@@ -19,9 +19,11 @@
   ];
 
   # Bootloader.
-  boot.loader.grub.enable = true;
-  boot.loader.grub.device = "/dev/sda";
-  boot.loader.grub.useOSProber = true;
+  boot.loader.grub = {
+    enable = true;
+    device = "/dev/sda";
+    useOSProber = true;
+  };
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
@@ -34,16 +36,15 @@
 
   # Mount shared folder
   fileSystems."/data" = {
-  device = ".host:/data";
-  fsType = "fuse./run/current-system/sw/bin/vmhgfs-fuse";
-  options = [
-    "rw"
-    "allow_other"
-    "nofail"
-    "x-systemd.automount"
-  ];
+    device = ".host:/data";
+    fsType = "fuse./run/current-system/sw/bin/vmhgfs-fuse";
+    options = [
+      "rw"
+      "allow_other"
+      "nofail"
+      "x-systemd.automount"
+    ];
   };
-
 
   # Set your time zone.
   time.timeZone = "Europe/Berlin";
@@ -63,10 +64,8 @@
     LC_TIME = "de_DE.UTF-8";
   };
 
-
   # Enable CUPS to print documents.
   services.printing.enable = true;
-
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
@@ -75,10 +74,13 @@
   users.users."hakkabara" = {
     isNormalUser = true;
     description = "hakkabara";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+    ];
     packages = with pkgs; [
       kdePackages.kate
-    #  thunderbird
+      #  thunderbird
     ];
   };
 

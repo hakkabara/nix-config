@@ -1,13 +1,14 @@
 { ... }:
 
 {
-  {
-    imports = [
-      ./nix-dev.nix
-      ./vscode.nix
-  ];
-  home.username = "hakkabara";
-  home.homeDirectory = "/home/hakkabara";
 
-  home.stateVersion = "26.05";
+  imports = [
+    ./nix-dev.nix
+    ./vscode.nix
+  ];
+  home = {
+    username = "hakkabara";
+    homeDirectory = "/home/hakkabara";
+    stateVersion = "26.05";
+  };
 }
