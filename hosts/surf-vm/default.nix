@@ -8,7 +8,7 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ../../modules/nixos/virtaulization/vmware.nix
+      ../../modules/nixos/virtualization/vmware.nix
       ../../modules/nixos/audio/pipewire.nix
     ];
   # Enable the modern Nix CLI and Flakes.
