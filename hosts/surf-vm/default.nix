@@ -8,6 +8,7 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ../../modules/nixos/virtaulization/vmware.nix
     ];
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [
@@ -29,8 +30,6 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
-  # VMWare Stuff
-  virtualisation.vmware.guest.enable = true;
   # Mount shared folder
   fileSystems."/data" = {
   device = ".host:/data";
