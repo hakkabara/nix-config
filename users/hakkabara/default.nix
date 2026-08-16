@@ -1,6 +1,11 @@
 { ... }:
 
 {
+  {
+    imports = [
+      ./nix-dev.nix
+      ./vscode.nix
+  ];
   home.username = "hakkabara";
   home.homeDirectory = "/home/hakkabara";
 

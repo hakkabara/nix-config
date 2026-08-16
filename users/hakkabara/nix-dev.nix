@@ -1,0 +1,10 @@
+{ pkgs, ... }:
+
+{
+  home.packages = with pkgs; [
+    nixd
+    nixfmt
+    statix
+    deadnix
+  ];
+}
