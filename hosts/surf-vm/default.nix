@@ -8,9 +8,11 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
+    ./secrets.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
+    ../../modules/nixos/security/sops.nix
   ];
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [

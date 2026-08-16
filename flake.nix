@@ -8,12 +8,18 @@
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     {
       nixpkgs,
       home-manager,
+      sops-nix,
       ...
     }:
     let
@@ -29,6 +35,7 @@
           ./hosts/surf-vm
 
           home-manager.nixosModules.home-manager
+          sops-nix.nixosModules.sops
 
           {
             home-manager = {

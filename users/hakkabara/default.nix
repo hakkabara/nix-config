@@ -3,6 +3,7 @@
 {
 
   imports = [
+    ./git.nix
     ./nix-dev.nix
     ./vscode.nix
   ];

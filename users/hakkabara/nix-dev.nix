@@ -1,17 +1,17 @@
 { pkgs, ... }:
 
 let
-repoRoot = ''
-  repo="''${NIX_CONFIG_REPO:-$HOME/nix-config}"
+  repoRoot = ''
+    repo="''${NIX_CONFIG_REPO:-$HOME/nix-config}"
 
-  if [[ ! -d "$repo/.git" || ! -f "$repo/flake.nix" ]]; then
-    echo "ERROR: nix-config repository not found at: $repo" >&2
-    echo "Set NIX_CONFIG_REPO to override the repository location." >&2
-    exit 1
-  fi
+    if [[ ! -d "$repo/.git" || ! -f "$repo/flake.nix" ]]; then
+      echo "ERROR: nix-config repository not found at: $repo" >&2
+      echo "Set NIX_CONFIG_REPO to override the repository location." >&2
+      exit 1
+    fi
 
-  cd "$repo"
-'';
+    cd "$repo"
+  '';
   nixFormat = pkgs.writeShellApplication {
     name = "nix-format";
 
@@ -103,7 +103,8 @@ in
     pkgs.nixfmt
     pkgs.statix
     pkgs.deadnix
-
+    pkgs.age
+    pkgs.sops
     nixFormat
     nixCheck
     nixTest
