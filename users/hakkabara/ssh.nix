@@ -6,7 +6,7 @@ _:
   ];
 
   programs.ssh.settings."*" = {
-    IdentityFile = "~/.ssh/id_ed25519";
+    IdentityFile = "/run/secrets/ssh-system-key";
     IdentitiesOnly = true;
   };
 

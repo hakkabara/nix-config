@@ -3,7 +3,7 @@ keys:
   - &recovery age10hl0lhp7g9f8532te3hmw6agyytrmp9n4x4yy6xah5ka2eq9yc0qnkz6qq
 
 creation_rules:
-  - path_regex: secrets/surf-vm\.yaml$
+  - path_regex: ^secrets/surf-vm(\.yaml|/.*)$
     key_groups:
       - age:
           - *surf_vm
