@@ -9,6 +9,11 @@
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
     ];
+  # Enable the modern Nix CLI and Flakes.
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   # Bootloader.
   boot.loader.grub.enable = true;
