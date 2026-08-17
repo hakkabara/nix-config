@@ -25,7 +25,14 @@
         "wg-quick-homelab-split.service"
       ];
     };
+    "wireguard/homelab-full" = {
+      sopsFile = ../../secrets/surf-vm/wireguard.yaml;
+      key = "homelab-full";
 
+      owner = "root";
+      group = "root";
+      mode = "0400";
+    };
     "ssh-system-key" = {
       sopsFile = ../../secrets/surf-vm/ssh-system-key;
       format = "binary";
