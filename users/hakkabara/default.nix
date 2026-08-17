@@ -10,6 +10,7 @@
 
     ../../modules/home/shell
     ../../modules/home/cli
+    ../../modules/home/apps
     ../../modules/home/editor/neovim.nix
     ../../modules/home/terminal/kitty.nix
   ];
