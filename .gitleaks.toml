@@ -1,0 +1,85 @@
+title = "Hakkabara nix-config secret scanning"
+
+[extend]
+useDefault = true
+
+
+# ============================================================
+# Cryptographic private keys
+# ============================================================
+
+[[rules]]
+id = "private-key-block"
+description = "Private cryptographic key committed in plaintext"
+regex = '''-----BEGIN (OPENSSH |RSA |EC |DSA |ENCRYPTED )?PRIVATE KEY-----'''
+keywords = [
+  "PRIVATE KEY",
+]
+tags = [
+  "private-key",
+  "crypto",
+]
+
+
+[[rules]]
+id = "pgp-private-key"
+description = "PGP private key committed in plaintext"
+regex = '''-----BEGIN PGP PRIVATE KEY BLOCK-----'''
+keywords = [
+  "PGP PRIVATE KEY",
+]
+tags = [
+  "private-key",
+  "pgp",
+]
+
+
+# ============================================================
+# NixOS user passwords
+# ============================================================
+
+[[rules]]
+id = "nixos-inline-password"
+description = "Plaintext NixOS user password should be provided through a secret file"
+path = '''\.nix$'''
+regex = '''\b(initialPassword|password)\s*=\s*"([^"]+)"\s*;'''
+secretGroup = 2
+keywords = [
+  "initialPassword",
+  "password",
+]
+tags = [
+  "nixos",
+  "password",
+]
+
+
+[[rules]]
+id = "nixos-inline-password-hash"
+description = "Password hash stored directly in Nix configuration"
+path = '''\.nix$'''
+regex = '''\b(initialHashedPassword|hashedPassword)\s*=\s*"([^"]{20,})"\s*;'''
+secretGroup = 2
+keywords = [
+  "initialHashedPassword",
+  "hashedPassword",
+]
+tags = [
+  "nixos",
+  "password",
+]
+
+
+# ============================================================
+# WireGuard
+# ============================================================
+
+[[rules]]
+id = "wireguard-inline-private-key"
+description = "WireGuard private or preshared key committed inline"
+regex = '''(?i)\b(privateKey|presharedKey)\s*=\s*"?([A-Za-z0-9+/]{43}=)"?'''
+secretGroup = 2
+tags = [
+  "wireguard",
+  "private-key",
+]
