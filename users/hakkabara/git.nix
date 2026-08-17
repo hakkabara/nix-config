@@ -9,4 +9,8 @@ _:
     name = "hakkabara";
     email = "hakkabara@outlook.de";
   };
+
+  programs.git.settings = {
+    url."git@github.com".insteadOf = "https://github.com/";
+  };
 }
