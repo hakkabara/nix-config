@@ -9,6 +9,7 @@
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./secrets.nix
+    ./wireguard.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
