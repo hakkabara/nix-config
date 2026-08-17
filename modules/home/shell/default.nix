@@ -80,5 +80,28 @@
 
       nix-direnv.enable = true;
     };
+    starship = {
+      enable = true;
+      enableZshIntegration = true;
+
+      presets = [
+        "nerd-font-symbols"
+      ];
+
+      settings = {
+        add_newline = false;
+        command_timeout = 1000;
+
+        directory = {
+          truncation_length = 4;
+          truncate_to_repo = false;
+        };
+
+        character = {
+          success_symbol = "[❯](bold green)";
+          error_symbol = "[❯](bold red)";
+        };
+      };
+    };
   };
 }
