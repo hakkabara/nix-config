@@ -3,9 +3,20 @@
 {
   programs = {
     firefox.enable = true;
-    thunderbird.enable = true;
-  };
 
+    thunderbird = {
+      enable = true;
+
+      languagePacks = [
+        "de"
+      ];
+
+      policies = {
+        DisableTelemetry = true;
+        DisableAppUpdate = true;
+      };
+    };
+  };
   xdg.mimeApps = {
     enable = true;
 
