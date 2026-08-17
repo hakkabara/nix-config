@@ -39,5 +39,13 @@
       owner = "hakkabara";
       mode = "0400";
     };
+    "smb/homelab-main" = {
+      sopsFile = ../../secrets/surf-vm/smb.yaml;
+      key = "homelab-main";
+
+      owner = "root";
+      group = "root";
+      mode = "0400";
+    };
   };
 }

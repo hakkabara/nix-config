@@ -10,6 +10,7 @@
     ./hardware-configuration.nix
     ./secrets.nix
     ./wireguard.nix
+    ./mounts.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
