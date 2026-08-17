@@ -7,6 +7,11 @@
     ./nix-dev.nix
     ./vscode.nix
     ./ssh.nix
+
+    ../../modules/home/shell
+    ../../modules/home/cli
+    ../../modules/home/editor/neovim.nix
+    ../../modules/home/terminal/kitty.nix
   ];
   home = {
     username = "hakkabara";
