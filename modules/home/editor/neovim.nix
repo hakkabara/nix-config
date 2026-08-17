@@ -1,19 +1,10 @@
 { pkgs, ... }:
 
 {
-  programs.neovim = {
-    enable = true;
+  home = {
+    packages = with pkgs; [
+      neovim
 
-    defaultEditor = true;
-
-    viAlias = true;
-    vimAlias = true;
-    vimdiffAlias = true;
-
-    withNodeJs = true;
-    withPython3 = true;
-
-    extraPackages = with pkgs; [
       # LazyVim / Treesitter prerequisites
       gcc
       tree-sitter
@@ -23,10 +14,21 @@
       fd
       fzf
 
-      # Required / useful for LazyVim
+      # Git / network
       git
       curl
       lazygit
     ];
+
+    sessionVariables = {
+      EDITOR = "nvim";
+      VISUAL = "nvim";
+    };
+  };
+
+  programs.zsh.shellAliases = {
+    vi = "nvim";
+    vim = "nvim";
+    vimdiff = "nvim -d";
   };
 }

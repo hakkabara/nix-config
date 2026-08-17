@@ -11,6 +11,6 @@ _:
   };
 
   programs.git.settings = {
-    url."git@github.com".insteadOf = "https://github.com/";
+    url."git@github.com:hakkabara/".insteadOf = "https://github.com/hakkabara/";
   };
 }
