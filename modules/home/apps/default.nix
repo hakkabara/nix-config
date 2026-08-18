@@ -35,6 +35,8 @@
       # E-Mail
       "x-scheme-handler/mailto" = "thunderbird.desktop";
       "message/rfc822" = "thunderbird.desktop";
+      # Obsidian
+      "x-scheme-handler/obsidian" = "obsidian.desktop";
     };
   };
 
