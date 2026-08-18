@@ -1,6 +1,10 @@
 { pkgs, ... }:
 
 {
+
+  imports = [
+    ./equibop.nix
+  ];
   programs = {
     firefox.enable = true;
 
@@ -64,7 +68,6 @@
     # Communication
     signal-desktop
     telegram-desktop
-    equibop
 
     # Media
     spotify
