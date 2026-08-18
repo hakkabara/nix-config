@@ -1,6 +1,23 @@
-{ ... }:
+{ pkgs, ... }:
 
+let
+  firefoxBookmarks = pkgs.writeShellApplication {
+    name = "fbm";
+
+    runtimeInputs = [
+      pkgs.sops
+      pkgs.python3
+    ];
+
+    text = ''
+      exec python3 ${./scripts/firefox-bookmarks.py} "$@"
+    '';
+  };
+in
 {
+  home.packages = [
+    firefoxBookmarks
+  ];
   programs.firefox = {
     enable = true;
 

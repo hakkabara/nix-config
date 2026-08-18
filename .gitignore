@@ -1,2 +1,78 @@
+# -----------------------------------------------------------------------------
+# Nix
+# -----------------------------------------------------------------------------
+
 result
 result-*
+
+# direnv / local development environments
+.direnv/
+
+
+# -----------------------------------------------------------------------------
+# Python bytecode / caches
+# -----------------------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.pytype/
+.hypothesis/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Test/build environments
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging/build output
+build/
+dist/
+*.egg-info/
+__pypackages__/
+
+
+# -----------------------------------------------------------------------------
+# Temporary / editor files
+# -----------------------------------------------------------------------------
+
+*.swp
+*.swo
+*~
+.DS_Store
+
+
+# -----------------------------------------------------------------------------
+# Defensive secret/plaintext patterns
+#
+# These are convenience protections, not a security boundary.
+# -----------------------------------------------------------------------------
+
+*.plaintext
+*.cleartext
+*.decrypted
+
+secrets/**/*.tmp
+secrets/**/.*.tmp
+
+
+# -----------------------------------------------------------------------------
+# Local environment files
+# -----------------------------------------------------------------------------
+
+.env
+.env.*
+!.env.example
