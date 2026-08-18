@@ -21,6 +21,7 @@
     imports = [
       ../../users/hakkabara
       ../../modules/home/ssh/personal-infra.nix
+      ../../modules/home/desktop/autostart.nix
     ];
   };
   # Enable the modern Nix CLI and Flakes.
