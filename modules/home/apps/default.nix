@@ -4,9 +4,9 @@
 
   imports = [
     ./equibop.nix
+    ./browsers
   ];
   programs = {
-    firefox.enable = true;
 
     thunderbird = {
       enable = true;

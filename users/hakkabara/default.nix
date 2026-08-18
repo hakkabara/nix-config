@@ -7,6 +7,7 @@
     ./nix-dev.nix
     ./vscode.nix
     ./ssh.nix
+    ./firefox.nix
 
     ../../modules/home/shell
     ../../modules/home/cli
