@@ -1,10 +1,55 @@
 { ... }:
 
+let
+  # ============================================================
+  # Theme selection
+  # ============================================================
+  #
+  # Change only this value to switch the active Equibop theme.
+  #
+  # Example:
+  # activeTheme = "catppuccin";
+  #
+  activeTheme = "midnight";
+
+  # All themes managed by this repository.
+  #
+  # To add another theme:
+  #
+  # 1. Put the CSS file into:
+  #    /home/hakkabara/nix-config/modules/home/apps/equibop/themes/
+  #
+  # 2. Add it here:
+  #
+  #    catppuccin = ./equibop/themes/catppuccin.theme.css;
+  #
+  # 3. Change activeTheme above if you want to activate it.
+  #
+  availableThemes = {
+    midnight = ./equibop/themes/midnight.theme.css;
+
+    # Future examples:
+    # catppuccin = ./equibop/themes/catppuccin.theme.css;
+    # tokyo-night = ./equibop/themes/tokyo-night.theme.css;
+    # dark-matter = ./equibop/themes/dark-matter.theme.css;
+  };
+
+  # Fail during evaluation instead of silently configuring
+  # a theme which does not exist.
+  activeThemeFile =
+    if builtins.hasAttr activeTheme availableThemes then
+      "${activeTheme}.css"
+    else
+      throw "Unknown Equibop theme '${activeTheme}'. Add it to availableThemes first.";
+in
 {
   programs.equibop = {
     enable = true;
 
+    # ============================================================
     # Equibop application settings
+    # ============================================================
+
     settings = {
       discordBranch = "stable";
 
@@ -30,6 +75,10 @@
 
     equicord = {
       settings = {
+        # ========================================================
+        # Equicord
+        # ========================================================
+
         # Equibop/Equicord updates come through Nix.
         autoUpdate = false;
         autoUpdateNotification = false;
@@ -41,8 +90,9 @@
         themeLinks = [ ];
         enabledThemeLinks = [ ];
 
+        # The selected theme is defined once at the top of this file.
         enabledThemes = [
-          "midnight.css"
+          activeThemeFile
         ];
 
         notifications = {
@@ -235,11 +285,18 @@
         };
       };
 
-      themes = {
-        # Source:
-        # /home/hakkabara/nix-config/modules/home/apps/equibop/themes/midnight.theme.css
-        midnight = ./equibop/themes/midnight.theme.css;
-      };
+      # ============================================================
+      # Themes
+      # ============================================================
+      #
+      # Every entry from availableThemes is installed.
+      # Only activeTheme is enabled above.
+      #
+      themes = availableThemes;
+
+      # ============================================================
+      # QuickCSS
+      # ============================================================
 
       extraQuickCss = builtins.readFile ./equibop/quickCss.css;
     };
