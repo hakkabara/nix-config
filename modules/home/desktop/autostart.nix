@@ -55,7 +55,19 @@
       Type=Application
       Name=Telegram
       Comment=Start Telegram in the system tray
-      Exec=${pkgs.telegram-desktop}/bin/telegram-desktop -startintray
+      Exec=${pkgs.telegram-desktop}/bin/telegram-desktop -startintray -autostart
+      Terminal=false
+      Hidden=false
+      StartupNotify=false
+      X-GNOME-Autostart-enabled=true
+    '';
+    "autostart/bitwarden.desktop".text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Bitwarden
+      Comment=Start Bitwarden
+      Exec=${pkgs.bitwarden-desktop}/bin/bitwarden
+      Icon=bitwarden
       Terminal=false
       Hidden=false
       StartupNotify=false
