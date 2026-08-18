@@ -23,7 +23,6 @@
 
         append = true;
         share = true;
-
         ignoreDups = true;
         ignoreAllDups = true;
         saveNoDups = true;
@@ -80,27 +79,23 @@
 
       nix-direnv.enable = true;
     };
+
     starship = {
       enable = true;
       enableZshIntegration = true;
 
       presets = [
-        "nerd-font-symbols"
+        "tokyo-night"
       ];
 
       settings = {
         add_newline = false;
         command_timeout = 1000;
 
-        directory = {
-          truncation_length = 4;
-          truncate_to_repo = false;
-        };
-
-        character = {
-          success_symbol = "[❯](bold green)";
-          error_symbol = "[❯](bold red)";
-        };
+        # Starship 1.25.1 hard-codes an Apple glyph in the Tokyo Night preset.
+        # Keep the official layout/colors and replace only that segment with
+        # the NixOS glyph.
+        format = "[░▒▓](#a3aed2)[  ](bg:#a3aed2 fg:#090c0c)[](bg:#769ff0 fg:#a3aed2)$directory[](fg:#769ff0 bg:#394260)$git_branch$git_status[](fg:#394260 bg:#212736)$nodejs$bun$rust$golang$php[](fg:#212736 bg:#1d2230)$time[ ](fg:#1d2230)\n$character";
       };
     };
   };

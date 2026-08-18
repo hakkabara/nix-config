@@ -1,0 +1,105 @@
+{
+  "$schema": "https://lnav.org/schemas/format-v1.schema.json",
+  "xensource_log": {
+    "title": "xensource.log",
+    "description": "XenServer logs stored in /var/log/xensource.log",
+    "url": "https://github.com/xapi-project/xcp-idl/blob/master/lib/debug.ml#L110",
+    "file-pattern": ".*\\/(xensource|audit)\\.log(\\..+)?",
+    "regex": {
+      "xensource_log": {
+        "pattern": "^(?<timestamp>\\w{3}\\s+\\d{1,2} \\d{2}:\\d{2}:\\d{2}) (?<log_hostname>[a-zA-Z0-9:][^ ]+[a-zA-Z0-9]) (?<log_procname>[^:]+):( message repeated \\d+ times: \\[)? \\[((?<xapi_timestamp>[^\\[\\|]+)\\|)?(?<level>[^\\[\\|]+)\\|(?<xapi_hostname>[^\\|]+)?\\|(?<threadid>\\d+) (?<origin>[^\\|]+)?\\|(?<task>[^\\|]+)?\\|(?<module>[^\\]\\|]+)\\]( (?<body>.*))?$"
+      }
+    },
+    "json": false,
+    "timestamp-field": "timestamp",
+    "level-field": "level",
+    "body-field": "body",
+    "opid-field": "task",
+    "level": {
+      "error": "error",
+      "warning": "warn",
+      "info": "info",
+      "debug": "debug"
+    },
+    "multiline": false,
+    "value": {
+      "log_hostname": { "kind": "string", "collate": "ipaddress", "identifier": true },
+      "log_procname": { "kind": "string", "identifier": true },
+      "xapi_timestamp": { "kind": "string", "identifier": false },
+      "xapi_hostname": { "kind": "string", "collate": "ipaddress", "identifier": true },
+      "threadid": { "kind": "integer", "identifier": true, "foreign-key": true },
+      "origin": { "kind": "string", "identifier": false },
+      "task": { "kind": "string", "identifier": false },
+      "module": { "kind": "string", "identifier": true }
+    },
+    "sample": [
+      { "line": "Jan 13 01:27:56 dt14 xapi: [debug|dt14|6380 UNIX /var/lib/xcp/xapi|host.signal_networking_change D:4f4b1253f01a|helpers] Updating IP addresses in DB for DHCP and autoconf PIFs", "level": "debug" },
+      { "line": "Dec 20 17:52:52 localhost xapi: [ warn|xrtuk-11-33|178 INET :::80|VM metadata import R:a425c45b3556|import] Failed to find SR with UUID: d85ea3e9-92d4-d689-1644-1964801cb64c content-type: user - will still try to find individual VDIs", "level": "warning" },
+      { "line": "Jun 11 09:46:12 localhost xenopsd-xc: message repeated 25 times: [ [debug|localhost|0 ||xenops_server] Adding a new worker to the thread pool]", "level": "debug" }
+    ]
+  },
+  "xha_log": {
+    "title": "xha.log",
+    "description": "High Availability's daemon log file",
+    "url": "https://github.com/lnav-xenserver-logs/lnav_xenserver_logs",
+    "file-pattern": ".*\\/xha.log(\\..+)?",
+    "regex": {
+      "xha_log": {
+        "pattern": "^(?<timestamp>\\w+ \\d{2} \\d{2}:\\d{2}:\\d{2} \\w+ \\d{4}) \\[(?<level>\\w+)\\] (?<body>.*)"
+      }
+    },
+    "json": false,
+    "timestamp-format": ["%b %d %H:%M:%S UTC %Y"],
+    "level-field": "level",
+    "level": {
+      "error": "error|err",
+      "warning": "warning|warn",
+      "notice": "notice",
+      "info": "info",
+      "debug": "debug"
+    },
+    "multiline": false,
+    "sample": [
+      { "line": "Jun 01 19:35:50 UTC 2022 [debug] HB: HB domain is updated [hbdomain = (0@m)].", "level": "debug" },
+      { "line": "Jun 01 20:37:50 UTC 2022 [info] CONF: my_index=2 num_host=3 t1=3 T1=60", "level": "info" }
+    ]
+  },
+  "xenrt_log": {
+    "title": "xenrt.log",
+    "description": "XenRT log file",
+    "url": "https://github.com/lnav-xenserver-logs/lnav_xenserver_logs",
+    "file-pattern": "xenrt.log",
+    "regex": {
+      "xenrt_log": {
+        "pattern": "^(?<threadid>\\[[^\\[\\]]*\\] )?(?<hostname>\\[[a-z0-9\\-]+\\] )?\\[(?<level>[^\\]\\[]+)\\] \\[(?<timestamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2} UTC)\\] (?<body>.*)"
+      }
+    },
+    "json": false,
+    "timestamp-field": "timestamp",
+    "timestamp-format": ["%Y-%m-%d %H:%M:%S UTC"],
+    "level-field": "level",
+    "body-field": "body",
+    "opid-field": "threadid",
+    "level": {
+      "error": "REASON|REASONPLUS",
+      "warning": "WARNING",
+      "stats": "DELIMIT",
+      "info": "TESTLOG|STEP",
+      "debug": "VERBOSE|HTCHECK"
+    },
+    "multiline": true,
+    "value": {
+      "hostname": { "kind": "string", "identifier": true }
+    },
+    "sample": [
+      { "line": "[VERBOSE] [2018-11-17 16:54:02 UTC] Setting MainThread TEC to TEC:TCCBTNBDBlockVerify", "level": "debug" },
+      { "line": "[HWorker00] [host5-05] [VERBOSE] [2024-11-07 14:28:33 UTC] Local command: ls", "level": "debug" }
+    ],
+    "highlights": {
+      "progress": {
+        "pattern": "\\[PROGRESS\\]",
+        "underline": true
+      }
+    }
+  }
+}

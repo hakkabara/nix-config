@@ -1,0 +1,21 @@
+{
+  "selinux_audit": {
+    "title": "SELinux audit log format",
+    "description": "Log format for SELinux audit messages",
+    "regex": {
+      "main": {
+        "pattern": "^type=(?<type>\\w+) msg=audit\\((?<timestamp>\\d+\\.\\d+):(?<event_no>\\d+)\\): (?:avc:\\s+denied\\s+\\{ (?<action>\\w+(?:\\s\\w+)*) \\} for  pid=(?<pid>\\d+) comm=\"(?<comm>\\w+)\" name=\"(?<name>.*?)\" dev=(?<device>\\d+:\\d+) ino=(?<inode>\\d+) scontext=(?<src_user>\\w+):(?<src_role>\\w+):(?<src_type>\\w+):(?<src_mlc>\\S+) tcontext=(?<tgt_user>\\w+):(?<tgt_role>\\w+):(?<tgt_type>\\w+):(?<tgt_mlc>\\S+) tclass=(?<tgt_class>\\w+)|(?<body>.*))$"
+      }
+    },
+    "timestamp-format": ["%s"],
+    "value": {
+      "type": { "kind": "string", "identifier": true },
+      "event_no": { "kind": "integer", "identifier": true },
+      "body": { "kind": "string" }
+    },
+    "sample": [
+      { "line": "type=AVC msg=audit(1435824080.278:1215): avc:  denied  { search } for  pid=10417 comm=\"postmaster\" name=\"\" dev=0:16 ino=1015358 scontext=unconfined_u:system_r:postgresql_t:s0 tcontext=system_u:object_r:nfs_t:s0 tclass=dir" },
+      { "line": "type=AVC msg=audit(1435822831.002:1170): avc:  denied  { read write } for  pid=5130 comm=\"cobblerd\" name=\"grub.cfg\" dev=dm-8 ino=394514 scontext=unconfined_u:system_r:cobblerd_t:s0 tcontext=system_u:object_r:tftpdir_rw_t:s0 tclass=file" }
+    ]
+  }
+}

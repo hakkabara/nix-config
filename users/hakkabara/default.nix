@@ -13,7 +13,7 @@
     ../../modules/home/cli
     ../../modules/home/apps
     ../../modules/home/editor/neovim.nix
-    ../../modules/home/terminal/kitty.nix
+    ../../modules/home/terminal
   ];
   home = {
     username = "hakkabara";

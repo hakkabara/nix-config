@@ -67,7 +67,6 @@
 
     # Processes / logs
     procs
-    lnav
 
     # Git / GitHub
     gh
