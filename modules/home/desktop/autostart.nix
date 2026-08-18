@@ -55,7 +55,7 @@
       Type=Application
       Name=Telegram
       Comment=Start Telegram in the system tray
-      Exec=${pkgs.telegram-desktop}/bin/Telegram -startintray -autostart
+      Exec=${pkgs.telegram-desktop}/bin/Telegram -startintray
       Terminal=false
       Hidden=false
       StartupNotify=false
