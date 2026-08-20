@@ -12,10 +12,13 @@
     ./wireguard.nix
     ./mounts.nix
     ../../modules/nixos/virtualization/vmware.nix
+    ../../modules/nixos/features/workstation-vm.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
     ../../modules/nixos/security/sops.nix
   ];
+
+  hakkabara.workstationVm.enable = true;
 
   home-manager.users.hakkabara = {
     imports = [
