@@ -19,6 +19,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
     };
+
+    wl-x11-clipsync = {
+      url = "github:Kyubai/wl-x11-clipsync";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -27,6 +32,7 @@
       home-manager,
       sops-nix,
       plasma-manager,
+      wl-x11-clipsync,
       ...
     }:
     let
@@ -37,6 +43,10 @@
 
       nixosConfigurations.surf-vm = nixpkgs.lib.nixosSystem {
         inherit system;
+
+        specialArgs = {
+          inherit wl-x11-clipsync;
+        };
 
         modules = [
           ./hosts/surf-vm

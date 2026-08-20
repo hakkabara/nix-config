@@ -12,6 +12,7 @@
     ./wireguard.nix
     ./mounts.nix
     ../../modules/nixos/virtualization/vmware.nix
+    ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
     ../../modules/nixos/features/workstation-vm.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
@@ -19,6 +20,7 @@
   ];
 
   hakkabara.workstationVm.enable = true;
+  hakkabara.vmware.waylandClipboard.enable = true;
 
   home-manager.users.hakkabara = {
     imports = [
