@@ -1,34 +1,44 @@
-{ pkgs, ... }:
-
 {
-  home = {
-    packages = with pkgs; [
-      neovim
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-      # LazyVim / Treesitter prerequisites
-      gcc
-      tree-sitter
+let
+  cfg = config.hakkabara.editor;
+in
+{
+  config = lib.mkIf (cfg.enable && cfg.neovim.enable) {
+    home = {
+      packages = with pkgs; [
+        neovim
 
-      # Search / fuzzy finding
-      ripgrep
-      fd
-      fzf
+        # LazyVim / Treesitter prerequisites
+        gcc
+        tree-sitter
 
-      # Git / network
-      git
-      curl
-      lazygit
-    ];
+        # Search / fuzzy finding
+        ripgrep
+        fd
+        fzf
 
-    sessionVariables = {
-      EDITOR = "nvim";
-      VISUAL = "nvim";
+        # Git / network
+        git
+        curl
+        lazygit
+      ];
+
+      sessionVariables = {
+        EDITOR = "nvim";
+        VISUAL = "nvim";
+      };
     };
-  };
 
-  programs.zsh.shellAliases = {
-    vi = "nvim";
-    vim = "nvim";
-    vimdiff = "nvim -d";
+    programs.zsh.shellAliases = {
+      vi = "nvim";
+      vim = "nvim";
+      vimdiff = "nvim -d";
+    };
   };
 }

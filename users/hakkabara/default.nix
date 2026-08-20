@@ -1,20 +1,22 @@
 { ... }:
 
 {
-
   imports = [
+    # User-specific configuration
     ./git.nix
-    ./nix-dev.nix
-    ./vscode.nix
     ./ssh.nix
     ./firefox.nix
 
+    # Shared feature modules
     ../../modules/home/shell
     ../../modules/home/cli
     ../../modules/home/apps
-    ../../modules/home/editor/neovim.nix
+    ../../modules/home/editor
+    ../../modules/home/git
+    ../../modules/home/nix-dev
     ../../modules/home/terminal
   ];
+
   home = {
     username = "hakkabara";
     homeDirectory = "/home/hakkabara";

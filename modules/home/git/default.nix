@@ -1,15 +1,20 @@
-_:
+{ config, lib, ... }:
 
+let
+  cfg = config.hakkabara.git;
+in
 {
-  programs.git = {
-    enable = true;
+  options.hakkabara.git.enable = lib.mkEnableOption "shared Git configuration";
 
-    settings = {
-      init.defaultBranch = "main";
+  config = lib.mkIf cfg.enable {
+    programs.git = {
+      enable = true;
 
-      fetch.prune = true;
-
-      push.autoSetupRemote = true;
+      settings = {
+        init.defaultBranch = "main";
+        fetch.prune = true;
+        push.autoSetupRemote = true;
+      };
     };
   };
 }

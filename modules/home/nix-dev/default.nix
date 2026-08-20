@@ -1,6 +1,13 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
+  cfg = config.hakkabara.nixDev;
+
   repoRoot = ''
     repo="''${NIX_CONFIG_REPO:-$HOME/nix-config}"
 
@@ -30,7 +37,7 @@ let
       pkgs.git
       pkgs.nix
     ];
-    script = ./nix-dev/nix-format.sh;
+    script = ./scripts/nix-format.sh;
   };
 
   nixCheck = mkRepoTool {
@@ -44,7 +51,7 @@ let
       pkgs.gitleaks
       pkgs.findutils
     ];
-    script = ./nix-dev/nix-check.sh;
+    script = ./scripts/nix-check.sh;
   };
 
   nixStatus = mkRepoTool {
@@ -55,7 +62,7 @@ let
       pkgs.systemd
       pkgs.util-linux
     ];
-    script = ./nix-dev/nix-status.sh;
+    script = ./scripts/nix-status.sh;
   };
 
   nixTest = mkRepoTool {
@@ -64,7 +71,7 @@ let
       pkgs.git
       nixCheck
     ];
-    script = ./nix-dev/nix-test.sh;
+    script = ./scripts/nix-test.sh;
   };
 
   nixSwitch = mkRepoTool {
@@ -72,23 +79,27 @@ let
     runtimeInputs = [
       pkgs.git
     ];
-    script = ./nix-dev/nix-switch.sh;
+    script = ./scripts/nix-switch.sh;
   };
 in
 {
-  home.packages = [
-    pkgs.nixd
-    pkgs.nixfmt
-    pkgs.statix
-    pkgs.deadnix
-    pkgs.age
-    pkgs.sops
-    pkgs.gitleaks
+  options.hakkabara.nixDev.enable = lib.mkEnableOption "Nix configuration development tools";
 
-    nixFormat
-    nixCheck
-    nixStatus
-    nixTest
-    nixSwitch
-  ];
+  config = lib.mkIf cfg.enable {
+    home.packages = [
+      pkgs.nixd
+      pkgs.nixfmt
+      pkgs.statix
+      pkgs.deadnix
+      pkgs.age
+      pkgs.sops
+      pkgs.gitleaks
+
+      nixFormat
+      nixCheck
+      nixStatus
+      nixTest
+      nixSwitch
+    ];
+  };
 }
