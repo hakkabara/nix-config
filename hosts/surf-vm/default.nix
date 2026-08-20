@@ -20,6 +20,7 @@
   home-manager.users.hakkabara = {
     imports = [
       ../../users/hakkabara
+      ../../profiles/home/workstation-base.nix
       ../../modules/home/ssh/personal-infra.nix
       ../../modules/home/desktop/autostart.nix
     ];

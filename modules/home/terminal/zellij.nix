@@ -1,77 +1,87 @@
-{ pkgs, ... }:
-
 {
-  # xclip is used by Zellij to write directly to the X11 system clipboard.
-  home.packages = [
-    pkgs.xclip
-  ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-  programs.zellij = {
-    enable = true;
+let
+  cfg = config.hakkabara.terminal;
+in
+{
+  config = lib.mkIf (cfg.enable && cfg.zellij.enable) {
+    # xclip is used by Zellij to write directly to the X11 system clipboard.
+    home.packages = [
+      pkgs.xclip
+    ];
 
-    # Zellij should be started explicitly, not automatically for every Zsh.
-    enableZshIntegration = false;
+    programs.zellij = {
+      enable = true;
 
-    settings = {
-      # -----------------------------------------------------------------------
-      # Appearance
-      # -----------------------------------------------------------------------
+      # Zellij should be started explicitly, not automatically for every Zsh.
+      enableZshIntegration = false;
 
-      theme = "tokyo-night";
-      default_layout = "compact";
+      settings = {
+        # -----------------------------------------------------------------------
+        # Appearance
+        # -----------------------------------------------------------------------
 
-      # Keep pane borders for orientation.
-      pane_frames = true;
+        theme = "tokyo-night";
+        default_layout = "compact";
 
-      # -----------------------------------------------------------------------
-      # Mouse / history
-      # -----------------------------------------------------------------------
+        # Keep pane borders for orientation.
+        pane_frames = true;
 
-      mouse_mode = true;
-      scroll_buffer_size = 250000;
+        # -----------------------------------------------------------------------
+        # Mouse / history
+        # -----------------------------------------------------------------------
 
-      # -----------------------------------------------------------------------
-      # Clipboard
-      # -----------------------------------------------------------------------
+        mouse_mode = true;
+        scroll_buffer_size = 250000;
 
-      # Zellij pipes the selected text to xclip.
-      # This bypasses the OSC52 issue we observed with Kitty/X11.
-      copy_command = "xclip -selection clipboard";
+        # -----------------------------------------------------------------------
+        # Clipboard
+        # -----------------------------------------------------------------------
 
-      # Copy as soon as the mouse selection is released.
-      copy_on_select = true;
+        # Zellij pipes the selected text to xclip.
+        # This bypasses the OSC52 issue we observed with Kitty/X11.
+        copy_command = "xclip -selection clipboard";
 
-      # -----------------------------------------------------------------------
-      # Sessions
-      # -----------------------------------------------------------------------
+        # Copy as soon as the mouse selection is released.
+        copy_on_select = true;
 
-      on_force_close = "detach";
+        # -----------------------------------------------------------------------
+        # Sessions
+        # -----------------------------------------------------------------------
 
-      # Save enough metadata to resurrect the session structure.
-      session_serialization = true;
+        on_force_close = "detach";
 
-      # Do NOT persist visible terminal contents to disk.
-      pane_viewport_serialization = false;
+        # Save enough metadata to resurrect the session structure.
+        session_serialization = true;
 
-      serialization_interval = 60;
+        # Do NOT persist visible terminal contents to disk.
+        pane_viewport_serialization = false;
 
-      show_startup_tips = true;
-      show_release_notes = false;
+        serialization_interval = 60;
 
-      # -----------------------------------------------------------------------
-      # Terminal capabilities
-      # -----------------------------------------------------------------------
+        show_startup_tips = true;
+        show_release_notes = false;
 
-      osc8_hyperlinks = true;
-      support_kitty_keyboard_protocol = true;
+        # -----------------------------------------------------------------------
+        # Terminal capabilities
+        # -----------------------------------------------------------------------
 
-      visual_bell = false;
+        osc8_hyperlinks = true;
+        support_kitty_keyboard_protocol = true;
 
-      # -----------------------------------------------------------------------
-      # Web functionality
-      # -----------------------------------------------------------------------
+        visual_bell = false;
 
-      web_server = false;
+        # -----------------------------------------------------------------------
+        # Web functionality
+        # -----------------------------------------------------------------------
+
+        web_server = false;
+      };
     };
   };
 }

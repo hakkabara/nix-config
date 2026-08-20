@@ -1,43 +1,53 @@
-{ pkgs, ... }:
-
 {
-  programs.tmux = {
-    enable = true;
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-    shell = "${pkgs.zsh}/bin/zsh";
-    terminal = "tmux-256color";
+let
+  cfg = config.hakkabara.terminal;
+in
+{
+  config = lib.mkIf (cfg.enable && cfg.tmux.enable) {
+    programs.tmux = {
+      enable = true;
 
-    # Keep standard Ctrl+B prefix by intentionally not setting prefix/shortcut.
-    baseIndex = 1;
-    clock24 = true;
-    escapeTime = 10;
-    historyLimit = 250000;
-    keyMode = "vi";
-    mouse = true;
-    focusEvents = true;
-    secureSocket = true;
+      shell = "${pkgs.zsh}/bin/zsh";
+      terminal = "tmux-256color";
 
-    extraConfig = ''
-      set -g renumber-windows on
+      # Keep standard Ctrl+B prefix by intentionally not setting prefix/shortcut.
+      baseIndex = 1;
+      clock24 = true;
+      escapeTime = 10;
+      historyLimit = 250000;
+      keyMode = "vi";
+      mouse = true;
+      focusEvents = true;
+      secureSocket = true;
 
-      # Export tmux copies through OSC52 while preventing child applications
-      # from writing tmux buffers through OSC52 themselves.
-      set -s set-clipboard external
+      extraConfig = ''
+        set -g renumber-windows on
 
-      # Truecolor support when hosted in Kitty.
-      set -as terminal-features ',xterm-kitty:RGB'
+        # Export tmux copies through OSC52 while preventing child applications
+        # from writing tmux buffers through OSC52 themselves.
+        set -s set-clipboard external
 
-      # Silence tmux bell/activity notifications.
-      set -g bell-action none
-      set -g visual-bell off
-      set -g visual-activity off
-      setw -g monitor-bell off
-      setw -g monitor-activity off
+        # Truecolor support when hosted in Kitty.
+        set -as terminal-features ',xterm-kitty:RGB'
 
-      # Keep the upstream c / " / % keys, only inherit the active pane cwd.
-      bind c new-window -c "#{pane_current_path}"
-      bind '"' split-window -v -c "#{pane_current_path}"
-      bind % split-window -h -c "#{pane_current_path}"
-    '';
+        # Silence tmux bell/activity notifications.
+        set -g bell-action none
+        set -g visual-bell off
+        set -g visual-activity off
+        setw -g monitor-bell off
+        setw -g monitor-activity off
+
+        # Keep the upstream c / " / % keys, only inherit the active pane cwd.
+        bind c new-window -c "#{pane_current_path}"
+        bind '"' split-window -v -c "#{pane_current_path}"
+        bind % split-window -h -c "#{pane_current_path}"
+      '';
+    };
   };
 }

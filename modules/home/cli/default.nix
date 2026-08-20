@@ -1,94 +1,106 @@
-{ pkgs, ... }:
-
 {
-  programs = {
-    # Better cat-like viewer.
-    # Keep the real `cat` command unchanged.
-    bat.enable = true;
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-    # Modern interactive replacement for ls.
-    eza = {
-      enable = true;
-      enableZshIntegration = true;
+let
+  cfg = config.hakkabara.cli;
+in
+{
+  options.hakkabara.cli.enable = lib.mkEnableOption "shared command-line tool environment";
 
-      icons = "auto";
-      colors = "auto";
-      git = true;
+  config = lib.mkIf cfg.enable {
+    programs = {
+      # Better cat-like viewer.
+      # Keep the real `cat` command unchanged.
+      bat.enable = true;
 
-      extraOptions = [
-        "--group-directories-first"
-      ];
-    };
+      # Modern interactive replacement for ls.
+      eza = {
+        enable = true;
+        enableZshIntegration = true;
 
-    # Terminal file manager.
-    yazi = {
-      enable = true;
-      enableZshIntegration = true;
-    };
+        icons = "auto";
+        colors = "auto";
+        git = true;
 
-    # System monitor.
-    btop.enable = true;
+        extraOptions = [
+          "--group-directories-first"
+        ];
+      };
 
-    # Git TUI.
-    lazygit = {
-      enable = true;
-      enableZshIntegration = true;
-    };
+      # Terminal file manager.
+      yazi = {
+        enable = true;
+        enableZshIntegration = true;
+      };
 
-    # Better Git diff rendering.
-    delta = {
-      enable = true;
-      enableGitIntegration = true;
+      # System monitor.
+      btop.enable = true;
 
-      options = {
-        navigate = true;
-        line-numbers = true;
+      # Git TUI.
+      lazygit = {
+        enable = true;
+        enableZshIntegration = true;
+      };
+
+      # Better Git diff rendering.
+      delta = {
+        enable = true;
+        enableGitIntegration = true;
+
+        options = {
+          navigate = true;
+          line-numbers = true;
+        };
       };
     };
+
+    home.packages = with pkgs; [
+      # Search
+      ripgrep
+      fd
+
+      # Structured data
+      jq
+      yq-go
+
+      # Files / navigation
+      tree
+      file
+      less
+
+      # Disk usage
+      duf
+      dust
+
+      # Processes / logs
+      procs
+
+      # Git / GitHub
+      gh
+
+      # HTTP / networking
+      curl
+      wget
+      xh
+      miniserve
+      speedtest-go
+
+      # File transfer / sync
+      rsync
+      rclone
+
+      # Archives
+      unzip
+      _7zz
+      ouch
+
+      # Documentation / benchmarking
+      tealdeer
+      hyperfine
+    ];
   };
-
-  home.packages = with pkgs; [
-    # Search
-    ripgrep
-    fd
-
-    # Structured data
-    jq
-    yq-go
-
-    # Files / navigation
-    tree
-    file
-    less
-
-    # Disk usage
-    duf
-    dust
-
-    # Processes / logs
-    procs
-
-    # Git / GitHub
-    gh
-
-    # HTTP / networking
-    curl
-    wget
-    xh
-    miniserve
-    speedtest-go
-
-    # File transfer / sync
-    rsync
-    rclone
-
-    # Archives
-    unzip
-    _7zz
-    ouch
-
-    # Documentation / benchmarking
-    tealdeer
-    hyperfine
-  ];
 }
