@@ -24,9 +24,16 @@
     imports = [
       ../../users/hakkabara
       ../../profiles/home/workstation-base.nix
+      ../../modules/home/desktop/plasma
       ../../modules/home/ssh/personal-infra.nix
       ../../modules/home/desktop/autostart.nix
     ];
+
+    hakkabara.desktop.plasma = {
+      enable = true;
+      alwaysOn.enable = true;
+    };
+
   };
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [
