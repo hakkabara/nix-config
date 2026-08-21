@@ -75,10 +75,10 @@
       };
 
       # --------------------------------------------------------
-      # Firefox bookmarks
+      # Browser bookmarks
       # --------------------------------------------------------
 
-      "firefox/bookmarks" = {
+      "browser/bookmarks" = {
         sopsFile = ../../secrets/surf-vm/firefox-bookmarks;
         format = "binary";
 

@@ -6,13 +6,15 @@ let
   shared = import ./shared.nix {
     inherit lib cfg;
   };
+
+  bookmarks = import ./bookmarks.nix;
 in
 {
   programs.floorp = {
     enable = cfg.floorp.enable;
 
     # Firefox-compatible baseline shared with Firefox.
-    inherit (shared) policies;
+    policies = lib.recursiveUpdate shared.policies bookmarks.policies;
 
     # Floorp keeps its own profile state below ~/.floorp.
     profiles.surf = {
@@ -20,7 +22,7 @@ in
       name = "Surf";
       isDefault = true;
 
-      settings = shared.profileSettings;
+      settings = shared.profileSettings // bookmarks.profileSettings;
 
       search = import ./search.nix;
     };
