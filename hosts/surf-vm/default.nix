@@ -49,6 +49,7 @@
       alwaysOn.enable = true;
       i3Style.enable = true;
       emptySession.enable = true;
+      xwaylandInputNoPrompt.enable = true;
     };
 
   };

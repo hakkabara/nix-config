@@ -45,6 +45,12 @@ in
     # Start Plasma without restoring windows/applications from the
     # previous login session.
     emptySession.enable = lib.mkEnableOption "start Plasma with an empty session";
+
+    # Deliberately OFF by default.
+    #
+    # Allow XWayland applications to emulate pointer/keyboard input without
+    # showing KWin's recurring "Remote Control" permission dialog.
+    xwaylandInputNoPrompt.enable = lib.mkEnableOption "allow XWayland input emulation without permission prompts";
   };
 
   config = lib.mkIf cfg.enable (
@@ -75,6 +81,10 @@ in
 
       (lib.mkIf cfg.emptySession.enable {
         programs.plasma.configFile.ksmserverrc.General.loginMode = "emptySession";
+      })
+
+      (lib.mkIf cfg.xwaylandInputNoPrompt.enable {
+        programs.plasma.configFile.kwinrc.Xwayland.XwaylandEisNoPrompt = true;
       })
 
       (lib.mkIf cfg.i3Style.enable {
