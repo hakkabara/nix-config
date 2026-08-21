@@ -19,17 +19,26 @@ let
     hash = "sha256-YlIP1OrNyaHXG/atg+NvlutE1Vtgv35IW2a+v7FdwOA=";
   };
 
+  # Official KDE Konsole 26.04.3 session UI definition.
+  #
+  # Konsole stores custom Copy/Paste action shortcuts in sessionui.rc,
+  # not in the [Shortcuts] group of konsolerc.
+  upstreamSessionUi = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/KDE/konsole/v26.04.3/desktop/sessionui.rc";
+    hash = "sha256-RW8JMM3/qIPUEqZbm7K4z7OENRuK6vRG2gKGoQ6CyY0=";
+  };
+
   # Start with Konsole's official default keyboard table and add only our
   # Ctrl+Shift+C -> traditional terminal Ctrl+C mapping.
   surfvmKeytab = pkgs.runCommand "surfvm-konsole.keytab" { } ''
-        cp "${upstreamDefaultKeytab}" "$out"
-        chmod u+w "$out"
+    cp "${upstreamDefaultKeytab}" "$out"
+    chmod u+w "$out"
 
-        sed -i \
-          's/^keyboard .*/keyboard "SurfVM"/' \
-          "$out"
+    sed -i \
+      's/^keyboard .*/keyboard "SurfVM"/' \
+      "$out"
 
-        cat >> "$out" <<'KEYTAB'
+    cat >> "$out" <<'KEYTAB'
 
     # SurfVM terminal convention:
     #
@@ -38,6 +47,20 @@ let
     # Ctrl+Shift+C = send ASCII ETX (0x03), the traditional terminal Ctrl+C
     key C +Shift+Ctrl : "\x03"
     KEYTAB
+  '';
+
+  # Keep Konsole's upstream menu/toolbar definition and add only our
+  # Windows-like Copy/Paste shortcuts.
+  surfvmSessionUi = pkgs.runCommand "surfvm-konsole-sessionui.rc" { } ''
+    sed '/<\/gui>/d' "${upstreamSessionUi}" > "$out"
+
+    cat >> "$out" <<'XML'
+     <ActionProperties scheme="Default">
+      <Action name="edit_copy" shortcut="Ctrl+C; Ctrl+Ins"/>
+      <Action name="edit_paste" shortcut="Ctrl+V; Shift+Ins"/>
+     </ActionProperties>
+    </gui>
+    XML
   '';
 
   kwriteconfig = lib.getExe' pkgs.kdePackages.kconfig "kwriteconfig6";
@@ -164,6 +187,7 @@ in
         Wallpaper=
       '';
 
+      "kxmlgui5/konsole/sessionui.rc".source = surfvmSessionUi;
       "konsole/SurfVM.keytab".source = surfvmKeytab;
     };
 
@@ -173,18 +197,6 @@ in
         --group "Desktop Entry" \
         --key "DefaultProfile" \
         "SurfVM.profile"
-
-      ${kwriteconfig} \
-        --file "$HOME/.config/konsolerc" \
-        --group "Shortcuts" \
-        --key "edit_copy" \
-        "Ctrl+C"
-
-      ${kwriteconfig} \
-        --file "$HOME/.config/konsolerc" \
-        --group "Shortcuts" \
-        --key "edit_paste" \
-        "Ctrl+V; Ctrl+Shift+V; Shift+Ins"
     '';
   };
 }
