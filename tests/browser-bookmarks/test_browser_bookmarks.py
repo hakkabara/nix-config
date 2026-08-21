@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "modules" / "home" / "apps" / "browsers" / "scripts" / "firefox-bookmarks.py"
+SCRIPT = REPO_ROOT / "modules" / "home" / "apps" / "browsers" / "scripts" / "browser-bookmarks.py"
 SPEC = importlib.util.spec_from_file_location("fbm_tested", SCRIPT)
 fbm = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = fbm
@@ -234,7 +234,7 @@ class CipherSafetyTests(unittest.TestCase):
 
     def test_atomic_replace(self):
         with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "firefox-bookmarks"
+            target = Path(tmp) / "browser-bookmarks"
             target.write_bytes(b"old")
             os.chmod(target, 0o640)
             with patch.object(fbm, "BOOKMARK_FILE", target):
@@ -244,14 +244,14 @@ class CipherSafetyTests(unittest.TestCase):
 
     def test_atomic_failure_cleans_temp(self):
         with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp) / "firefox-bookmarks"
+            target = Path(tmp) / "browser-bookmarks"
             target.write_bytes(b"old")
             with patch.object(fbm, "BOOKMARK_FILE", target):
                 with patch.object(fbm.os, "replace", side_effect=OSError("boom")):
                     with self.assertRaises(OSError):
                         fbm.atomic_replace_encrypted(b"ciphertext")
             self.assertEqual(target.read_bytes(), b"old")
-            self.assertEqual(list(Path(tmp).glob(".firefox-bookmarks.*.tmp")), [])
+            self.assertEqual(list(Path(tmp).glob(".browser-bookmarks.*.tmp")), [])
 
     def test_encrypt_error_does_not_expose_stderr(self):
         with patch.object(fbm, "find_program", return_value="/fake/sops"):
@@ -406,6 +406,135 @@ class ImportTests(unittest.TestCase):
             self.assertFalse(p.exists())
 
 
+
+class ConfigurationTests(unittest.TestCase):
+    def test_valid_configuration(self):
+        with (
+            patch.object(fbm, "REPO_ROOT", Path("/tmp/nix-config")),
+            patch.object(
+                fbm,
+                "BOOKMARK_SOURCE",
+                "secrets/browser-bookmarks",
+            ),
+            patch.object(
+                fbm,
+                "DOCUMENT_TITLE",
+                "Browser Bookmarks",
+            ),
+        ):
+            fbm.validate_configuration()
+
+    def test_relative_repository_root_rejected(self):
+        with patch.object(
+            fbm,
+            "REPO_ROOT",
+            Path("relative/repo"),
+        ):
+            with self.assertRaisesRegex(
+                fbm.FbmError,
+                "repository root must be an absolute path",
+            ):
+                fbm.validate_configuration()
+
+    def test_absolute_bookmark_source_rejected(self):
+        with (
+            patch.object(
+                fbm,
+                "REPO_ROOT",
+                Path("/tmp/nix-config"),
+            ),
+            patch.object(
+                fbm,
+                "BOOKMARK_SOURCE",
+                "/tmp/bookmarks",
+            ),
+        ):
+            with self.assertRaisesRegex(
+                fbm.FbmError,
+                "bookmark source must be relative",
+            ):
+                fbm.validate_configuration()
+
+    def test_parent_traversal_rejected(self):
+        with (
+            patch.object(
+                fbm,
+                "REPO_ROOT",
+                Path("/tmp/nix-config"),
+            ),
+            patch.object(
+                fbm,
+                "BOOKMARK_SOURCE",
+                "../bookmarks",
+            ),
+        ):
+            with self.assertRaisesRegex(
+                fbm.FbmError,
+                "must not contain",
+            ):
+                fbm.validate_configuration()
+
+    def test_empty_bookmark_source_rejected(self):
+        with (
+            patch.object(
+                fbm,
+                "REPO_ROOT",
+                Path("/tmp/nix-config"),
+            ),
+            patch.object(
+                fbm,
+                "BOOKMARK_SOURCE",
+                "",
+            ),
+        ):
+            with self.assertRaisesRegex(
+                fbm.FbmError,
+                "must not be empty",
+            ):
+                fbm.validate_configuration()
+
+    def test_empty_document_title_rejected(self):
+        with (
+            patch.object(
+                fbm,
+                "REPO_ROOT",
+                Path("/tmp/nix-config"),
+            ),
+            patch.object(
+                fbm,
+                "BOOKMARK_SOURCE",
+                "secrets/browser-bookmarks",
+            ),
+            patch.object(
+                fbm,
+                "DOCUMENT_TITLE",
+                "",
+            ),
+        ):
+            with self.assertRaisesRegex(
+                fbm.FbmError,
+                "document title must not be empty",
+            ):
+                fbm.validate_configuration()
+
+    def test_configurable_document_title_is_escaped(self):
+        with patch.object(
+            fbm,
+            "DOCUMENT_TITLE",
+            "Private & Work",
+        ):
+            output = fbm.serialize_bookmarks(tree())
+
+        self.assertIn(
+            "<TITLE>Private &amp; Work</TITLE>",
+            output,
+        )
+        self.assertIn(
+            "<H1>Private &amp; Work</H1>",
+            output,
+        )
+
+
 class CliTests(unittest.TestCase):
     def test_version(self):
         out = io.StringIO()
@@ -413,7 +542,7 @@ class CliTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as err:
                 fbm.build_parser().parse_args(["--version"])
         self.assertEqual(err.exception.code, 0)
-        self.assertIn("0.3.0", out.getvalue())
+        self.assertIn("browser-bookmarks 0.4.0", out.getvalue())
 
     def test_add_path_parse(self):
         args = fbm.build_parser().parse_args(["add", "Homelab/Proxmox"])
