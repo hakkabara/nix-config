@@ -68,7 +68,7 @@
 
             # Existing encrypted filename retained during this migration.
             # The manager implementation itself is browser-neutral.
-            sourceFile = "secrets/surf-vm/firefox-bookmarks";
+            sourceFile = "secrets/surf-vm/browser-bookmarks";
             documentTitle = "SurfVM Bookmarks";
           };
 

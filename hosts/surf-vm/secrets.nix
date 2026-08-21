@@ -79,7 +79,7 @@
       # --------------------------------------------------------
 
       "browser/bookmarks" = {
-        sopsFile = ../../secrets/surf-vm/firefox-bookmarks;
+        sopsFile = ../../secrets/surf-vm/browser-bookmarks;
         format = "binary";
 
         owner = "hakkabara";
