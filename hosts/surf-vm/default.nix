@@ -14,13 +14,22 @@
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
     ../../modules/nixos/features/workstation-vm.nix
+    ../../modules/nixos/features/python.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
     ../../modules/nixos/security/sops.nix
   ];
 
-  hakkabara.workstationVm.enable = true;
-  hakkabara.vmware.waylandClipboard.enable = true;
+  hakkabara = {
+    workstationVm.enable = true;
+
+    python = {
+      python3.enable = true;
+      python2.enable = true;
+    };
+
+    vmware.waylandClipboard.enable = true;
+  };
 
   home-manager.users.hakkabara = {
     imports = [
@@ -157,7 +166,9 @@
   };
 
   # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config = {
+    allowUnfree = true;
+  };
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
