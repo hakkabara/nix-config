@@ -50,6 +50,12 @@
       i3Style.enable = true;
       emptySession.enable = true;
       xwaylandInputNoPrompt.enable = true;
+      panel.enable = true;
+
+      panel.launchers = [
+        "applications:org.kde.dolphin.desktop"
+        "applications:kitty.desktop"
+      ];
     };
 
   };

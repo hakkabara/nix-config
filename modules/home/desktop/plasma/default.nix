@@ -23,6 +23,7 @@ in
   # plasma-manager provides the programs.plasma.* options used below.
   imports = [
     plasma-manager.homeModules.plasma-manager
+    ./panel.nix
   ];
 
   options.hakkabara.desktop.plasma = {
