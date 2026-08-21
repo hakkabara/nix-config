@@ -40,27 +40,24 @@ let
     inherit (cfg) hiddenSettings;
 
     dynamicFilteringString = joinLines cfg.dynamicFiltering;
-
     urlFilteringString = joinLines cfg.urlFiltering;
-
     hostnameSwitchesString = joinLines cfg.hostnameSwitches;
   };
 
   managedStorage = {
     userSettings = toManagedPairs cfg.userSettings;
-
     advancedSettings = toManagedPairs effectiveAdvancedSettings;
 
     toOverwrite = {
       filterLists = cfg.stockFilterLists ++ cfg.externalFilterLists;
-
       filters = cfg.userFilters;
-
       trustedSiteDirectives = cfg.trustedSites;
     };
 
     adminSettings = builtins.toJSON adminSettings;
   };
+
+  anyGeckoBrowserEnabled = config.programs.firefox.enable || config.programs.floorp.enable;
 in
 {
   options.hakkabara.browsers.gecko.extensions.uBlockOrigin = {
@@ -148,21 +145,36 @@ in
     };
   };
 
-  config = lib.mkIf (config.programs.firefox.enable && cfg.enable && cfg.settings.enable) {
-    assertions = [
+  config = lib.mkIf (cfg.enable && cfg.settings.enable && anyGeckoBrowserEnabled) (
+    lib.mkMerge [
       {
-        assertion = !(cfg.advancedSettings ? userResourcesLocation);
+        assertions = [
+          {
+            assertion = !(cfg.advancedSettings ? userResourcesLocation);
 
-        message = ''
-          Do not set uBlockOrigin.advancedSettings.userResourcesLocation
-          directly. Use uBlockOrigin.resourceLocations instead.
-        '';
+            message = ''
+              Do not set uBlockOrigin.advancedSettings.userResourcesLocation
+              directly. Use uBlockOrigin.resourceLocations instead.
+            '';
+          }
+        ];
+
+        # Human-readable/debug copy of the exact managed configuration.
+        xdg.configFile."hakkabara/browser-exports/ublock-origin-managed-storage.json".source =
+          jsonFormat.generate "ublock-origin-managed-storage.json" managedStorage;
       }
-    ];
 
-    programs.firefox.policies."3rdparty".Extensions."uBlock0@raymondhill.net" = managedStorage;
+      # Firefox receives the managed extension storage through
+      # its enterprise policy.
+      (lib.mkIf config.programs.firefox.enable {
+        programs.firefox.policies."3rdparty".Extensions."uBlock0@raymondhill.net" = managedStorage;
+      })
 
-    xdg.configFile."hakkabara/browser-exports/ublock-origin-managed-storage.json".source =
-      jsonFormat.generate "ublock-origin-managed-storage.json" managedStorage;
-  };
+      # Floorp uses the same Firefox-compatible enterprise-policy
+      # mechanism through Home Manager's native Floorp module.
+      (lib.mkIf config.programs.floorp.enable {
+        programs.floorp.policies."3rdparty".Extensions."uBlock0@raymondhill.net" = managedStorage;
+      })
+    ]
+  );
 }

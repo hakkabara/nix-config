@@ -9,6 +9,8 @@ let
   cfg = config.hakkabara.browsers.gecko.extensions.darkReader;
 
   jsonFormat = pkgs.formats.json { };
+
+  anyGeckoBrowserEnabled = config.programs.firefox.enable || config.programs.floorp.enable;
 in
 {
   options.hakkabara.browsers.gecko.extensions.darkReader.settings = {
@@ -27,7 +29,7 @@ in
     };
   };
 
-  config = lib.mkIf (config.programs.firefox.enable && cfg.enable && cfg.settings.enable) {
+  config = lib.mkIf (anyGeckoBrowserEnabled && cfg.enable && cfg.settings.enable) {
     xdg.configFile."hakkabara/browser-exports/dark-reader-settings.json".source =
       jsonFormat.generate "dark-reader-settings.json" cfg.settings.data;
   };
