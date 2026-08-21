@@ -39,6 +39,8 @@ in
 
       darkReader.enable = mkExtensionOption "Dark Reader";
 
+      violentmonkey.enable = mkExtensionOption "Violentmonkey userscript manager";
+
       bitwarden.enable = mkExtensionOption "Bitwarden browser extension";
 
       multiAccountContainers.enable = mkExtensionOption "Firefox Multi-Account Containers";
@@ -51,10 +53,7 @@ in
     };
   };
 
-  # fbm is useful to the Gecko browser family, not Firefox specifically.
-  #
-  # This also prepares us to let Floorp use the same encrypted bookmark
-  # source later without duplicating the helper.
+  # fbm belongs to the Gecko browser family rather than Firefox itself.
   config = lib.mkIf (cfg.firefox.enable || cfg.floorp.enable) {
     home.packages = [
       firefoxBookmarks

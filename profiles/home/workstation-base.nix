@@ -25,6 +25,7 @@
     browsers.gecko.extensions = {
       uBlockOrigin.enable = lib.mkDefault true;
       darkReader.enable = lib.mkDefault true;
+      violentmonkey.enable = lib.mkDefault true;
       bitwarden.enable = lib.mkDefault true;
       multiAccountContainers.enable = lib.mkDefault true;
       consentOMatic.enable = lib.mkDefault true;

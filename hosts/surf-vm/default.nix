@@ -62,6 +62,8 @@
         gecko = {
           firefox.enable = true;
           floorp.enable = true;
+
+          extensions.twitchAdSolutions.enable = true;
         };
 
         chromium = {
