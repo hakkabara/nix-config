@@ -47,6 +47,8 @@
     hakkabara.desktop.plasma = {
       enable = true;
       alwaysOn.enable = true;
+      i3Style.enable = true;
+      emptySession.enable = true;
     };
 
   };
