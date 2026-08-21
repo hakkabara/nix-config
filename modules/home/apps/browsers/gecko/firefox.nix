@@ -2,9 +2,9 @@
 
 let
   cfg = config.hakkabara.browsers.gecko;
-  extensionSettings = import ./extensions.nix {
-    inherit lib;
-    cfg = cfg.extensions;
+
+  shared = import ./shared.nix {
+    inherit lib cfg;
   };
 in
 {
@@ -16,109 +16,19 @@ in
       "en-US"
     ];
 
-    # ============================================================
+    # ==============================    # ============================================================
     # Firefox enterprise policies
     # ============================================================
 
-    policies = {
-      # Firefox itself is updated through Nix.
-      DisableAppUpdate = true;
-
-      # Extensions may update independently.
-      ExtensionUpdate = true;
-
-      # Vivaldi remains the system default browser.
-      DontCheckDefaultBrowser = true;
-
-      # Firefox Accounts / Sync are intentionally unused.
-      DisableFirefoxAccounts = true;
-
-      # ==========================================================
-      # Privacy / telemetry
-      # ==========================================================
-
-      DisableTelemetry = true;
-      DisableFirefoxStudies = true;
-      DisableFeedbackCommands = true;
-
-      EnableTrackingProtection = {
-        Value = true;
-        Category = "strict";
-
-        Cryptomining = true;
-        Fingerprinting = true;
-        EmailTracking = true;
-        SuspectedFingerprinting = true;
-
-        BaselineExceptions = true;
-        ConvenienceExceptions = false;
-
-        Locked = false;
-      };
-
-      # ==========================================================
-      # Managed Firefox preferences
-      # ==========================================================
-
-      Preferences = {
-        # Never automatically open Firefox's translation popup.
-        # Manual translation remains available.
-        "browser.translations.automaticallyPopup" = {
-          Value = false;
-          Status = "locked";
-        };
-
-        # Never offer translation for German or English.
-        "browser.translations.neverTranslateLanguages" = {
-          Value = "de,en";
-          Status = "locked";
-        };
-
-        # Hide Firefox Account / Sync UI.
-        "identity.fxaccounts.toolbar.enabled" = {
-          Value = false;
-          Status = "locked";
-        };
-
-        "identity.fxaccounts.toolbar.defaultVisible" = {
-          Value = false;
-          Status = "locked";
-        };
-      };
-
-      # ==========================================================
-      # DNS / HTTPS
-      # ==========================================================
-
-      # Use the OS / VPN DNS configuration.
-      #
-      # This is important for split DNS and VPN configurations.
-      DNSOverHTTPS = {
-        Enabled = false;
-        Locked = true;
-      };
-
-      # Prefer HTTPS while still permitting manual HTTP exceptions.
-      HttpsOnlyMode = "enabled";
-
-      # ==========================================================
-      # Passwords / autofill
-      # ==========================================================
-
-      # Bitwarden is the password manager.
-      PasswordManagerEnabled = false;
-      OfferToSaveLogins = false;
-
-      AutofillAddressEnabled = false;
-      AutofillCreditCardEnabled = false;
-
+    policies = lib.recursiveUpdate shared.policies {
       # ==========================================================
       # Bookmarks
       # ==========================================================
+      #
+      # These remain Firefox-specific until the dedicated
+      # bookmark refactor.
 
-      # Declarative encrypted bookmarks are our source of truth.
       NoDefaultBookmarks = true;
-
       DisplayBookmarksToolbar = "always";
 
       # ==========================================================
@@ -130,7 +40,6 @@ in
         TopSites = true;
 
         SponsoredTopSites = false;
-
         Highlights = false;
 
         Pocket = false;
@@ -152,18 +61,6 @@ in
 
         Locked = false;
       };
-
-      # ==========================================================
-      # Performance
-      # ==========================================================
-
-      HardwareAcceleration = true;
-
-      # ==========================================================
-      # Extensions
-      # ==========================================================
-
-      ExtensionSettings = extensionSettings;
 
       # ==========================================================
       # Firefox theme
@@ -193,7 +90,7 @@ in
       # Firefox profile settings
       # ==========================================================
 
-      settings = {
+      settings = shared.profileSettings // {
         # --------------------------------------------------------
         # Declarative encrypted bookmarks
         # --------------------------------------------------------
@@ -213,12 +110,6 @@ in
         "browser.toolbars.bookmarks.visibility" = "always";
 
         "browser.toolbars.bookmarks.showOtherBookmarks" = false;
-
-        # --------------------------------------------------------
-        # Privacy
-        # --------------------------------------------------------
-
-        "privacy.globalprivacycontrol.enabled" = true;
 
         # --------------------------------------------------------
         # UI recommendations / sponsored content
