@@ -63,6 +63,15 @@
           firefox.enable = true;
           floorp.enable = true;
 
+          bookmarks.manager = {
+            enable = true;
+
+            # Existing encrypted filename retained during this migration.
+            # The manager implementation itself is browser-neutral.
+            sourceFile = "secrets/surf-vm/firefox-bookmarks";
+            documentTitle = "SurfVM Bookmarks";
+          };
+
           extensions.twitchAdSolutions.enable = true;
         };
 

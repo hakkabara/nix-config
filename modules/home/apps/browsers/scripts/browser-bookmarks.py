@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""fbm - SOPS-encrypted Firefox bookmark manager for the SurfVM."""
+"""SOPS-encrypted bookmark manager for Gecko browsers."""
 
 from __future__ import annotations
 
@@ -17,17 +17,77 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
-REPO_ROOT = Path("/home/hakkabara/nix-config")
-BOOKMARK_FILE = REPO_ROOT / "secrets" / "surf-vm" / "firefox-bookmarks"
-SOPS_AGE_KEY_FILE = Path("/var/lib/sops-nix/key.txt")
-SOPS_FILENAME_OVERRIDE = "secrets/surf-vm/firefox-bookmarks"
+PROGRAM_NAME = os.environ.get(
+    "BROWSER_BOOKMARK_PROGRAM_NAME",
+    "browser-bookmarks",
+)
+
+REPO_ROOT = Path(
+    os.environ.get(
+        "BROWSER_BOOKMARK_REPO_ROOT",
+        str(Path.home() / "nix-config"),
+    )
+).expanduser()
+
+BOOKMARK_SOURCE = os.environ.get(
+    "BROWSER_BOOKMARK_SOURCE",
+    "secrets/browser-bookmarks",
+)
+
+BOOKMARK_SOURCE_PATH = Path(BOOKMARK_SOURCE)
+BOOKMARK_FILE = REPO_ROOT / BOOKMARK_SOURCE_PATH
+
+SOPS_AGE_KEY_FILE = Path(
+    os.environ.get(
+        "BROWSER_BOOKMARK_AGE_KEY_FILE",
+        "/var/lib/sops-nix/key.txt",
+    )
+).expanduser()
+
+SOPS_FILENAME_OVERRIDE = BOOKMARK_SOURCE_PATH.as_posix()
+
+DOCUMENT_TITLE = os.environ.get(
+    "BROWSER_BOOKMARK_DOCUMENT_TITLE",
+    "Browser Bookmarks",
+)
+
 MAX_IMPORT_BYTES = 20 * 1024 * 1024
 
 
 class FbmError(Exception):
     """Expected user/runtime error."""
+
+
+def validate_configuration() -> None:
+    if not REPO_ROOT.is_absolute():
+        raise FbmError(
+            "configured repository root must be an absolute path"
+        )
+
+    if not BOOKMARK_SOURCE.strip():
+        raise FbmError(
+            "configured bookmark source must not be empty"
+        )
+
+    source = Path(BOOKMARK_SOURCE)
+
+    if source.is_absolute():
+        raise FbmError(
+            "configured bookmark source must be relative "
+            "to the repository root"
+        )
+
+    if ".." in source.parts:
+        raise FbmError(
+            "configured bookmark source must not contain '..'"
+        )
+
+    if not DOCUMENT_TITLE.strip():
+        raise FbmError(
+            "configured bookmark document title must not be empty"
+        )
 
 
 @dataclass
@@ -464,8 +524,8 @@ def serialize_bookmarks(root: Folder) -> str:
     lines = [
         "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
         '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
-        "<TITLE>SurfVM Bookmarks</TITLE>",
-        "<H1>SurfVM Bookmarks</H1>",
+        f"<TITLE>{html.escape(DOCUMENT_TITLE, quote=True)}</TITLE>",
+        f"<H1>{html.escape(DOCUMENT_TITLE, quote=True)}</H1>",
         "",
         "<DL><p>",
     ]
@@ -514,7 +574,7 @@ def decrypt_bookmarks() -> str:
         raise FbmError(
             "SOPS decryption failed "
             f"(exit code {result.returncode}). "
-            "Check sudo access and the configured SurfVM age key."
+            "Check sudo access and the configured age key."
         )
 
     try:
@@ -529,8 +589,6 @@ def validate_ciphertext_candidate(data: bytes) -> None:
 
     plaintext_markers = (
         b"NETSCAPE-Bookmark-file-1",
-        b"<TITLE>SurfVM Bookmarks</TITLE>",
-        b"<H1>SurfVM Bookmarks</H1>",
     )
     if any(marker in data for marker in plaintext_markers):
         raise FbmError(
@@ -686,7 +744,7 @@ def load_import_candidate(path: str | Path) -> ImportCandidate:
 
     root = parse_bookmark_html(plaintext)
 
-    # Canonicalize the special Firefox toolbar root name so the repository
+    # Canonicalize the special Gecko toolbar root name so the repository
     # representation stays stable even when Firefox exports a localized name.
     root.name = "Bookmarks Toolbar"
     root.personal_toolbar = True
@@ -708,7 +766,7 @@ def confirm_import() -> bool:
 
 def command_check(_args) -> None:
     summary = validate_bookmark_html(decrypt_bookmarks())
-    print("Firefox bookmark source: OK")
+    print("Browser bookmark source: OK")
     print(f"Source:    {BOOKMARK_FILE}")
     print(f"Folders:   {summary.folder_count}")
     print(f"Bookmarks: {summary.bookmark_count}")
@@ -747,7 +805,7 @@ def command_folder(args) -> None:
     save_tree(root)
     print(f"Created folder: {args.path}")
     print("Encrypted repository source updated.")
-    print("Run nix-switch before expecting Firefox runtime bookmarks to change.")
+    print("Run nix-switch before expecting runtime browser bookmarks to change.")
 
 
 def command_add(args) -> None:
@@ -777,7 +835,7 @@ def command_add(args) -> None:
     save_tree(root)
     print(f"Added bookmark: {display_path}")
     print("Encrypted repository source updated.")
-    print("Run nix-switch before expecting Firefox runtime bookmarks to change.")
+    print("Run nix-switch before expecting runtime browser bookmarks to change.")
 
 
 def command_remove(args) -> None:
@@ -793,13 +851,13 @@ def command_remove(args) -> None:
     save_tree(root)
     print(f"Removed {item_type}: {display_path}")
     print("Encrypted repository source updated.")
-    print("Run nix-switch before expecting Firefox runtime bookmarks to change.")
+    print("Run nix-switch before expecting runtime browser bookmarks to change.")
 
 
 def command_import(args) -> None:
     candidate = load_import_candidate(args.file)
 
-    print("Firefox bookmark import candidate:")
+    print("Browser bookmark import candidate:")
     print(f"  Source:    {candidate.path}")
     print("  Scope:     Bookmarks Toolbar only")
     print(f"  Folders:   {candidate.summary.folder_count}")
@@ -836,34 +894,33 @@ def command_import(args) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="fbm",
+        prog=PROGRAM_NAME,
         description=(
-            "Firefox Bookmark Manager\n\n"
-            "Manage the SOPS-encrypted Firefox bookmark source of truth "
-            "for SurfVM."
+            "Browser Bookmark Manager\n\n"
+            "Manage the SOPS-encrypted Gecko bookmark source of truth."
         ),
         epilog=(
             "Security model:\n"
             "  * The encrypted repository file is the source of truth.\n"
-            "  * Decryption uses the existing root-owned SurfVM age key.\n"
+            "  * Decryption uses the configured age key.\n"
             "  * Plaintext bookmark data is not written to repo-side temp files.\n"
-            "  * Private URLs are hidden by default in `fbm ls`.\n"
-            "  * Prefer `fbm add PATH` and enter the URL at the prompt.\n"
+            "  * Private URLs are hidden by default in `browser-bookmarks ls`.\n"
+            "  * Prefer `browser-bookmarks add PATH` and enter the URL at the prompt.\n"
             "  * Mutations validate, encrypt, then atomically replace ciphertext.\n"
             "  * Empty/plaintext encrypted output is refused.\n"
             "  * Non-empty folders cannot be removed accidentally.\n"
-            "  * Firefox HTML imports must be outside the repo and mode 0600.\n"
+            "  * Gecko/Netscape HTML imports must be outside the repo and mode 0600.\n"
             "\n"
             "Examples:\n"
-            "  fbm check\n"
-            "  fbm ls\n"
-            "  fbm ls --urls\n"
-            "  fbm folder 'Homelab/Monitoring'\n"
-            "  fbm add 'Homelab/Proxmox'\n"
-            "  fbm add 'Homelab/Monitoring/Grafana'\n"
-            "  fbm rm 'Homelab/Monitoring/Grafana'\n"
-            "  fbm import ~/Downloads/firefox-bookmarks.html --dry-run\n"
-            "  fbm import ~/Downloads/firefox-bookmarks.html --delete-source\n"
+            "  browser-bookmarks check\n"
+            "  browser-bookmarks ls\n"
+            "  browser-bookmarks ls --urls\n"
+            "  browser-bookmarks folder 'Homelab/Monitoring'\n"
+            "  browser-bookmarks add 'Homelab/Proxmox'\n"
+            "  browser-bookmarks add 'Homelab/Monitoring/Grafana'\n"
+            "  browser-bookmarks rm 'Homelab/Monitoring/Grafana'\n"
+            "  browser-bookmarks import ~/Downloads/bookmarks.html --dry-run\n"
+            "  browser-bookmarks import ~/Downloads/bookmarks.html --delete-source\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -918,14 +975,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Add a bookmark by path.",
         description=(
             "Preferred:\n"
-            "  fbm add 'Homelab/Proxmox'\n"
-            "  fbm add 'Homelab/Monitoring/Grafana'\n"
+            "  browser-bookmarks add 'Homelab/Proxmox'\n"
+            "  browser-bookmarks add 'Homelab/Monitoring/Grafana'\n"
             "\n"
             "The URL is prompted when omitted, keeping private URLs "
             "out of shell history.\n"
             "\n"
             "Compatibility:\n"
-            "  fbm add FOLDER TITLE [URL]"
+            "  browser-bookmarks add FOLDER TITLE [URL]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -960,12 +1017,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove a bookmark or empty folder by path.",
         description=(
             "Preferred:\n"
-            "  fbm rm Homelab\n"
-            "  fbm rm 'Homelab/Monitoring'\n"
-            "  fbm rm 'Homelab/Monitoring/Grafana'\n"
+            "  browser-bookmarks rm Homelab\n"
+            "  browser-bookmarks rm 'Homelab/Monitoring'\n"
+            "  browser-bookmarks rm 'Homelab/Monitoring/Grafana'\n"
             "\n"
             "Compatibility:\n"
-            "  fbm rm PARENT NAME"
+            "  browser-bookmarks rm PARENT NAME"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -987,21 +1044,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     import_parser = commands.add_parser(
         "import",
-        help="Replace encrypted source from a Firefox HTML export.",
+        help="Replace encrypted source from a Gecko/Netscape HTML export.",
         description=(
-            "Import a Firefox/Netscape bookmark HTML export.\n\n"
+            "Import a Gecko/Netscape bookmark HTML export.\n\n"
             "Only the Bookmarks Toolbar subtree becomes canonical.\n"
             "The plaintext source must be outside the Git repository,\n"
             "owned by the current user and mode 0600.\n\n"
             "Recommended:\n"
-            "  fbm import ~/Downloads/firefox-bookmarks.html --dry-run\n"
-            "  fbm import ~/Downloads/firefox-bookmarks.html --delete-source"
+            "  browser-bookmarks import ~/Downloads/bookmarks.html --dry-run\n"
+            "  browser-bookmarks import ~/Downloads/bookmarks.html --delete-source"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     import_parser.add_argument(
         "file",
-        help="Firefox bookmark HTML export.",
+        help="Gecko/Netscape bookmark HTML export.",
     )
     import_parser.add_argument(
         "--dry-run",
@@ -1028,12 +1085,13 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
+        validate_configuration()
         args.func(args)
     except FbmError as error:
-        print(f"fbm: error: {error}", file=sys.stderr)
+        print(f"{PROGRAM_NAME}: error: {error}", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\nfbm: cancelled by user", file=sys.stderr)
+        print(f"\n{PROGRAM_NAME}: cancelled by user", file=sys.stderr)
         sys.exit(130)
 
 
