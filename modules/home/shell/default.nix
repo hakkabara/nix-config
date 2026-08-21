@@ -56,6 +56,8 @@ in
           ".." = "cd ..";
           "..." = "cd ../..";
           "...." = "cd ../../..";
+          kssh = "kitten ssh";
+          icat = "kitten icat";
         };
       };
 
