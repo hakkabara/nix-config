@@ -100,6 +100,9 @@ in
       jq
       yq-go
 
+      # Scripting / automation
+      python3
+
       # Files / navigation
       tree
       file

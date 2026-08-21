@@ -1,25 +1,15 @@
-{ pkgs, ... }:
+{ config, lib, ... }:
 
 let
-  firefoxBookmarks = pkgs.writeShellApplication {
-    name = "fbm";
-
-    runtimeInputs = [
-      pkgs.sops
-      pkgs.python3
-    ];
-
-    text = ''
-      exec python3 ${./scripts/firefox-bookmarks.py} "$@"
-    '';
+  cfg = config.hakkabara.browsers.gecko;
+  extensionSettings = import ./extensions.nix {
+    inherit lib;
+    cfg = cfg.extensions;
   };
 in
 {
-  home.packages = [
-    firefoxBookmarks
-  ];
   programs.firefox = {
-    enable = true;
+    enable = cfg.firefox.enable;
 
     languagePacks = [
       "de"
@@ -173,74 +163,7 @@ in
       # Extensions
       # ==========================================================
 
-      ExtensionSettings = {
-        # --------------------------------------------------------
-        # Pinned to navbar
-        # --------------------------------------------------------
-
-        "uBlock0@raymondhill.net" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
-
-          default_area = "navbar";
-          private_browsing = true;
-        };
-
-        "addon@darkreader.org" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/darkreader/latest.xpi";
-
-          default_area = "navbar";
-          private_browsing = true;
-        };
-
-        "{446900e4-71c2-419f-a6a7-df9c091e268b}" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi";
-
-          default_area = "navbar";
-          private_browsing = true;
-        };
-
-        # --------------------------------------------------------
-        # Installed, but not pinned to navbar
-        # --------------------------------------------------------
-
-        "@testpilot-containers" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/multi-account-containers/latest.xpi";
-
-          default_area = "menupanel";
-        };
-
-        "gdpr@cavi.au.dk" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/consent-o-matic/latest.xpi";
-
-          default_area = "menupanel";
-        };
-
-        "sponsorBlocker@ajay.app" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/sponsorblock/latest.xpi";
-
-          default_area = "menupanel";
-        };
-
-        "enhancerforyoutube@maximerf.addons.mozilla.org" = {
-          installation_mode = "force_installed";
-
-          install_url = "https://addons.mozilla.org/firefox/downloads/latest/enhancer-for-youtube/latest.xpi";
-
-          default_area = "menupanel";
-        };
-      };
+      ExtensionSettings = extensionSettings;
 
       # ==========================================================
       # Firefox theme

@@ -5,7 +5,6 @@
     # User-specific configuration
     ./git.nix
     ./ssh.nix
-    ./firefox.nix
 
     # Shared feature modules
     ../../modules/home/shell

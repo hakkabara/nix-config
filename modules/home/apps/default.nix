@@ -1,13 +1,12 @@
 { pkgs, ... }:
 
 {
-
   imports = [
     ./equibop.nix
     ./browsers
   ];
-  programs = {
 
+  programs = {
     thunderbird = {
       enable = true;
 
@@ -21,6 +20,7 @@
       };
     };
   };
+
   xdg = {
     mimeApps = {
       enable = true;
@@ -31,6 +31,9 @@
 
       defaultApplications = {
         # Web
+        #
+        # Temporarily keep Vivaldi as the default until Floorp has been
+        # installed and its actual desktop-entry ID has been verified.
         "text/html" = "vivaldi-stable.desktop";
         "application/xhtml+xml" = "vivaldi-stable.desktop";
         "x-scheme-handler/http" = "vivaldi-stable.desktop";
@@ -55,10 +58,8 @@
     # Nix/Home Manager is intentionally the source of truth here.
     configFile."mimeapps.list".force = true;
   };
-  home.packages = with pkgs; [
-    # Browser
-    vivaldi
 
+  home.packages = with pkgs; [
     # Password manager
     bitwarden-desktop
 

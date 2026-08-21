@@ -19,6 +19,19 @@
     git.enable = lib.mkDefault true;
     nixDev.enable = lib.mkDefault true;
 
+    # Common Gecko extension baseline.
+    #
+    # Individual hosts may override any one of these with false.
+    browsers.gecko.extensions = {
+      uBlockOrigin.enable = lib.mkDefault true;
+      darkReader.enable = lib.mkDefault true;
+      bitwarden.enable = lib.mkDefault true;
+      multiAccountContainers.enable = lib.mkDefault true;
+      consentOMatic.enable = lib.mkDefault true;
+      sponsorBlock.enable = lib.mkDefault true;
+      enhancerForYouTube.enable = lib.mkDefault true;
+    };
+
     # Shared workstation navigation.
     #
     # Use the Home Manager user's actual home directory instead of hard-coding

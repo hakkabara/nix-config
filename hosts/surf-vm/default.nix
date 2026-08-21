@@ -33,30 +33,48 @@
 
     # SurfVM-specific Yazi navigation.
     # /data is the VMware shared-folder mount on this VM.
-    hakkabara.cli.yazi.extraKeymap = [
-      {
-        on = [
-          "g"
-          "s"
-        ];
-        run = "cd /data";
-        desc = "Go to shared data";
-      }
-    ];
+    hakkabara = {
+      cli.yazi.extraKeymap = [
+        {
+          on = [
+            "g"
+            "s"
+          ];
+          run = "cd /data";
+          desc = "Go to shared data";
+        }
+      ];
 
-    hakkabara.desktop.plasma = {
-      enable = true;
-      alwaysOn.enable = true;
-      i3Style.enable = true;
-      emptySession.enable = true;
-      xwaylandInputNoPrompt.enable = true;
-      panel = {
+      # SurfVM browser selection.
+      #
+      # Extension defaults come from workstation-base.nix and can be
+      # selectively overridden here.
+      browsers = {
+        gecko = {
+          firefox.enable = true;
+          floorp.enable = true;
+        };
+
+        chromium = {
+          chromium.enable = true;
+          vivaldi.enable = true;
+        };
+      };
+
+      desktop.plasma = {
         enable = true;
+        alwaysOn.enable = true;
+        i3Style.enable = true;
+        emptySession.enable = true;
+        xwaylandInputNoPrompt.enable = true;
+        panel = {
+          enable = true;
 
-        launchers = [
-          "applications:org.kde.dolphin.desktop"
-          "applications:kitty.desktop"
-        ];
+          launchers = [
+            "applications:org.kde.dolphin.desktop"
+            "applications:kitty.desktop"
+          ];
+        };
       };
     };
 

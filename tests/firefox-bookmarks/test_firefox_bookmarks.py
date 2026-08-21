@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = REPO_ROOT / "users" / "hakkabara" / "scripts" / "firefox-bookmarks.py"
+SCRIPT = REPO_ROOT / "modules" / "home" / "apps" / "browsers" / "scripts" / "firefox-bookmarks.py"
 SPEC = importlib.util.spec_from_file_location("fbm_tested", SCRIPT)
 fbm = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = fbm
