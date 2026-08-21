@@ -31,6 +31,19 @@
       ../../modules/home/desktop/autostart.nix
     ];
 
+    # SurfVM-specific Yazi navigation.
+    # /data is the VMware shared-folder mount on this VM.
+    hakkabara.cli.yazi.extraKeymap = [
+      {
+        on = [
+          "g"
+          "s"
+        ];
+        run = "cd /data";
+        desc = "Go to shared data";
+      }
+    ];
+
     hakkabara.desktop.plasma = {
       enable = true;
       alwaysOn.enable = true;
