@@ -21,6 +21,8 @@ in
       isDefault = true;
 
       settings = shared.profileSettings;
+
+      search = import ./search.nix;
     };
   };
 }
