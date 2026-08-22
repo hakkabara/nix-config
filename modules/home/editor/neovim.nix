@@ -8,6 +8,7 @@
 
 let
   cfg = config.hakkabara.editor;
+  terminalCfg = config.hakkabara.terminal;
 in
 {
   config = lib.mkIf (cfg.enable && cfg.neovim.enable) {
@@ -39,7 +40,15 @@ in
     # Keep the existing LazyVim installation user-facing, but manage this
     # integration file declaratively. Lazy.nvim loads smart-splits from the
     # immutable Nix store instead of cloning it from GitHub.
-    xdg.configFile."nvim/lua/plugins/zellij-navigation.lua".text = ''
+    # smart-splits is only deployed when the matching Zellij
+    # navigator plugin is enabled. Disabling the plugin therefore
+    # removes both sides of the integration.
+    xdg.configFile = lib.mkIf (
+      terminalCfg.enable
+      && terminalCfg.zellij.enable
+      && terminalCfg.zellij.plugins.navigator.enable
+    ) {
+      "nvim/lua/plugins/zellij-navigation.lua".text = ''
       return {
         {
           -- Lazy.nvim only loads the local source. Nix owns downloading,
@@ -90,8 +99,8 @@ in
           end,
         },
       }
-    '';
-
+      '';
+    };
     programs.zsh.shellAliases = {
       vi = "nvim";
       vim = "nvim";
