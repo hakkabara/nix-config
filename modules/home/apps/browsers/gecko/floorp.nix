@@ -150,10 +150,14 @@ let
       };
 
       background = {
-        type = "none";
+        # Use the Home Manager managed wallpaper directory.
+        # With one image this behaves as a fixed wallpaper; adding
+        # more images later makes random/slideshow use possible
+        # without changing the runtime path.
+        type = "folderPath";
         customImage = null;
         fileName = null;
-        folderPath = null;
+        folderPath = "${config.xdg.dataHome}/floorp/newtab";
         selectedFloorp = null;
         slideshowEnabled = false;
         slideshowInterval = 30;
@@ -320,6 +324,14 @@ let
   };
 in
 {
+  # Deploy the Floorp Start wallpaper to a stable XDG data path.
+  #
+  # Keep the runtime path stable so replacing the repository asset
+  # later requires no browser configuration changes.
+  xdg.dataFile."floorp/newtab/tokyo-night.png" = lib.mkIf cfg.floorp.enable {
+    source = ../../../../../assets/floorp/newtab/tokyo-night.png;
+  };
+
   programs.floorp = {
     enable = cfg.floorp.enable;
 
