@@ -50,6 +50,10 @@ let
         "enhancerforyoutube@maximerf.addons.mozilla.org" =
           mkFirefoxExtensionAccessPolicy cfg.extensions.enhancerForYouTube.firefox;
       })
+      // (lib.optionalAttrs cfg.extensions.violentmonkey.enable {
+        "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}" =
+          mkFirefoxExtensionAccessPolicy cfg.extensions.violentmonkey.firefox;
+      })
     );
 
   effectiveExtensionSettings =

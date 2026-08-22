@@ -26,6 +26,13 @@
       uBlockOrigin.enable = lib.mkDefault true;
       darkReader.enable = lib.mkDefault true;
       violentmonkey.enable = lib.mkDefault true;
+
+      # Violentmonkey is deny-by-default. Individual hosts must
+      # explicitly allow every origin on which userscripts may
+      # execute or communicate.
+      violentmonkey.firefox.runtimeBlockedHosts = lib.mkDefault [
+        "*://*"
+      ];
       bitwarden.enable = lib.mkDefault true;
       multiAccountContainers.enable = lib.mkDefault true;
       consentOMatic.enable = lib.mkDefault true;

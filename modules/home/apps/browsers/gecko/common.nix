@@ -276,6 +276,11 @@ in
       tokyoNightTheme.enable = mkExtensionOption "Tokyo Night Dark Theme";
 
       violentmonkey.enable = mkExtensionOption "Violentmonkey userscript manager";
+      violentmonkey.firefox = lib.mkOption {
+        type = firefoxExtensionAccessType;
+        default = { };
+        description = "Firefox-specific Violentmonkey runtime access policy.";
+      };
       bitwarden.enable = mkExtensionOption "Bitwarden browser extension";
 
       multiAccountContainers.enable = mkExtensionOption "Firefox Multi-Account Containers";
