@@ -22,6 +22,39 @@ let
     cfg = cfg.extensions;
   };
 
+  mkFirefoxExtensionAccessPolicy =
+    access:
+    lib.optionalAttrs (access.runtimeBlockedHosts != [ ]) {
+      runtime_blocked_hosts = access.runtimeBlockedHosts;
+    }
+    // lib.optionalAttrs (access.runtimeAllowedHosts != [ ]) {
+      runtime_allowed_hosts = access.runtimeAllowedHosts;
+    }
+    // lib.optionalAttrs (access.blockedPermissions != [ ]) {
+      blocked_permissions = access.blockedPermissions;
+    }
+    // lib.optionalAttrs (access.allowedPermissions != [ ]) {
+      allowed_permissions = access.allowedPermissions;
+    };
+
+  # runtime_*_hosts and permission blocking were introduced in
+  # Firefox 153. Floorp currently uses Gecko 152, so never emit
+  # these fields for Floorp until its Gecko base catches up.
+  firefoxRuntimeExtensionSettings =
+    lib.optionalAttrs (checkedBrowser == "firefox") (
+      (lib.optionalAttrs cfg.extensions.sponsorBlock.enable {
+        "sponsorBlocker@ajay.app" =
+          mkFirefoxExtensionAccessPolicy cfg.extensions.sponsorBlock.firefox;
+      })
+      // (lib.optionalAttrs cfg.extensions.enhancerForYouTube.enable {
+        "enhancerforyoutube@maximerf.addons.mozilla.org" =
+          mkFirefoxExtensionAccessPolicy cfg.extensions.enhancerForYouTube.firefox;
+      })
+    );
+
+  effectiveExtensionSettings =
+    lib.recursiveUpdate extensionSettings firefoxRuntimeExtensionSettings;
+
   cookieCfg = cfg.privacy.cookies;
   commonCookieCfg = cookieCfg.common;
 
@@ -235,7 +268,7 @@ in
     # Extensions
     # ==========================================================
 
-    ExtensionSettings = extensionSettings;
+    ExtensionSettings = effectiveExtensionSettings;
   }
   // antiClutterPolicies
   // cookiePolicies;

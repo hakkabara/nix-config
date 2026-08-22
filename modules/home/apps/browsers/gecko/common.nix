@@ -17,6 +17,56 @@ let
       inherit description;
     };
 
+  # Firefox 153+ can restrict individual extensions at runtime.
+  #
+  # These are host match patterns, not URLs: no path component is
+  # allowed. Examples: *://*, https://*.youtube.com.
+  runtimeHostPatternType = lib.types.addCheck lib.types.str (
+    pattern:
+    pattern == "<all_urls>"
+    || builtins.match "(\\*|https?)://[^/]+" pattern != null
+  );
+
+  firefoxExtensionAccessType = lib.types.submodule {
+    options = {
+      runtimeBlockedHosts = lib.mkOption {
+        type = lib.types.listOf runtimeHostPatternType;
+        default = [ ];
+        description = ''
+          Firefox 153+ hosts on which this extension may not inject
+          content scripts or issue extension requests.
+        '';
+      };
+
+      runtimeAllowedHosts = lib.mkOption {
+        type = lib.types.listOf runtimeHostPatternType;
+        default = [ ];
+        description = ''
+          Firefox 153+ host exceptions that override matching
+          runtimeBlockedHosts entries.
+        '';
+      };
+
+      blockedPermissions = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Firefox 153+ WebExtension API permissions that must not
+          be granted to this extension.
+        '';
+      };
+
+      allowedPermissions = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Firefox 153+ exceptions to blockedPermissions for this
+          extension.
+        '';
+      };
+    };
+  };
+
   cookieOverrideType = lib.types.submodule {
     options = {
       mode = lib.mkOption {
@@ -233,7 +283,17 @@ in
       consentOMatic.enable = mkExtensionOption "Consent-O-Matic";
 
       sponsorBlock.enable = mkExtensionOption "SponsorBlock";
+      sponsorBlock.firefox = lib.mkOption {
+        type = firefoxExtensionAccessType;
+        default = { };
+        description = "Firefox-specific SponsorBlock runtime access policy.";
+      };
       enhancerForYouTube.enable = mkExtensionOption "Enhancer for YouTube";
+      enhancerForYouTube.firefox = lib.mkOption {
+        type = firefoxExtensionAccessType;
+        default = { };
+        description = "Firefox-specific Enhancer for YouTube runtime access policy.";
+      };
     };
   };
 

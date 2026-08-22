@@ -29,8 +29,35 @@
       bitwarden.enable = lib.mkDefault true;
       multiAccountContainers.enable = lib.mkDefault true;
       consentOMatic.enable = lib.mkDefault true;
-      sponsorBlock.enable = lib.mkDefault true;
-      enhancerForYouTube.enable = lib.mkDefault true;
+      sponsorBlock = {
+        enable = lib.mkDefault true;
+
+        firefox = {
+          runtimeBlockedHosts = lib.mkDefault [
+            "*://*"
+          ];
+
+          runtimeAllowedHosts = lib.mkDefault [
+            "https://*.youtube.com"
+            "https://www.youtube-nocookie.com"
+            "https://sponsor.ajay.app"
+          ];
+        };
+      };
+
+      enhancerForYouTube = {
+        enable = lib.mkDefault true;
+
+        firefox = {
+          runtimeBlockedHosts = lib.mkDefault [
+            "*://*"
+          ];
+
+          runtimeAllowedHosts = lib.mkDefault [
+            "https://www.youtube.com"
+          ];
+        };
+      };
     };
 
     # Shared workstation navigation.
