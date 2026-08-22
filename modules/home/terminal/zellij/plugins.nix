@@ -169,7 +169,18 @@ let
   );
 
   sharedExceptLockedBindings = lib.concatStringsSep "\n" (
-    (lib.optionals plugins.harpoon.enable [
+    (lib.optionals plugins.forgot.enable [
+      ''
+      // Forgot: searchable help for the actual configured keybindings.
+      bind "Alt Shift /" {
+        LaunchOrFocusPlugin "file:${config.xdg.configHome}/zellij/plugins/zellij-forgot.wasm" {
+          floating true
+          "LOAD_ZELLIJ_BINDINGS" "true"
+        };
+      }
+      ''
+    ])
+    ++     (lib.optionals plugins.harpoon.enable [
       ''
         // Harpoon: pinned/favorite panes.
         bind "Alt p" {
@@ -334,6 +345,7 @@ in
     navigator.enable = mkPluginEnableOption "Enable vim-zellij-navigator integration.";
     room.enable = mkPluginEnableOption "Enable the Room fuzzy tab switcher.";
     harpoon.enable = mkPluginEnableOption "Enable Harpoon pane bookmarks.";
+    forgot.enable = mkPluginEnableOption "Enable Zellij Forgot searchable keybinding help.";
   };
 
   config = lib.mkMerge [
@@ -350,6 +362,7 @@ in
         navigator.enable = lib.mkDefault true;
         room.enable = lib.mkDefault true;
         harpoon.enable = lib.mkDefault true;
+        forgot.enable = lib.mkDefault true;
       };
     })
 
@@ -395,6 +408,12 @@ in
         // (lib.optionalAttrs plugins.harpoon.enable {
           "zellij/plugins/harpoon.wasm".source =
             "${harpoonPlugin}/harpoon.wasm";
+        })
+        // (lib.optionalAttrs plugins.forgot.enable {
+          "zellij/plugins/zellij-forgot.wasm".source = pkgs.fetchurl {
+            url = "https://github.com/karimould/zellij-forgot/releases/download/0.4.2/zellij_forgot.wasm";
+            hash = "sha256-MRlBRVGdvcEoaFtFb5cDdDePoZ/J2nQvvkoyG6zkSds=";
+          };
         });
 
       programs.zellij.extraConfig = lib.concatStringsSep "\n" (
