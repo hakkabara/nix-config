@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  pkgsUnstable,
   ...
 }:
 
@@ -17,6 +18,12 @@ in
 
     programs.zellij = {
       enable = true;
+
+      # Zellij moves faster than the NixOS stable package set.
+      #
+      # Only Zellij opts into nixos-unstable; the rest of the terminal
+      # environment continues to use the stable `pkgs` package set.
+      package = pkgsUnstable.zellij;
 
       # Zellij should be started explicitly, not automatically for every Zsh.
       enableZshIntegration = false;

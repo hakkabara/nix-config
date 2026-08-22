@@ -4,6 +4,12 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # Opt-in package source for individual fast-moving applications.
+    #
+    # The system remains on NixOS 26.05 stable. Packages from this
+    # input must be selected explicitly through pkgsUnstable.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -29,6 +35,7 @@
   outputs =
     {
       nixpkgs,
+      nixpkgs-unstable,
       home-manager,
       sops-nix,
       plasma-manager,
@@ -37,6 +44,10 @@
     }:
     let
       system = "x86_64-linux";
+
+      # A second package set used only by modules that explicitly opt in.
+      # `pkgs` remains the NixOS 26.05 stable package set.
+      pkgsUnstable = nixpkgs-unstable.legacyPackages.${system};
     in
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-tree;
@@ -59,8 +70,12 @@
               useGlobalPkgs = true;
               useUserPackages = true;
 
+              # Extra arguments available to Home Manager modules.
+              #
+              # Modules use stable `pkgs` unless they explicitly request
+              # and select something from `pkgsUnstable`.
               extraSpecialArgs = {
-                inherit plasma-manager;
+                inherit plasma-manager pkgsUnstable;
               };
             };
           }
