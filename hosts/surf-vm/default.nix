@@ -63,6 +63,26 @@
           firefox.enable = true;
           floorp.enable = true;
 
+          # SurfVM Firefox selective Sync.
+          #
+          # Only dynamic browsing state is synchronized. Declarative
+          # data such as bookmarks, extensions and browser settings
+          # remains managed locally through Nix/Home Manager.
+          sync.firefox = {
+            enable = true;
+            locked = true;
+
+            history = true;
+            openTabs = true;
+
+            bookmarks = false;
+            passwords = false;
+            addons = false;
+            settings = false;
+            addresses = false;
+            paymentMethods = false;
+          };
+
           # SurfVM-specific Gecko privacy configuration.
           #
           # Shared values apply to Firefox and Floorp. Individual

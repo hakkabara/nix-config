@@ -159,6 +159,73 @@ in
     # Shared Gecko privacy configuration
     # ============================================================
 
+
+    # Firefox Sync.
+    #
+    # The official selective Sync enterprise policy is available
+    # in Firefox 150+. Floorp is deliberately excluded until its
+    # support has been independently validated.
+    sync.firefox = {
+      enable = lib.mkEnableOption "selective Firefox Sync";
+
+      locked = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Lock the configured Firefox Sync categories so they cannot
+          be changed accidentally through the browser UI.
+        '';
+      };
+
+      history = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Synchronize Firefox browsing history.";
+      };
+
+      openTabs = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Synchronize Firefox open tabs.";
+      };
+
+      bookmarks = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox bookmarks.";
+      };
+
+      passwords = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox passwords.";
+      };
+
+      addons = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox add-ons.";
+      };
+
+      settings = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox settings.";
+      };
+
+      addresses = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox saved addresses.";
+      };
+
+      paymentMethods = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Synchronize Firefox saved payment methods.";
+      };
+    };
+
     privacy = {
       antiClutter.enable = lib.mkOption {
         type = lib.types.bool;

@@ -59,6 +59,33 @@ let
   effectiveExtensionSettings =
     lib.recursiveUpdate extensionSettings firefoxRuntimeExtensionSettings;
 
+  firefoxSyncCfg = cfg.sync.firefox;
+
+  # Firefox 150+ supports a dedicated Sync enterprise policy.
+  #
+  # Floorp remains account-disabled until its support for this
+  # policy has been validated independently.
+  firefoxSyncPolicies =
+    if checkedBrowser == "firefox" && firefoxSyncCfg.enable then
+      {
+        Sync = {
+          Enabled = true;
+          Addons = firefoxSyncCfg.addons;
+          Addresses = firefoxSyncCfg.addresses;
+          Bookmarks = firefoxSyncCfg.bookmarks;
+          History = firefoxSyncCfg.history;
+          Locked = firefoxSyncCfg.locked;
+          OpenTabs = firefoxSyncCfg.openTabs;
+          Passwords = firefoxSyncCfg.passwords;
+          PaymentMethods = firefoxSyncCfg.paymentMethods;
+          Settings = firefoxSyncCfg.settings;
+        };
+      }
+    else
+      {
+        DisableFirefoxAccounts = true;
+      };
+
   cookieCfg = cfg.privacy.cookies;
   commonCookieCfg = cookieCfg.common;
 
@@ -185,9 +212,8 @@ in
     # XDG decides which browser is the system default.
     DontCheckDefaultBrowser = true;
 
-    # Sync/accounts remain disabled until the later selective-sync
-    # implementation is deliberately enabled.
-    DisableFirefoxAccounts = true;
+    # Account/Sync policy is merged below so Firefox can opt into
+    # selective Sync while unsupported Gecko derivatives stay disabled.
 
     # ==========================================================
     # Privacy / telemetry
@@ -274,6 +300,7 @@ in
 
     ExtensionSettings = effectiveExtensionSettings;
   }
+  // firefoxSyncPolicies
   // antiClutterPolicies
   // cookiePolicies;
 
