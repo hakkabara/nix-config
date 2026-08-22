@@ -168,6 +168,7 @@
           enable = true;
 
           launchers = [
+            "applications:floorp.desktop"
             "applications:org.kde.dolphin.desktop"
             "applications:kitty.desktop"
           ];
