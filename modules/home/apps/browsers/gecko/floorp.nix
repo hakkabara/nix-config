@@ -132,6 +132,43 @@ let
 
     "floorp.keyboardshortcut.enabled" = true;
 
+    # --------------------------------------------------------
+    # Floorp Start / new tab
+    # --------------------------------------------------------
+    #
+    # Floorp 12 stores the complete native Start configuration
+    # as JSON in floorp.newtab.configs.
+    #
+    # Keep useful dynamic Top Sites, while removing Floorp's
+    # default pinned sponsor/support entries and redundant UI.
+    "floorp.newtab.configs" = builtins.toJSON {
+      components = {
+        topSites = true;
+        clock = false;
+        searchBar = false;
+        firefoxLayout = false;
+      };
+
+      background = {
+        type = "none";
+        customImage = null;
+        fileName = null;
+        folderPath = null;
+        selectedFloorp = null;
+        slideshowEnabled = false;
+        slideshowInterval = 30;
+      };
+
+      searchBar = {
+        searchEngine = "default";
+      };
+
+      topSites = {
+        pinned = [ ];
+        blocked = [ ];
+      };
+    };
+
     "floorp.keyboardshortcut.config" = builtins.toJSON {
       enabled = true;
 
