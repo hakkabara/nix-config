@@ -189,6 +189,15 @@ let
         }
       ''
     ])
+    ++ (lib.optionals plugins.attention.enable [
+      ''
+        zellij-attention location="file:${config.xdg.configHome}/zellij/plugins/zellij-attention.wasm" {
+          enabled "true"
+          waiting_icon "⏳"
+          completed_icon "✅"
+        }
+      ''
+    ])
   );
 
   sharedExceptLockedBindings = lib.concatStringsSep "\n" (
@@ -370,6 +379,7 @@ in
     harpoon.enable = mkPluginEnableOption "Enable Harpoon pane bookmarks.";
     forgot.enable = mkPluginEnableOption "Enable Zellij Forgot searchable keybinding help.";
     tools.enable = mkPluginEnableOption "Enable zellij-tools scratchpads and companion CLI.";
+    attention.enable = mkPluginEnableOption "Enable Zellij attention notifications.";
   };
 
   config = lib.mkMerge [
@@ -388,6 +398,7 @@ in
         harpoon.enable = lib.mkDefault true;
         forgot.enable = lib.mkDefault true;
         tools.enable = lib.mkDefault true;
+        attention.enable = lib.mkDefault true;
       };
     })
 
@@ -446,6 +457,12 @@ in
         // (lib.optionalAttrs plugins.tools.enable {
           "zellij/plugins/zellij-tools.wasm".source =
             "${zellijToolsPlugin}/share/zellij/plugins/zellij-tools.wasm";
+        })
+        // (lib.optionalAttrs plugins.attention.enable {
+          "zellij/plugins/zellij-attention.wasm".source = pkgs.fetchurl {
+            url = "https://github.com/KiryuuLight/zellij-attention/releases/download/v0.3.1/zellij-attention.wasm";
+            hash = "sha256-QgkzerYacxRI7HMzYvPvaZqQW7tcARKpOm1hY2D9ci8=";
+          };
         });
 
       programs.zellij.extraConfig = lib.concatStringsSep "\n" (
@@ -457,12 +474,15 @@ in
           '')
 
           (lib.optionalString (
-            plugins.autolock.enable || plugins.tools.enable
+            plugins.autolock.enable
+            || plugins.tools.enable
+            || plugins.attention.enable
           ) ''
             // Background plugins stay alive for the whole Zellij session.
             load_plugins {
               ${lib.optionalString plugins.autolock.enable "autolock"}
               ${lib.optionalString plugins.tools.enable "zellij-tools"}
+              ${lib.optionalString plugins.attention.enable "zellij-attention"}
             }
           '')
 
