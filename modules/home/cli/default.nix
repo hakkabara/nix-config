@@ -126,6 +126,7 @@ in
       rclone
 
       # Archives
+      zip
       unzip
       _7zz
       ouch
