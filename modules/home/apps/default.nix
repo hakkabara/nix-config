@@ -31,13 +31,10 @@
 
       defaultApplications = {
         # Web
-        #
-        # Temporarily keep Vivaldi as the default until Floorp has been
-        # installed and its actual desktop-entry ID has been verified.
-        "text/html" = "vivaldi-stable.desktop";
-        "application/xhtml+xml" = "vivaldi-stable.desktop";
-        "x-scheme-handler/http" = "vivaldi-stable.desktop";
-        "x-scheme-handler/https" = "vivaldi-stable.desktop";
+        "text/html" = "floorp.desktop";
+        "application/xhtml+xml" = "floorp.desktop";
+        "x-scheme-handler/http" = "floorp.desktop";
+        "x-scheme-handler/https" = "floorp.desktop";
 
         # PDF
         "application/pdf" = "org.kde.okular.desktop";
