@@ -247,6 +247,10 @@ in
   profileSettings = {
     "privacy.globalprivacycontrol.enabled" = true;
 
+    # The dedicated "End Private Session" toolbar widget is
+    # redundant for our normal browsing workflow.
+    "browser.privatebrowsing.resetPBM.enabled" = false;
+
     # Keep useful local URL-bar sources enabled.
     "browser.urlbar.suggest.history" = true;
     "browser.urlbar.suggest.bookmark" = true;

@@ -344,6 +344,20 @@ in
       name = "Surf";
       isDefault = true;
 
+      # Minimal declarative Floorp chrome cleanup.
+      #
+      # Do not serialize browser.uiCustomization.state: it contains
+      # version- and runtime-specific placement state. Hide only the
+      # stable widget IDs that are redundant for this profile.
+      userChrome = ''
+        #profile-manager-button,
+        #undo-closed-tab,
+        #import-button,
+        #firefox-view-button {
+          display: none !important;
+        }
+      '';
+
       settings = shared.profileSettings // bookmarks.profileSettings // floorpSettings;
 
       search = import ./search.nix;
