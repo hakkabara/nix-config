@@ -1,10 +1,137 @@
-{ lib, cfg }:
+{
+  lib,
+  cfg,
+  browser,
+  profile ? null,
+}:
 
 let
+  validBrowsers = [
+    "firefox"
+    "floorp"
+  ];
+
+  checkedBrowser =
+    if lib.elem browser validBrowsers then
+      browser
+    else
+      throw "Unsupported Gecko browser for shared.nix: ${browser}";
+
   extensionSettings = import ./extensions.nix {
     inherit lib;
     cfg = cfg.extensions;
   };
+
+  cookieCfg = cfg.privacy.cookies;
+  commonCookieCfg = cookieCfg.common;
+
+  browserCookieCfg = cookieCfg.${checkedBrowser};
+  profileCookieCfgs = cookieCfg.profiles.${checkedBrowser};
+
+  profileCookieCfg =
+    if profile != null && builtins.hasAttr profile profileCookieCfgs then
+      profileCookieCfgs.${profile}
+    else
+      null;
+
+  applyOriginLayer =
+    inherited: layer:
+    if layer.mode == "inherit" then
+      inherited
+    else if layer.mode == "extend" then
+      lib.unique (inherited ++ layer.persistentOrigins)
+    else if layer.mode == "replace" then
+      lib.unique layer.persistentOrigins
+    else if layer.mode == "none" then
+      [ ]
+    else
+      throw "Unsupported Gecko cookie merge mode: ${layer.mode}";
+
+  browserOrigins = applyOriginLayer (lib.unique commonCookieCfg.persistentOrigins) browserCookieCfg;
+
+  effectiveOrigins =
+    if profileCookieCfg == null then
+      browserOrigins
+    else
+      applyOriginLayer browserOrigins profileCookieCfg;
+
+  effectiveClearOnShutdown =
+    if profileCookieCfg != null && profileCookieCfg.clearOnShutdown != null then
+      profileCookieCfg.clearOnShutdown
+    else if browserCookieCfg.clearOnShutdown != null then
+      browserCookieCfg.clearOnShutdown
+    else
+      commonCookieCfg.clearOnShutdown;
+
+  antiClutterPolicies = lib.optionalAttrs cfg.privacy.antiClutter.enable {
+    FirefoxSuggest = {
+      WebSuggestions = false;
+      SponsoredSuggestions = false;
+      ImproveSuggest = false;
+      Locked = false;
+    };
+
+    FirefoxHome = {
+      Search = true;
+      TopSites = true;
+
+      SponsoredTopSites = false;
+      Highlights = false;
+
+      Pocket = false;
+      Stories = false;
+      SponsoredPocket = false;
+      SponsoredStories = false;
+
+      Snippets = false;
+      Weather = false;
+
+      Locked = false;
+    };
+
+    UserMessaging = {
+      ExtensionRecommendations = false;
+      FeatureRecommendations = false;
+      UrlbarInterventions = false;
+
+      SkipOnboarding = true;
+      MoreFromMozilla = false;
+      FirefoxLabs = false;
+
+      Locked = false;
+    };
+  };
+
+  cookiePolicies = lib.optionalAttrs effectiveClearOnShutdown (
+    {
+      # Firefox/Floorp 152:
+      # clear cookies and site storage while preserving useful
+      # browser history and other runtime state.
+      SanitizeOnShutdown = {
+        Cache = false;
+        Cookies = true;
+        FormData = false;
+        History = false;
+        Sessions = false;
+        SiteSettings = false;
+        OfflineApps = false;
+
+        Locked = false;
+      };
+    }
+    // lib.optionalAttrs (effectiveOrigins != [ ]) {
+      # Firefox <=153 uses Cookies.Allow as the persistence
+      # exception mechanism for shutdown sanitization.
+      #
+      # Firefox 154+ introduces SanitizeOnShutdown.Exceptions.
+      # Host configuration intentionally uses our own abstraction
+      # so this implementation can later be migrated centrally.
+      Cookies = {
+        Allow = effectiveOrigins;
+        Locked = false;
+      };
+    }
+  );
 in
 {
   # ============================================================
@@ -21,8 +148,8 @@ in
     # XDG decides which browser is the system default.
     DontCheckDefaultBrowser = true;
 
-    # Browser sync/accounts are intentionally not part of our
-    # reproducible configuration.
+    # Sync/accounts remain disabled until the later selective-sync
+    # implementation is deliberately enabled.
     DisableFirefoxAccounts = true;
 
     # ==========================================================
@@ -47,26 +174,25 @@ in
       Locked = false;
     };
 
+    # Remote search-engine suggestions are separate from local
+    # history/bookmark/open-tab results.
+    SearchSuggestEnabled = cfg.privacy.remoteSearchSuggestions.enable;
+
     # ==========================================================
     # Managed Gecko preferences
     # ==========================================================
 
     Preferences = {
-      # Do not automatically show the translation popup.
-      # Manual translation remains available.
       "browser.translations.automaticallyPopup" = {
         Value = false;
         Status = "locked";
       };
 
-      # German and English do not need translation offers.
       "browser.translations.neverTranslateLanguages" = {
         Value = "de,en";
         Status = "locked";
       };
 
-      # Hide Firefox Account / Sync UI in Firefox-compatible
-      # browsers.
       "identity.fxaccounts.toolbar.enabled" = {
         Value = false;
         Status = "locked";
@@ -82,20 +208,17 @@ in
     # DNS / HTTPS
     # ==========================================================
 
-    # Respect the operating system, VPN and split-DNS setup.
     DNSOverHTTPS = {
       Enabled = false;
       Locked = true;
     };
 
-    # Prefer HTTPS while still permitting explicit HTTP access.
     HttpsOnlyMode = "enabled";
 
     # ==========================================================
     # Passwords / autofill
     # ==========================================================
 
-    # Bitwarden is used instead of the browser password manager.
     PasswordManagerEnabled = false;
     OfferToSaveLogins = false;
 
@@ -113,7 +236,9 @@ in
     # ==========================================================
 
     ExtensionSettings = extensionSettings;
-  };
+  }
+  // antiClutterPolicies
+  // cookiePolicies;
 
   # ============================================================
   # Shared profile preferences
@@ -121,5 +246,30 @@ in
 
   profileSettings = {
     "privacy.globalprivacycontrol.enabled" = true;
+
+    # Keep useful local URL-bar sources enabled.
+    "browser.urlbar.suggest.history" = true;
+    "browser.urlbar.suggest.bookmark" = true;
+    "browser.urlbar.suggest.openpage" = true;
+    "browser.urlbar.suggest.engines" = true;
+  }
+  // lib.optionalAttrs cfg.privacy.antiClutter.enable {
+    # Do not open the URL-bar view merely to show Top Sites.
+    "browser.urlbar.suggest.topsites" = false;
+
+    # Disable additional recommendation providers that are not
+    # part of the useful local history/bookmark/tab sources.
+    "browser.urlbar.suggest.addons" = false;
+    "browser.urlbar.suggest.yelp" = false;
+    "browser.urlbar.sponsoredTopSites" = false;
+
+    # Defense in depth for Firefox Suggest / Quick Suggest.
+    "browser.urlbar.quicksuggest.dataCollection.enabled" = false;
+    "browser.urlbar.suggest.quicksuggest.sponsored" = false;
+  };
+
+  # Useful for validation/debugging without duplicating merge logic.
+  cookiePolicy = {
+    inherit effectiveClearOnShutdown effectiveOrigins;
   };
 }

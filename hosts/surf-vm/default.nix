@@ -63,6 +63,62 @@
           firefox.enable = true;
           floorp.enable = true;
 
+          # SurfVM-specific Gecko privacy configuration.
+          #
+          # Shared values apply to Firefox and Floorp. Individual
+          # browsers/profiles may inherit, extend, replace, or
+          # completely discard the common cookie persistence list.
+          privacy = {
+            antiClutter.enable = true;
+
+            # Disable live remote search-engine suggestions while
+            # retaining local history/bookmark/open-tab results.
+            remoteSearchSuggestions.enable = false;
+
+            cookies = {
+              common = {
+                # Cookies and site storage work during the session
+                # but are removed after the browser fully exits.
+                clearOnShutdown = true;
+
+                # Shared SurfVM persistence whitelist.
+                persistentOrigins = [ ];
+              };
+
+              # Both currently inherit the SurfVM common baseline.
+              firefox.mode = "inherit";
+              floorp.mode = "inherit";
+
+              # Future examples:
+              #
+              # firefox = {
+              #   mode = "extend";
+              #   persistentOrigins = [
+              #     "https://firefox-only.example"
+              #   ];
+              # };
+              #
+              # floorp = {
+              #   mode = "replace";
+              #   persistentOrigins = [
+              #     "https://floorp-only.example"
+              #   ];
+              # };
+              #
+              # profiles.firefox.work = {
+              #   mode = "extend";
+              #   persistentOrigins = [
+              #     "https://profile-only.example"
+              #   ];
+              # };
+              #
+              # profiles.floorp.throwaway = {
+              #   mode = "none";
+              #   clearOnShutdown = true;
+              # };
+            };
+          };
+
           bookmarks.manager = {
             enable = true;
 

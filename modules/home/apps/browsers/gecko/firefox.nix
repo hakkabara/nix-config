@@ -5,6 +5,8 @@ let
 
   shared = import ./shared.nix {
     inherit lib cfg;
+    browser = "firefox";
+    profile = "surf";
   };
 
   bookmarks = import ./bookmarks.nix;
@@ -25,37 +27,6 @@ in
     # ============================================================
 
     policies = lib.recursiveUpdate browserBaseline {
-      # ==========================================================
-      # Firefox Home / sponsored content
-      # ==========================================================
-
-      FirefoxHome = {
-        Search = true;
-        TopSites = true;
-
-        SponsoredTopSites = false;
-        Highlights = false;
-
-        Pocket = false;
-        Stories = false;
-
-        SponsoredPocket = false;
-        SponsoredStories = false;
-
-        Snippets = false;
-
-        Locked = false;
-      };
-
-      FirefoxSuggest = {
-        WebSuggestions = true;
-
-        SponsoredSuggestions = false;
-        ImproveSuggest = false;
-
-        Locked = false;
-      };
-
       # ==========================================================
       # Firefox theme
       # ==========================================================
@@ -91,14 +62,6 @@ in
           # --------------------------------------------------------
           # UI recommendations / sponsored content
           # --------------------------------------------------------
-
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons" = false;
-
-          "browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features" = false;
-
-          "browser.urlbar.suggest.quicksuggest.sponsored" = false;
-
-          "browser.urlbar.quicksuggest.dataCollection.enabled" = false;
 
           # --------------------------------------------------------
           # Declarative Firefox toolbar

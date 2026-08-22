@@ -5,6 +5,8 @@ let
 
   shared = import ./shared.nix {
     inherit lib cfg;
+    browser = "floorp";
+    profile = "surf";
   };
 
   bookmarks = import ./bookmarks.nix;
