@@ -136,6 +136,12 @@ let
       enabled = true;
 
       shortcuts = {
+        # --------------------------------------------------------
+        # Command palette
+        # --------------------------------------------------------
+        #
+        # The palette remains the central launcher for less common
+        # actions and also serves as the workspace picker.
         "floorp-toggle-command-palette" = {
           action = "floorp-toggle-command-palette";
           key = "F2";
@@ -145,6 +151,74 @@ let
             ctrl = false;
             meta = false;
             shift = false;
+          };
+        };
+
+        # --------------------------------------------------------
+        # Workspaces
+        # --------------------------------------------------------
+        "workspace-previous" = {
+          action = "gecko-workspace-previous";
+          key = "ArrowLeft";
+
+          modifiers = {
+            alt = true;
+            ctrl = false;
+            meta = false;
+            shift = true;
+          };
+        };
+
+        "workspace-next" = {
+          action = "gecko-workspace-next";
+          key = "ArrowRight";
+
+          modifiers = {
+            alt = true;
+            ctrl = false;
+            meta = false;
+            shift = true;
+          };
+        };
+
+        # --------------------------------------------------------
+        # Split View
+        # --------------------------------------------------------
+        #
+        # Opening to the right creates Floorp's tab-picker pane.
+        "split-view-open" = {
+          action = "floorp-split-view-open-right";
+          key = "S";
+
+          modifiers = {
+            alt = true;
+            ctrl = false;
+            meta = false;
+            shift = true;
+          };
+        };
+
+        "split-view-close" = {
+          action = "floorp-split-view-close";
+          key = "X";
+
+          modifiers = {
+            alt = true;
+            ctrl = false;
+            meta = false;
+            shift = true;
+          };
+        };
+
+        "split-view-cycle-layout" = {
+          action = "floorp-split-view-cycle-layout";
+          key = "L";
+
+          modifiers = {
+            alt = true;
+            ctrl = false;
+            meta = false;
+            shift = true;
           };
         };
       };
