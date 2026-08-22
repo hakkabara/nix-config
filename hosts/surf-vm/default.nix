@@ -52,6 +52,7 @@
         claude = {
           enable = true;
           code.enable = true;
+          omc.enable = true;
         };
       };
 

@@ -3,6 +3,7 @@
 {
   imports = [
     ./code.nix
+    ./omc.nix
   ];
 
   options.hakkabara.ai.claude.enable =
