@@ -24,6 +24,7 @@ in
   imports = [
     plasma-manager.homeModules.plasma-manager
     ./panel.nix
+    ./rice.nix
   ];
 
   options.hakkabara.desktop.plasma = {

@@ -175,6 +175,7 @@
         enable = true;
         alwaysOn.enable = true;
         i3Style.enable = true;
+        rice.enable = true;
         emptySession.enable = true;
         xwaylandInputNoPrompt.enable = true;
         panel = {
