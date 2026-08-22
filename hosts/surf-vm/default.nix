@@ -43,6 +43,15 @@
     # SurfVM-specific Yazi navigation.
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
+      ai = {
+        enable = true;
+
+        claude = {
+          enable = true;
+          code.enable = true;
+        };
+      };
+
       cli.yazi.extraKeymap = [
         {
           on = [

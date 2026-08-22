@@ -76,7 +76,5 @@
     kdePackages.okular
     koreader
 
-    # Development / AI
-    claude-code
   ];
 }
