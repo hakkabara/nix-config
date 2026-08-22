@@ -223,6 +223,8 @@ in
       uBlockOrigin.enable = mkExtensionOption "uBlock Origin";
       darkReader.enable = mkExtensionOption "Dark Reader";
 
+      tokyoNightTheme.enable = mkExtensionOption "Tokyo Night Dark Theme";
+
       violentmonkey.enable = mkExtensionOption "Violentmonkey userscript manager";
       bitwarden.enable = mkExtensionOption "Bitwarden browser extension";
 

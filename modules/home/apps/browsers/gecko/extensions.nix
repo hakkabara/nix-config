@@ -16,6 +16,12 @@
     private_browsing = true;
   };
 })
+// (lib.optionalAttrs cfg.tokyoNightTheme.enable {
+  "{cebd391d-f568-473f-bb6e-698d08ec81ec}" = {
+    installation_mode = "force_installed";
+    install_url = "https://addons.mozilla.org/firefox/downloads/latest/tokyo-night-dark-theme/latest.xpi";
+  };
+})
 // (lib.optionalAttrs cfg.violentmonkey.enable {
   "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}" = {
     installation_mode = "force_installed";

@@ -253,6 +253,11 @@ in
     "browser.urlbar.suggest.openpage" = true;
     "browser.urlbar.suggest.engines" = true;
   }
+  // lib.optionalAttrs cfg.extensions.tokyoNightTheme.enable {
+    # Keep Firefox and Floorp on the same declarative
+    # Tokyo Night theme when enabled for this host.
+    "extensions.activeThemeID" = "{cebd391d-f568-473f-bb6e-698d08ec81ec}";
+  }
   // lib.optionalAttrs cfg.privacy.antiClutter.enable {
     # Do not open the URL-bar view merely to show Top Sites.
     "browser.urlbar.suggest.topsites" = false;

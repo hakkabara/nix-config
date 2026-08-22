@@ -128,6 +128,7 @@
             documentTitle = "SurfVM Bookmarks";
           };
 
+          extensions.tokyoNightTheme.enable = true;
           extensions.twitchAdSolutions.enable = true;
         };
 
