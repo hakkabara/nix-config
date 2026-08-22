@@ -1,0 +1,200 @@
+layout {
+    // -------------------------------------------------------------------------
+    // Swap layouts
+    //
+    // Defining our own default layout replaces Zellij's built-in layout
+    // definitions, so we explicitly keep useful vertical/horizontal swaps.
+    // -------------------------------------------------------------------------
+
+    swap_tiled_layout name="vertical" {
+        tab max_panes=5 {
+            pane split_direction="vertical" {
+                pane
+                pane { children; }
+            }
+        }
+
+        tab max_panes=8 {
+            pane split_direction="vertical" {
+                pane { children; }
+
+                pane {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+            }
+        }
+
+        tab max_panes=12 {
+            pane split_direction="vertical" {
+                pane { children; }
+
+                pane {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+
+                pane {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+            }
+        }
+    }
+
+    swap_tiled_layout name="horizontal" {
+        tab max_panes=5 {
+            pane
+            pane
+        }
+
+        tab max_panes=8 {
+            pane {
+                pane split_direction="vertical" { children; }
+
+                pane split_direction="vertical" {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+            }
+        }
+
+        tab max_panes=12 {
+            pane {
+                pane split_direction="vertical" { children; }
+
+                pane split_direction="vertical" {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+
+                pane split_direction="vertical" {
+                    pane
+                    pane
+                    pane
+                    pane
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Shared template for every tab.
+    // -------------------------------------------------------------------------
+
+    default_tab_template {
+        children
+
+        pane size=1 borderless=true {
+            plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
+                // -----------------------------------------------------------------
+                // Tokyo Night
+                // -----------------------------------------------------------------
+
+                color_bg      "#1a1b26"
+                color_bg_alt  "#24283b"
+                color_fg      "#c0caf5"
+                color_dim     "#565f89"
+
+                color_blue    "#7aa2f7"
+                color_cyan    "#7dcfff"
+                color_green   "#9ece6a"
+                color_purple  "#bb9af7"
+                color_orange  "#ff9e64"
+                color_yellow  "#e0af68"
+                color_red     "#f7768e"
+
+                // -----------------------------------------------------------------
+                // Main bar
+                // -----------------------------------------------------------------
+
+                format_left   "{mode} #[fg=$purple,bold] {session} "
+                format_center "{tabs}"
+                format_right  "{command_system} {swap_layout} {datetime} "
+                format_space  "#[bg=$bg]"
+
+                format_hide_on_overlength "true"
+                format_precedence         "lcr"
+
+                hide_frame_for_single_pane "false"
+                border_enabled             "false"
+
+                // -----------------------------------------------------------------
+                // Modes
+                // -----------------------------------------------------------------
+
+                mode_normal        "#[bg=$green,fg=$bg,bold] NORMAL #[bg=$bg,fg=$green]"
+                mode_locked        "#[bg=$red,fg=$bg,bold] LOCKED  #[bg=$bg,fg=$red]"
+                mode_resize        "#[bg=$orange,fg=$bg,bold] RESIZE #[bg=$bg,fg=$orange]"
+                mode_pane          "#[bg=$purple,fg=$bg,bold] PANE #[bg=$bg,fg=$purple]"
+                mode_tab           "#[bg=$cyan,fg=$bg,bold] TAB #[bg=$bg,fg=$cyan]"
+                mode_scroll        "#[bg=$purple,fg=$bg,bold] SCROLL #[bg=$bg,fg=$purple]"
+                mode_enter_search  "#[bg=$yellow,fg=$bg,bold] SEARCH #[bg=$bg,fg=$yellow]"
+                mode_search        "#[bg=$yellow,fg=$bg,bold] SEARCH #[bg=$bg,fg=$yellow]"
+                mode_rename_tab    "#[bg=$orange,fg=$bg,bold] RENAME TAB #[bg=$bg,fg=$orange]"
+                mode_rename_pane   "#[bg=$orange,fg=$bg,bold] RENAME PANE #[bg=$bg,fg=$orange]"
+                mode_session       "#[bg=$blue,fg=$bg,bold] SESSION #[bg=$bg,fg=$blue]"
+                mode_move          "#[bg=$purple,fg=$bg,bold] MOVE #[bg=$bg,fg=$purple]"
+                mode_prompt        "#[bg=$orange,fg=$bg,bold] PROMPT #[bg=$bg,fg=$orange]"
+                mode_tmux          "#[bg=$yellow,fg=$bg,bold] TMUX #[bg=$bg,fg=$yellow]"
+
+                // -----------------------------------------------------------------
+                // Tabs
+                // -----------------------------------------------------------------
+
+                tab_normal "#[fg=$dim] {index}:{name}{sync_indicator}{fullscreen_indicator}{floating_indicator} "
+
+                tab_active "#[fg=$blue]#[bg=$blue,fg=$bg,bold] {index}:{name}{sync_indicator}{fullscreen_indicator}{floating_indicator} #[bg=$bg,fg=$blue]"
+
+                tab_separator "#[bg=$bg] "
+
+                tab_sync_indicator       " ↔"
+                tab_fullscreen_indicator " ⛶"
+                tab_floating_indicator   " ◇"
+
+                tab_display_count "7"
+                tab_zero_based_index "false"
+
+                tab_truncate_start_format "#[fg=$dim]… +{count} "
+                tab_truncate_end_format   "#[fg=$dim]+{count} …"
+
+                // -----------------------------------------------------------------
+                // Native Linux system monitor
+                //
+                // The local helper returns zjstatus formatting directives directly.
+                // dynamic mode intentionally parses those directives.
+                // -----------------------------------------------------------------
+
+                command_system_command    "zjstatus-system"
+                command_system_format     "{stdout}"
+                command_system_interval   "2"
+                command_system_rendermode "dynamic"
+
+                // -----------------------------------------------------------------
+                // Swap layout
+                // -----------------------------------------------------------------
+
+                swap_layout_format        "#[fg=$cyan]󰕰 {name}"
+                swap_layout_hide_if_empty "true"
+
+                // -----------------------------------------------------------------
+                // Clock
+                // -----------------------------------------------------------------
+
+                datetime          "#[fg=$dim]󰥔 {format}"
+                datetime_format   "%a %d.%m %H:%M"
+                datetime_timezone "Europe/Berlin"
+            }
+        }
+    }
+}
