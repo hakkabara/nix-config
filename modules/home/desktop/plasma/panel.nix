@@ -38,6 +38,48 @@ in
           # Plasma application launcher.
           "org.kde.plasma.kickoff"
 
+          # Compact i3/Niri-style virtual desktop indicator.
+          {
+            name = "org.kde.plasma.virtualdesktopbar";
+
+            config = {
+              Behavior = {
+                DynamicDesktops = false;
+                FilterByScreen = false;
+
+                # Safe mouse behavior: scrolling switches desktops but
+                # middle-click can never accidentally remove one.
+                WheelScrollSwitches = true;
+                WheelClickRemoves = false;
+                WheelWrapAround = false;
+              };
+
+              Appearance = {
+                AnimationsEnable = false;
+                TooltipsEnable = true;
+                ShowAddButton = false;
+
+                ButtonMarginVertical = 2;
+                ButtonMarginHorizontal = 2;
+                ButtonSpacing = 2;
+                ButtonCommonSize = true;
+
+                # Upstream index 1 = desktop number.
+                LabelStyle = 1;
+                LabelDimIdle = true;
+                LabelBoldCurrent = true;
+
+                # Upstream index 3 = rounded indicator.
+                IndicatorStyle = 3;
+
+                # Inherit colors from Tokyo Night rather than hard-coding
+                # another palette into the widget.
+                IndicatorDistinctOccupied = true;
+                IndicatorDistinctAttention = true;
+              };
+            };
+          }
+
           # Icons-only task manager.
           {
             iconTasks = {
