@@ -3,12 +3,28 @@
   lib,
   pkgs,
   pkgsUnstable,
+  zellij-tools,
   ...
 }:
 
 let
   cfg = config.hakkabara.terminal;
   plugins = cfg.zellij.plugins;
+
+  zellijToolsPlugin =
+    zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+  zellijToolsCli =
+    zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.cli;
+
+  # Declarative zellij-tools configuration.
+  #
+  # We inject this inline into the plugin configuration. External config
+  # files are useful for hot reload, but Home Manager already owns our
+  # configuration lifecycle.
+  scratchpadConfig =
+    import ./scratchpads.nix { inherit pkgs; };
+
 
   mkPluginEnableOption =
     description:
@@ -164,6 +180,13 @@ let
     ++ (lib.optionals plugins.zjstatus.enable [
       ''
         zjstatus location="file:${config.xdg.configHome}/zellij/plugins/zjstatus.wasm"
+      ''
+    ])
+    ++ (lib.optionals plugins.tools.enable [
+      ''
+        zellij-tools location="file:${config.xdg.configHome}/zellij/plugins/zellij-tools.wasm" {
+          ${scratchpadConfig}
+        }
       ''
     ])
   );
@@ -346,6 +369,7 @@ in
     room.enable = mkPluginEnableOption "Enable the Room fuzzy tab switcher.";
     harpoon.enable = mkPluginEnableOption "Enable Harpoon pane bookmarks.";
     forgot.enable = mkPluginEnableOption "Enable Zellij Forgot searchable keybinding help.";
+    tools.enable = mkPluginEnableOption "Enable zellij-tools scratchpads and companion CLI.";
   };
 
   config = lib.mkMerge [
@@ -363,6 +387,7 @@ in
         room.enable = lib.mkDefault true;
         harpoon.enable = lib.mkDefault true;
         forgot.enable = lib.mkDefault true;
+        tools.enable = lib.mkDefault true;
       };
     })
 
@@ -377,9 +402,12 @@ in
 
     (lib.mkIf (cfg.enable && cfg.zellij.enable) {
       home.packages =
-        lib.optionals plugins.zjstatus.enable [
+        (lib.optionals plugins.zjstatus.enable [
           zjstatusSystem
-        ];
+        ])
+        ++ (lib.optionals plugins.tools.enable [
+          zellijToolsCli
+        ]);
 
       # Stable plugin paths keep Zellij permission identities consistent even
       # when the immutable Nix store target changes after an update.
@@ -414,6 +442,10 @@ in
             url = "https://github.com/karimould/zellij-forgot/releases/download/0.4.2/zellij_forgot.wasm";
             hash = "sha256-MRlBRVGdvcEoaFtFb5cDdDePoZ/J2nQvvkoyG6zkSds=";
           };
+        })
+        // (lib.optionalAttrs plugins.tools.enable {
+          "zellij/plugins/zellij-tools.wasm".source =
+            "${zellijToolsPlugin}/share/zellij/plugins/zellij-tools.wasm";
         });
 
       programs.zellij.extraConfig = lib.concatStringsSep "\n" (
@@ -424,10 +456,13 @@ in
             }
           '')
 
-          (lib.optionalString plugins.autolock.enable ''
-            // Autolock is headless and must remain alive for the whole session.
+          (lib.optionalString (
+            plugins.autolock.enable || plugins.tools.enable
+          ) ''
+            // Background plugins stay alive for the whole Zellij session.
             load_plugins {
-              autolock
+              ${lib.optionalString plugins.autolock.enable "autolock"}
+              ${lib.optionalString plugins.tools.enable "zellij-tools"}
             }
           '')
 

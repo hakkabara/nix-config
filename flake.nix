@@ -30,6 +30,14 @@
       url = "github:Kyubai/wl-x11-clipsync";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Zellij scratchpads and companion CLI.
+    #
+    # The concrete upstream revision is pinned in flake.lock.
+    zellij-tools = {
+      url = "github:b0o/zellij-tools";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
   };
 
   outputs =
@@ -40,6 +48,7 @@
       sops-nix,
       plasma-manager,
       wl-x11-clipsync,
+      zellij-tools,
       ...
     }:
     let
@@ -75,7 +84,7 @@
               # Modules use stable `pkgs` unless they explicitly request
               # and select something from `pkgsUnstable`.
               extraSpecialArgs = {
-                inherit plasma-manager pkgsUnstable;
+                inherit plasma-manager pkgsUnstable zellij-tools;
               };
             };
           }
