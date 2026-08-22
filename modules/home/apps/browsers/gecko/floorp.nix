@@ -15,17 +15,104 @@ let
   #
   # Only reproducible user-facing configuration belongs here.
   #
-  # Do not copy transient prefs.js state such as:
+  # Deliberately unmanaged:
   # - experiment assignments / install IDs
   # - workspace UUID stores
-  # - command history / frequency
-  # - sidebar extension IDs
+  # - recent command history / frequencies
+  # - sidebar panel data / extension IDs
   # - session/build timestamps
-  # - current pane sizes
+  # - current Split View pane sizes
   # - browser.uiCustomization.state
+  # - other transient prefs.js state
   floorpSettings = {
-    # Keep the browser window open when the last tab is closed.
+    # ----------------------------------------------------------
+    # Generic tab/window behavior
+    # ----------------------------------------------------------
     "browser.tabs.closeWindowWithLastTab" = false;
+
+    # Floorp-specific new-tab positioning.
+    "floorp.browser.tabs.openNewTabPosition" = -1;
+
+    # Do not show Floorp's first-run welcome page again.
+    "floorp.browser.welcome.page.shown" = true;
+
+    # ----------------------------------------------------------
+    # Floorp UI / tabs
+    # ----------------------------------------------------------
+    #
+    # Floorp 12 stores most native appearance settings in one
+    # JSON preference. Keep only stable user-facing configuration
+    # here rather than copying the entire runtime prefs.js state.
+    "floorp.design.configs" = builtins.toJSON {
+      globalConfigs = {
+        appliedUserJs = "";
+        faviconColor = false;
+        userInterface = "lepton";
+      };
+
+      tabbar = {
+        # Native Floorp multi-row tab layout.
+        tabbarStyle = "multirow";
+        tabbarPosition = "default";
+
+        multiRowTabBar = {
+          maxRowEnabled = true;
+          maxRow = 2;
+        };
+      };
+
+      tab = {
+        tabDubleClickToClose = false;
+        tabMinHeight = 30;
+        tabMinWidth = 76;
+        tabOpenPosition = -1;
+        tabPinTitle = false;
+
+        tabScroll = {
+          enabled = false;
+          reverse = false;
+          wrap = false;
+        };
+      };
+
+      uiCustomization = {
+        # Keep the bookmarks toolbar enabled, but let Floorp
+        # reveal it only when the toolbar area is focused/hovered.
+        bookmarkBar = {
+          focusExpand = true;
+          position = "top";
+        };
+
+        display = {
+          deleteBrowserBorder = false;
+          disableFullscreenNotification = false;
+        };
+
+        multirowTab = {
+          newtabInsideEnabled = false;
+        };
+
+        navbar = {
+          position = "top";
+          searchBarTop = false;
+        };
+
+        # Remove an unnecessary toolbar action.
+        qrCode = {
+          disableButton = true;
+        };
+
+        special = {
+          hideForwardBackwardButton = false;
+          optimizeForTreeStyleTab = false;
+          stgLikeWorkspaces = false;
+        };
+
+        # Keep Floorp Start available. Its actual New Tab design
+        # and background will be handled in a later dedicated block.
+        disableFloorpStart = false;
+      };
+    };
 
     # ----------------------------------------------------------
     # Site Specific Browser / PWA-style windows
@@ -64,18 +151,22 @@ let
     # ----------------------------------------------------------
     # Mouse gestures
     # ----------------------------------------------------------
-    # Disabled intentionally. Do not persist Floorp's gesture
-    # history / last-enabled state.
     "floorp.mousegesture.enabled" = false;
 
     # ----------------------------------------------------------
     # Floorp Panel Sidebar
     # ----------------------------------------------------------
-    "floorp.panelSidebar.enabled" = true;
+    #
+    # Keep the feature available for keyboard / command-palette
+    # use, but do not display it permanently.
+    #
+    # Panel contents themselves remain Floorp-managed runtime
+    # state in floorp.panelSidebar.data.
+    "floorp.panelSidebar.enabled" = false;
 
     "floorp.panelSidebar.config" = builtins.toJSON {
       autoUnload = false;
-      displayed = true;
+      displayed = false;
       globalWidth = 400;
       position_start = true;
       webExtensionRunningEnabled = false;
@@ -84,15 +175,29 @@ let
     # ----------------------------------------------------------
     # Workspaces
     # ----------------------------------------------------------
-    # Enable the feature, but deliberately leave the UUID-based
-    # workspace store under Floorp's control.
+    #
+    # Feature behavior is declarative. The actual UUID-based
+    # workspace store stays under Floorp's control.
     "floorp.workspaces.enabled" = true;
 
     "floorp.workspaces.v4.config" = builtins.toJSON {
-      closePopupAfterClick = false;
+      closePopupAfterClick = true;
       exitOnLastTabClose = false;
       manageOnBms = false;
-      showWorkspaceNameOnToolbar = true;
+
+      # Less permanent toolbar clutter. Workspace switching will
+      # primarily happen via keyboard / command palette.
+      showWorkspaceNameOnToolbar = false;
+    };
+
+    # ----------------------------------------------------------
+    # Split View
+    # ----------------------------------------------------------
+    #
+    # Layout is configuration; pane-size state remains runtime.
+    "floorp.splitView.config" = builtins.toJSON {
+      layout = "horizontal";
+      maxPanes = 4;
     };
 
     # ----------------------------------------------------------
