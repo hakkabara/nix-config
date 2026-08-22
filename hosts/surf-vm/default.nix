@@ -17,11 +17,14 @@
     ../../modules/nixos/features/python.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
+    ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
   ];
 
   hakkabara = {
     workstationVm.enable = true;
+
+    apps.steam.enable = true;
 
     python = {
       python3.enable = true;
@@ -186,6 +189,15 @@
     };
 
   };
+  # Steam runs inside a Bubblewrap FHS environment.
+  # /data is a VMware vmhgfs-fuse mount and cannot be bind-mounted into it.
+  # Remove this override when the SurfVM no longer uses the VMware shared folder.
+  programs.steam.package = pkgs.steam.override {
+    extraPreBwrapCmds = ''
+      ignored+=(/data)
+    '';
+  };
+
   # Enable the modern Nix CLI and Flakes.
   nix.settings.experimental-features = [
     "nix-command"
