@@ -1,12 +1,24 @@
 # Wallpapers
 
-Wallpapers used by the declarative desktop theming setup.
+Git-managed wallpapers for the desktop theming setup.
 
-The files in this directory are tracked by Git and exposed through
-Home Manager at:
+Home Manager deploys this directory to:
 
     ~/.local/share/wallpapers/nix-config/
 
-`rice` uses these images for Plasma wallpapers and Matugen palettes.
+The `rice` command uses these files for both:
 
-Only add images that may legally be redistributed through this repository.
+- KDE Plasma wallpaper selection
+- Matugen color generation
+
+Examples:
+
+    rice list
+    rice wallpaper kde-neon-rain-4k.png
+    rice next
+    rice previous
+    rice random
+    rice regenerate
+
+Third-party source, attribution, license, and integrity information is recorded
+in `SOURCES.md`.
