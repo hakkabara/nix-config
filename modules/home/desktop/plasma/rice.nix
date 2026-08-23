@@ -69,6 +69,7 @@ let
     nativeBuildInputs = [
       pkgs.cmake
       pkgs.kdePackages.extra-cmake-modules
+      pkgs.qt6.wrapQtAppsHook
     ];
 
     buildInputs = [
@@ -91,8 +92,7 @@ let
   };
 in
 {
-  options.hakkabara.desktop.plasma.rice.enable =
-    lib.mkEnableOption "minimal Tokyo Night Plasma rice";
+  options.hakkabara.desktop.plasma.rice.enable = lib.mkEnableOption "minimal Tokyo Night Plasma rice";
 
   config = lib.mkIf (cfg.enable && cfg.rice.enable) {
     home.packages = [
@@ -103,8 +103,7 @@ in
 
     # The applet contains a native QML plugin. Make its QML import tree
     # available to Plasma when the user session starts.
-    home.sessionVariables.QML_IMPORT_PATH =
-      "${virtualDesktopBar}/lib/qt-6/qml";
+    home.sessionVariables.QML_IMPORT_PATH = "${virtualDesktopBar}/lib/qt-6/qml";
 
     programs.plasma = {
       workspace = {

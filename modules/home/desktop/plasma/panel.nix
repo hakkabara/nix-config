@@ -36,7 +36,20 @@ in
 
         widgets = [
           # Plasma application launcher.
-          "org.kde.plasma.kickoff"
+          {
+            kickoff = {
+              icon = "nix-snowflake-white";
+            };
+          }
+
+          # Small fixed gap before the virtual desktop indicator.
+          {
+            name = "org.kde.plasma.panelspacer";
+            config.General = {
+              expanding = false;
+              length = 6;
+            };
+          }
 
           # Compact i3/Niri-style virtual desktop indicator.
           {
@@ -58,14 +71,16 @@ in
                 AnimationsEnable = false;
                 TooltipsEnable = true;
                 ShowAddButton = false;
+                ShowOnlyOccupied = true;
 
-                ButtonMarginVertical = 2;
+                ButtonMarginVertical = 1;
                 ButtonMarginHorizontal = 2;
-                ButtonSpacing = 2;
+                ButtonSpacing = 3;
                 ButtonCommonSize = true;
 
                 # Upstream index 1 = desktop number.
                 LabelStyle = 1;
+                LabelFontSize = 12;
                 LabelDimIdle = true;
                 LabelBoldCurrent = true;
 
@@ -77,6 +92,15 @@ in
                 IndicatorDistinctOccupied = true;
                 IndicatorDistinctAttention = true;
               };
+            };
+          }
+
+          # Small fixed gap after the virtual desktop indicator.
+          {
+            name = "org.kde.plasma.panelspacer";
+            config.General = {
+              expanding = false;
+              length = 6;
             };
           }
 
