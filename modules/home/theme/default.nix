@@ -53,7 +53,7 @@ let
                   exit 1
                 fi
 
-                exec matugen image "$image" -m dark
+                exec matugen image "$image" -m dark --source-color-index 0
                 ;;
 
               color)
@@ -69,6 +69,10 @@ let
   };
 in
 {
+  imports = [
+    ./rice.nix
+  ];
+
   options.hakkabara.theme.matugen.enable = lib.mkEnableOption "dynamic Matugen color generation";
 
   config = lib.mkIf cfg.enable {
@@ -86,6 +90,7 @@ in
         # Matugen 4.x requires the top-level config table even when we
         # currently rely on its defaults.
         [config]
+
 
         [templates.kitty]
         input_path = '${config.xdg.configHome}/matugen/templates/kitty.conf'
