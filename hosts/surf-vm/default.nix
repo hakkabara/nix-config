@@ -46,6 +46,7 @@
     # SurfVM-specific Yazi navigation.
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
+      theme.matugen.enable = true;
       ai = {
         enable = true;
 

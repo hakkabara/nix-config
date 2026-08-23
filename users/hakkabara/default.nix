@@ -16,6 +16,7 @@
     ../../modules/home/git
     ../../modules/home/nix-dev
     ../../modules/home/terminal
+    ../../modules/home/theme
   ];
 
   home = {

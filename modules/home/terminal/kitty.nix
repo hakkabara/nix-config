@@ -16,11 +16,20 @@ in
       font = {
         package = pkgs.nerd-fonts.fira-code;
         name = "FiraCode Nerd Font Mono";
-        size = 12;
+        size = 13;
       };
 
       themeFile = "tokyo_night_night";
 
+      # Tokyo Night stays the safe fallback. Matugen overrides colors
+
+      # only when a runtime palette exists.
+
+      extraConfig = ''
+
+        include ${config.xdg.cacheHome}/matugen/kitty.conf
+
+      '';
       shellIntegration = {
         enableZshIntegration = true;
         mode = "no-rc";
@@ -63,7 +72,10 @@ in
         # -----------------------------------------------------------------------
 
         # Remove the KDE/KWin title bar and outer OS window decorations.
-        hide_window_decorations = true;
+        hide_window_decorations = false;
+
+        # Keep programming-font ligatures enabled.
+        disable_ligatures = "never";
 
         # Slight transparency while keeping logs/code highly readable.
         background_opacity = "0.94";
