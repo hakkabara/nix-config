@@ -8,8 +8,110 @@
 let
   cfg = config.hakkabara.theme.matugen;
 
+  wallpaperSource = ../../../assets/wallpapers;
+
   wallpaperDir = "${config.xdg.dataHome}/wallpapers/nix-config";
   stateDir = "${config.xdg.stateHome}/hakkabara-rice";
+
+  wallpaperPreviews =
+    pkgs.runCommand "rice-wallpaper-previews"
+      {
+        nativeBuildInputs = [
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.imagemagick
+        ];
+      }
+      ''
+        set -euo pipefail
+
+        mkdir -p "$out"
+
+        found=0
+
+        while IFS= read -r -d "" image; do
+          found=1
+          name="$(basename "$image")"
+
+          magick "$image[0]" \
+            -auto-orient \
+            -thumbnail '1280x720>' \
+            -background '#11111b' \
+            -alpha remove \
+            -alpha off \
+            -strip \
+            -quality 82 \
+            "$out/$name.jpg"
+        done < <(
+          find ${wallpaperSource} \
+            -maxdepth 1 \
+            -type f \
+            \( \
+              -iname '*.png' \
+              -o -iname '*.jpg' \
+              -o -iname '*.jpeg' \
+              -o -iname '*.webp' \
+              -o -iname '*.avif' \
+            \) \
+            -print0 \
+            | sort -z
+        )
+
+        if (( found == 0 )); then
+          echo "ERROR: no wallpapers found while generating previews" >&2
+          exit 1
+        fi
+      '';
+
+  ricePreview = pkgs.writeShellApplication {
+    name = "rice-wallpaper-preview";
+
+    runtimeInputs = [
+      pkgs.chafa
+      pkgs.coreutils
+      pkgs.file
+      pkgs.gnused
+      pkgs.kitty
+    ];
+
+    text = ''
+      set -euo pipefail
+
+      if (( $# != 1 )); then
+        echo "Usage: rice-wallpaper-preview <image>" >&2
+        exit 2
+      fi
+
+      image="$1"
+
+      if [[ ! -f "$image" ]]; then
+        echo "Preview unavailable: $image"
+        exit 0
+      fi
+
+      preview="${wallpaperPreviews}/$(basename "$image").jpg"
+
+      if [[ ! -f "$preview" ]]; then
+        preview="$image"
+      fi
+
+      # Avoid rendering obsolete images while quickly scrolling through fzf.
+      sleep 0.08
+
+      columns="''${FZF_PREVIEW_COLUMNS:-80}"
+      lines="''${FZF_PREVIEW_LINES:-24}"
+
+      if [[ -n "''${KITTY_WINDOW_ID:-}" ]]; then
+        # Follow fzf's own Kitty preview approach: render Unicode placeholders
+        # inside the preview pane instead of drawing over the terminal UI.
+        kitten icat           --clear           --transfer-mode=memory           --unicode-placeholder           --stdin=no           --place="''${columns}x''${lines}@0x0"           "$preview"           | sed '$d'           | sed $'$s/$/\e[m/'
+      else
+        # Keep the picker useful outside Kitty as well.
+        chafa           --size="''${columns}x''${lines}"           -- "$preview"
+        echo
+      fi
+    '';
+  };
 
   rice = pkgs.writeShellApplication {
     name = "rice";
@@ -20,7 +122,9 @@ let
       pkgs.findutils
       pkgs.gawk
       pkgs.gnugrep
+      pkgs.fzf
       pkgs.matugen
+      ricePreview
       pkgs.kdePackages.plasma-workspace
     ];
 
@@ -39,6 +143,7 @@ let
               cat <<'USAGE'
       Usage:
         rice list
+        rice pick
         rice wallpaper <name-or-path>
         rice next
         rice previous
@@ -51,6 +156,9 @@ let
       Commands:
         list
             List wallpapers managed by Nix.
+
+        pick
+            Select a wallpaper interactively with an image preview.
 
         wallpaper <name-or-path>
             Set Plasma wallpaper and generate a matching Matugen palette.
@@ -200,9 +308,50 @@ let
               apply_wallpaper "''${images[$index]}"
             }
 
+            pick_wallpaper() {
+              mapfile -d "" -t images < <(list_paths)
+
+              if (( ''${#images[@]} == 0 )); then
+                echo "ERROR: no wallpapers found in:"
+                echo "  $wallpaper_dir"
+                return 1
+              fi
+
+              local selected
+              local current_name="none"
+
+              if [[ -s "$current_file" ]]; then
+                current_name="$(basename "$(cat "$current_file")")"
+              fi
+
+              if selected="$(
+                printf '%s\n' "''${images[@]}" |
+                  fzf                     --height=90%                     --layout=reverse                     --border                     --cycle                     --info=inline                     --delimiter=/                     --with-nth=-1                     --prompt='Wallpaper > '                     --header="Current: $current_name | Enter: apply | Esc: cancel | Ctrl-/: preview"                     --preview 'rice-wallpaper-preview {}'                     --preview-window='right,65%'                     --bind='ctrl-/:toggle-preview'
+              )"; then
+                :
+              else
+                local rc=$?
+
+                # fzf returns 130 for Esc/Ctrl-C and 1 when nothing matched.
+                if (( rc == 130 || rc == 1 )); then
+                  return 0
+                fi
+
+                return "$rc"
+              fi
+
+              [[ -n "$selected" ]] || return 0
+
+              apply_wallpaper "$selected"
+            }
+
             case "''${1:-}" in
               list)
                 list_names
+                ;;
+
+              pick)
+                pick_wallpaper
                 ;;
 
               wallpaper)
@@ -333,7 +482,7 @@ in
     # symlink. realpath in the rice wrapper therefore changes when the actual
     # image changes, which also avoids stale Plasma wallpaper cache paths.
     xdg.dataFile."wallpapers/nix-config" = {
-      source = ../../../assets/wallpapers;
+      source = wallpaperSource;
       recursive = true;
     };
   };
