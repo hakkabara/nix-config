@@ -362,5 +362,35 @@ in
 
       search = import ./search.nix;
     };
+
+    # Dedicated single-purpose Floorp profile for WhatsApp.
+    #
+    # Keep WhatsApp separate from the normal Surf profile so
+    # session restore and ordinary browser tabs cannot become
+    # part of the WhatsApp autostart window.
+    profiles.whatsapp = {
+      id = 1;
+      name = "WhatsApp";
+      isDefault = false;
+
+      settings =
+        shared.profileSettings
+        // floorpSettings
+        // {
+          # The autostart launcher supplies web.whatsapp.com
+          # explicitly, so this profile itself starts empty.
+          "browser.startup.page" = 0;
+          "browser.startup.homepage" = "about:blank";
+
+          # Do not resurrect old WhatsApp browser windows after a
+          # crash. The dedicated autostart launcher is authoritative.
+          "browser.sessionstore.resume_from_crash" = false;
+          "browser.sessionstore.max_resumed_crashes" = 0;
+
+          # Workspaces are useful in the normal browser, not in the
+          # dedicated single-purpose WhatsApp instance.
+          "floorp.workspaces.enabled" = false;
+        };
+    };
   };
 }

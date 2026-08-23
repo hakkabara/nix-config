@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   xdg.configFile = {
@@ -38,12 +38,24 @@
       X-GNOME-Autostart-enabled=true
     '';
 
+    "autostart/whatsapp-floorp.desktop".text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=WhatsApp
+      Comment=Start WhatsApp in an isolated Floorp profile
+      Exec=${config.programs.floorp.finalPackage}/bin/floorp -P WhatsApp --new-instance --new-window https://web.whatsapp.com/
+      Terminal=false
+      Hidden=false
+      StartupNotify=false
+      X-GNOME-Autostart-enabled=true
+    '';
+
     "autostart/signal.desktop".text = ''
       [Desktop Entry]
       Type=Application
       Name=Signal
-      Comment=Start Signal in the system tray
-      Exec=${pkgs.signal-desktop}/bin/signal-desktop --use-tray-icon --start-in-tray
+      Comment=Start Signal with tray support
+      Exec=${pkgs.signal-desktop}/bin/signal-desktop --use-tray-icon
       Terminal=false
       Hidden=false
       StartupNotify=false
@@ -54,8 +66,8 @@
       [Desktop Entry]
       Type=Application
       Name=Telegram
-      Comment=Start Telegram in the system tray
-      Exec=${pkgs.telegram-desktop}/bin/Telegram -startintray
+      Comment=Start Telegram
+      Exec=${pkgs.telegram-desktop}/bin/Telegram
       Terminal=false
       Hidden=false
       StartupNotify=false

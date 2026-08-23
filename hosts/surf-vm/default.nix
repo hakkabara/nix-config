@@ -176,6 +176,7 @@
         enable = true;
         alwaysOn.enable = true;
         i3Style.enable = true;
+        windowLayout.enable = true;
         rice.enable = true;
         emptySession.enable = true;
         xwaylandInputNoPrompt.enable = true;

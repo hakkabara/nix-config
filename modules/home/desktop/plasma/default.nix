@@ -25,6 +25,7 @@ in
     plasma-manager.homeModules.plasma-manager
     ./panel.nix
     ./rice.nix
+    ./window-layout
   ];
 
   options.hakkabara.desktop.plasma = {

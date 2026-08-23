@@ -1,0 +1,18 @@
+{
+  "KPlugin": {
+    "Name": "Hakkabara Window Layout",
+    "Description": "Assign SurfVM applications to fixed Plasma virtual desktops",
+    "Icon": "preferences-system-windows",
+    "Authors": [
+      {
+        "Name": "hakkabara"
+      }
+    ],
+    "Id": "hakkabara-window-layout",
+    "Version": "1.1.0",
+    "License": "MIT"
+  },
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js",
+  "KPackageStructure": "KWin/Script"
+}
