@@ -17,6 +17,7 @@
     ../../modules/nixos/features/python.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
+    ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/maintenance.nix
