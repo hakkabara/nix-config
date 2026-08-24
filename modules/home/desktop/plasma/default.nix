@@ -26,6 +26,7 @@ in
     ./panel.nix
     ./rice.nix
     ./window-layout
+    ./focus-or-launch.nix
   ];
 
   options.hakkabara.desktop.plasma = {
@@ -91,6 +92,20 @@ in
       })
 
       (lib.mkIf cfg.i3Style.enable {
+        hakkabara.desktop.plasma.focusOrLaunch = {
+          enable = true;
+
+          # Keep the existing global-shortcut action ID so Plasma does not
+          # retain a stale duplicate while migrating from launch-only behavior.
+          targets."launch-kitty" = {
+            name = "Focus or Launch Kitty";
+            key = "Meta+Return";
+            desktop = 2;
+            classRegex = "^kitty$";
+            command = [ (lib.getExe pkgs.kitty) ];
+          };
+        };
+
         programs.plasma = {
           # Keep ten workspaces in one linear row.
           #
@@ -188,16 +203,6 @@ in
             };
           };
 
-          # Starting an application is not a KWin window-management action.
-          # plasma-manager therefore creates a dedicated global command hotkey.
-          hotkeys.commands."launch-kitty" = {
-            name = "Launch Kitty";
-            key = "Meta+Return";
-            command = lib.getExe pkgs.kitty;
-
-            # Kitty does not need its stdout/stderr wrapped by systemd-cat.
-            logs.enabled = false;
-          };
         };
       })
     ]
