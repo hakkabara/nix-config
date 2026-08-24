@@ -41,6 +41,7 @@
       ../../users/hakkabara
       ../../profiles/home/workstation-base.nix
       ../../modules/home/desktop/plasma
+      ../../modules/home/desktop/monitor
       ../../modules/home/ssh/personal-infra.nix
       ../../modules/home/desktop/autostart.nix
     ];
@@ -171,6 +172,40 @@
         chromium = {
           chromium.enable = true;
           vivaldi.enable = true;
+        };
+      };
+
+      desktop.monitor = {
+        enable = true;
+        backend = "plasma";
+        safeOutput = "Virtual-1";
+
+        watcher = {
+          enable = true;
+          # Event-driven on Plasma/Niri. These values are only short settling
+          # and safety fallback windows; there is no tight polling loop.
+          debounceSeconds = 1;
+          fallbackPollSeconds = 30;
+          promptTimeoutSeconds = 10;
+          popupDelayMilliseconds = 250;
+        };
+
+        profiles = {
+          homeoffice = {
+            # Calibrated against the real Home Office VMware/KScreen layout:
+            # 1920x1080 Virtual-2 on the left, 2560x1440 Virtual-1 on the right.
+            leftOutput = "Virtual-2";
+            rightOutput = "Virtual-1";
+            primaryOutput = "Virtual-1";
+            verticalAlignment = "top";
+          };
+
+          office = {
+            leftOutput = "Virtual-1";
+            rightOutput = "Virtual-2";
+            primaryOutput = "Virtual-1";
+            verticalAlignment = "top";
+          };
         };
       };
 
