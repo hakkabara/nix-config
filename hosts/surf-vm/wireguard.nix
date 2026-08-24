@@ -44,6 +44,12 @@ in
       autostart = false;
       configFile = config.sops.secrets."wireguard/homelab-full".path;
     };
+
+    "airvpn" = {
+      # RVPN is controlled by the persistent VPN manager.
+      autostart = false;
+      configFile = config.sops.secrets."wireguard/airvpn".path;
+    };
   };
 
   systemd.tmpfiles.rules = [
@@ -51,7 +57,7 @@ in
   ];
 
   systemd.services.homelab-vpn-manager = {
-    description = "Homelab WireGuard fail-open manager";
+    description = "SurfVM WireGuard VPN mode manager";
 
     wants = [
       "network-online.target"

@@ -5,9 +5,11 @@ MODE_FILE="$STATE_DIR/mode"
 
 FULL="wg-quick-homelab-full.service"
 SPLIT="wg-quick-homelab-split.service"
+AIRVPN="wg-quick-airvpn.service"
 
 FULL_CONFIG="/run/secrets/wireguard/homelab-full"
 SPLIT_CONFIG="/run/secrets/wireguard/homelab-split"
+AIRVPN_CONFIG="/run/secrets/wireguard/airvpn"
 
 PROBE="wgprobe"
 PROBE_SOURCE="/run/wgprobe.conf"
@@ -15,6 +17,10 @@ PROBE_STRIPPED="/run/wgprobe-stripped.conf"
 
 HEALTH_TARGET="192.168.189.1"
 FULL_INTERFACE="homelab-full"
+SPLIT_INTERFACE="homelab-split"
+AIRVPN_INTERFACE="airvpn"
+WIREGUARD_TRANSPORT_FWMARK="51820"
+WIREGUARD_TRANSPORT_FWMARK_HEX="0xca6c"
 INTERNET_ROUTE_TARGET="1.1.1.1"
 INTERNET_TEST_URL="https://cache.nixos.org/nix-cache-info"
 
@@ -25,6 +31,7 @@ RECOVERY_LIMIT=3
 auto_failures=0
 auto_successes=0
 FULL_HEALTH_REASON=""
+RVPN_HEALTH_REASON=""
 
 
 log() {
@@ -65,7 +72,7 @@ read_mode() {
     )"
 
     case "$mode" in
-        auto|full|split|off)
+        auto|full|split|rvpn|off)
             printf '%s\n' "$mode"
             ;;
 
@@ -82,7 +89,7 @@ write_mode() {
     local tmp
 
     case "$mode" in
-        auto|full|split|off)
+        auto|full|split|rvpn|off)
             ;;
         *)
             echo "Invalid VPN mode: $mode" >&2
@@ -130,6 +137,58 @@ start_service() {
         log "starting $unit"
         systemctl start "$unit"
     fi
+}
+
+
+split_transport_mark() {
+    if ! service_active "$SPLIT"; then
+        printf '%s\n' "off"
+        return 0
+    fi
+
+    wg show "$SPLIT_INTERFACE" fwmark 2>/dev/null || printf '%s\n' "off"
+}
+
+
+set_split_transport_mark() {
+    local current
+
+    if ! service_active "$SPLIT"; then
+        log "cannot set split transport fwmark: $SPLIT is inactive"
+        return 1
+    fi
+
+    current="$(split_transport_mark)"
+
+    if [[ "$current" != "$WIREGUARD_TRANSPORT_FWMARK_HEX" ]]; then
+        log "setting $SPLIT_INTERFACE transport fwmark to $WIREGUARD_TRANSPORT_FWMARK_HEX"
+        wg set "$SPLIT_INTERFACE" fwmark "$WIREGUARD_TRANSPORT_FWMARK"
+    fi
+}
+
+
+clear_split_transport_mark() {
+    local current
+
+    if ! service_active "$SPLIT"; then
+        return 0
+    fi
+
+    current="$(split_transport_mark)"
+
+    if [[ "$current" != "off" ]]; then
+        log "clearing $SPLIT_INTERFACE transport fwmark"
+        wg set "$SPLIT_INTERFACE" fwmark off
+    fi
+}
+
+
+stop_rvpn() {
+    # AirVPN must go down before the split transport mark is cleared.  While
+    # AirVPN owns the default policy-routing table, unmarked encrypted packets
+    # from homelab-split would otherwise be captured by AirVPN itself.
+    stop_service "$AIRVPN"
+    clear_split_transport_mark
 }
 
 
@@ -283,7 +342,9 @@ route_uses_interface() {
 }
 
 
-full_dns_server() {
+config_dns_server() {
+    local config_file="$1"
+
     awk -F= '
         /^[[:space:]]*DNS[[:space:]]*=/ {
             value=$2
@@ -292,15 +353,16 @@ full_dns_server() {
             print servers[1]
             exit
         }
-    ' "$FULL_CONFIG"
+    ' "$config_file"
 }
 
 
-dns_config_healthy() {
+dns_config_healthy_for() {
+    local config_file="$1"
     local dns
 
     dns="$(
-        full_dns_server
+        config_dns_server "$config_file"
     )" || return 1
 
     [[ -n "$dns" ]] ||
@@ -368,7 +430,7 @@ full_healthy() {
         return 1
     fi
 
-    if ! dns_config_healthy; then
+    if ! dns_config_healthy_for "$FULL_CONFIG"; then
         FULL_HEALTH_REASON="Homelab DNS is not active in /etc/resolv.conf"
         return 1
     fi
@@ -395,9 +457,65 @@ full_healthy_deep() {
 }
 
 
+rvpn_healthy() {
+    RVPN_HEALTH_REASON=""
+
+    if ! service_active "$AIRVPN"; then
+        RVPN_HEALTH_REASON="AirVPN service inactive"
+        return 1
+    fi
+
+    if ! service_active "$SPLIT"; then
+        RVPN_HEALTH_REASON="Homelab split service inactive"
+        return 1
+    fi
+
+    if [[ "$(split_transport_mark)" != "$WIREGUARD_TRANSPORT_FWMARK_HEX" ]]; then
+        RVPN_HEALTH_REASON="Homelab split transport fwmark is not $WIREGUARD_TRANSPORT_FWMARK_HEX"
+        return 1
+    fi
+
+    if ! route_uses_interface "$HEALTH_TARGET" "$SPLIT_INTERFACE"; then
+        RVPN_HEALTH_REASON="Homelab route is not on $SPLIT_INTERFACE"
+        return 1
+    fi
+
+    if ! ping -c 1 -W 2 "$HEALTH_TARGET" >/dev/null 2>&1; then
+        RVPN_HEALTH_REASON="Homelab target $HEALTH_TARGET is unreachable"
+        return 1
+    fi
+
+    if ! dns_config_healthy_for "$SPLIT_CONFIG"; then
+        RVPN_HEALTH_REASON="Homelab split DNS is not active in /etc/resolv.conf"
+        return 1
+    fi
+
+    if ! route_uses_interface "$INTERNET_ROUTE_TARGET" "$AIRVPN_INTERFACE"; then
+        RVPN_HEALTH_REASON="Internet route is not on $AIRVPN_INTERFACE"
+        return 1
+    fi
+
+    return 0
+}
+
+
+rvpn_healthy_deep() {
+    rvpn_healthy ||
+        return 1
+
+    if ! internet_egress_healthy; then
+        RVPN_HEALTH_REASON="AirVPN HTTPS egress failed"
+        return 1
+    fi
+
+    return 0
+}
+
+
 enter_fallback() {
     log "entering fail-open fallback"
 
+    stop_rvpn
     stop_service "$FULL"
     stop_service "$SPLIT"
 
@@ -411,6 +529,7 @@ enter_fallback() {
 
 
 try_full_from_auto() {
+    stop_rvpn
     stop_service "$SPLIT"
     stop_probe
 
@@ -438,6 +557,8 @@ try_full_from_auto() {
 
 
 auto_step() {
+    stop_rvpn
+
     if service_active "$FULL"; then
         stop_probe
         stop_service "$SPLIT"
@@ -497,6 +618,7 @@ auto_step() {
 
 full_step() {
     stop_probe
+    stop_rvpn
     stop_service "$SPLIT"
 
     start_service "$FULL"
@@ -505,14 +627,31 @@ full_step() {
 
 split_step() {
     stop_probe
+    stop_rvpn
     stop_service "$FULL"
 
     start_service "$SPLIT"
+    clear_split_transport_mark
+}
+
+
+rvpn_step() {
+    stop_probe
+    stop_service "$FULL"
+
+    # Order matters: the split tunnel must exist and carry the same fwmark that
+    # wg-quick uses for AirVPN before AirVPN installs its default policy route.
+    # Otherwise the encrypted outer packets of homelab-split are recursively
+    # captured by the AirVPN full tunnel.
+    start_service "$SPLIT"
+    set_split_transport_mark
+    start_service "$AIRVPN"
 }
 
 
 off_step() {
     stop_probe
+    stop_rvpn
     stop_service "$FULL"
     stop_service "$SPLIT"
 
@@ -524,6 +663,12 @@ off_step() {
 configs_ready() {
     [[ -r "$FULL_CONFIG" ]] &&
     [[ -r "$SPLIT_CONFIG" ]]
+}
+
+
+rvpn_configs_ready() {
+    [[ -r "$SPLIT_CONFIG" ]] &&
+    [[ -r "$AIRVPN_CONFIG" ]]
 }
 
 
@@ -550,6 +695,16 @@ run_manager() {
         case "$mode" in
             off)
                 off_step
+                ;;
+
+            rvpn)
+                if ! rvpn_configs_ready; then
+                    log "waiting for RVPN WireGuard secrets"
+                    sleep "$CHECK_INTERVAL"
+                    continue
+                fi
+
+                rvpn_step
                 ;;
 
             auto|full|split)
@@ -584,6 +739,27 @@ check_health() {
     mode="$(read_mode)"
 
     echo "Desired mode: $mode"
+
+    if service_active "$AIRVPN"; then
+        echo "Runtime: rvpn"
+
+        if rvpn_healthy_deep; then
+            echo "RVPN health: healthy"
+            echo "Homelab health: reachable"
+            exit 0
+        fi
+
+        echo "RVPN health: degraded"
+        echo "Reason: $RVPN_HEALTH_REASON"
+        exit 1
+    fi
+
+    if [[ "$mode" == "rvpn" ]]; then
+        echo "Runtime: rvpn-degraded"
+        echo "RVPN health: degraded"
+        echo "Reason: AirVPN service inactive"
+        exit 1
+    fi
 
     if service_active "$FULL"; then
         echo "Runtime: full"
@@ -673,7 +849,7 @@ case "${1:-run}" in
     *)
         echo "Usage:"
         echo "  homelab-vpn-manager run"
-        echo "  homelab-vpn-manager set-mode auto|full|split|off"
+        echo "  homelab-vpn-manager set-mode auto|full|split|rvpn|off"
         echo "  homelab-vpn-manager get-mode"
         echo "  homelab-vpn-manager check"
         echo "  homelab-vpn-manager cleanup-probe"

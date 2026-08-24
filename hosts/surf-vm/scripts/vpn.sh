@@ -5,6 +5,7 @@ MANAGER_SERVICE="homelab-vpn-manager.service"
 
 FULL="wg-quick-homelab-full.service"
 SPLIT="wg-quick-homelab-split.service"
+AIRVPN="wg-quick-airvpn.service"
 
 STATE_DIR="/var/lib/homelab-vpn"
 MODE_FILE="$STATE_DIR/mode"
@@ -37,7 +38,16 @@ status() {
 
     desired="$(mode)"
 
-    if systemctl is-active --quiet "$FULL"; then
+    if [[ "$desired" == "rvpn" ]]; then
+        if systemctl is-active --quiet "$AIRVPN" && \
+           systemctl is-active --quiet "$SPLIT"; then
+            runtime="rvpn"
+        else
+            runtime="rvpn-degraded"
+        fi
+    elif systemctl is-active --quiet "$AIRVPN"; then
+        runtime="unexpected-airvpn"
+    elif systemctl is-active --quiet "$FULL"; then
         runtime="full"
     elif systemctl is-active --quiet "$SPLIT"; then
         runtime="split"
@@ -56,6 +66,7 @@ status() {
     echo
     printf '%s homelab-full\n' "$(active_mark "$FULL")"
     printf '%s homelab-split\n' "$(active_mark "$SPLIT")"
+    printf '%s airvpn\n' "$(active_mark "$AIRVPN")"
 
     if ip link show "$PROBE" >/dev/null 2>&1; then
         echo "● homelab-probe"
@@ -109,6 +120,10 @@ case "${1:-status}" in
         set_mode split
         ;;
 
+    rvpn)
+        set_mode rvpn
+        ;;
+
     off)
         set_mode off
         ;;
@@ -126,6 +141,7 @@ case "${1:-status}" in
         echo "  vpn auto"
         echo "  vpn full"
         echo "  vpn split"
+        echo "  vpn rvpn"
         echo "  vpn off"
         echo "  vpn status"
         echo "  vpn check"

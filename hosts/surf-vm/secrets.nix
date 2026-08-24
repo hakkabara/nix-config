@@ -61,6 +61,15 @@
         mode = "0400";
       };
 
+      "wireguard/airvpn" = {
+        sopsFile = ../../secrets/surf-vm/airvpn.conf;
+        format = "binary";
+
+        owner = "root";
+        group = "root";
+        mode = "0400";
+      };
+
       # --------------------------------------------------------
       # SMB
       # --------------------------------------------------------
