@@ -4,6 +4,8 @@ let
   cfg = config.hakkabara.shell;
 in
 {
+  imports = [ ./network-tools.nix ];
+
   options.hakkabara.shell.enable = lib.mkEnableOption "shared interactive shell environment";
 
   config = lib.mkIf cfg.enable {
