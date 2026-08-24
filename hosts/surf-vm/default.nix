@@ -19,6 +19,7 @@
     ../../modules/nixos/desktop/plasma.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
+    ../../modules/nixos/maintenance.nix
   ];
 
   hakkabara = {
