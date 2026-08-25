@@ -6,6 +6,7 @@
     ./browsers
     ./copyq
     ./flameshot.nix
+    ./immich
     ./veracrypt.nix
   ];
 
