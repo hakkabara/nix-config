@@ -5,7 +5,7 @@ MANAGER_SERVICE="homelab-vpn-manager.service"
 
 FULL="wg-quick-homelab-full.service"
 SPLIT="wg-quick-homelab-split.service"
-AIRVPN="wg-quick-airvpn.service"
+RVPN="wg-quick-rvpn.service"
 
 STATE_DIR="/var/lib/homelab-vpn"
 MODE_FILE="$STATE_DIR/mode"
@@ -18,7 +18,7 @@ mode() {
     if [[ -r "$MODE_FILE" ]]; then
         cat "$MODE_FILE"
     else
-        echo "auto"
+        echo "full"
     fi
 }
 
@@ -39,14 +39,14 @@ status() {
     desired="$(mode)"
 
     if [[ "$desired" == "rvpn" ]]; then
-        if systemctl is-active --quiet "$AIRVPN" && \
+        if systemctl is-active --quiet "$RVPN" && \
            systemctl is-active --quiet "$SPLIT"; then
             runtime="rvpn"
         else
             runtime="rvpn-degraded"
         fi
-    elif systemctl is-active --quiet "$AIRVPN"; then
-        runtime="unexpected-airvpn"
+    elif systemctl is-active --quiet "$RVPN"; then
+        runtime="unexpected-rvpn"
     elif systemctl is-active --quiet "$FULL"; then
         runtime="full"
     elif systemctl is-active --quiet "$SPLIT"; then
@@ -66,7 +66,7 @@ status() {
     echo
     printf '%s homelab-full\n' "$(active_mark "$FULL")"
     printf '%s homelab-split\n' "$(active_mark "$SPLIT")"
-    printf '%s airvpn\n' "$(active_mark "$AIRVPN")"
+    printf '%s rvpn\n' "$(active_mark "$RVPN")"
 
     if ip link show "$PROBE" >/dev/null 2>&1; then
         echo "● homelab-probe"
@@ -107,6 +107,95 @@ set_mode() {
 }
 
 
+
+test_vpn() {
+    echo "VPN TEST"
+    echo "─────────"
+
+    echo
+    echo "Mode:"
+    mode
+
+    echo
+    echo "WireGuard:"
+
+    if systemctl is-active --quiet "$FULL" ||
+       systemctl is-active --quiet "$SPLIT" ||
+       systemctl is-active --quiet "$RVPN"; then
+        echo "✓ WireGuard active"
+    else
+        echo "✗ WireGuard inactive"
+    fi
+
+    echo
+    echo "Homelab:"
+
+    if ping -c 1 -W 2 "$HEALTH_TARGET" >/dev/null 2>&1; then
+        echo "✓ $HEALTH_TARGET reachable"
+    else
+        echo "✗ Homelab unreachable"
+    fi
+
+    echo
+    echo "DNS:"
+
+    if getent hosts google.de >/dev/null 2>&1; then
+        echo "✓ DNS works"
+    else
+        echo "✗ DNS failed"
+    fi
+
+    echo
+    echo "Internet:"
+
+    if curl -fsS --max-time 5 \
+        https://cache.nixos.org/nix-cache-info >/dev/null; then
+        echo "✓ Internet works"
+    else
+        echo "✗ Internet failed"
+    fi
+
+    echo
+    echo "Public IPv4:"
+    curl -4 --max-time 5 -fsS https://ipinfo.io/ip \
+        || echo "unavailable"
+}
+
+
+doctor() {
+    echo "VPN DOCTOR"
+    echo "──────────"
+
+    echo
+    echo "Services:"
+
+    systemctl is-active --quiet "$MANAGER_SERVICE" \
+        && echo "✓ manager" \
+        || echo "✗ manager"
+
+    echo
+    echo "Interfaces:"
+    ip link show | grep -E "homelab|rvpn" || echo "none"
+
+    echo
+    echo "Routes:"
+    ip route get "$HEALTH_TARGET" || true
+
+    echo
+    echo "WireGuard:"
+    sudo sh -c 'wg show | grep -E "interface|latest handshake" || true'
+
+    echo
+    echo "Secrets:"
+
+    sudo sh -c '
+    for s in /run/secrets/wireguard/*; do
+        [[ -e "$s" ]] && echo "✓ $(basename "$s")"
+    done
+    '
+}
+
+
 case "${1:-status}" in
     auto)
         set_mode auto
@@ -132,6 +221,14 @@ case "${1:-status}" in
         status
         ;;
 
+    test)
+        test_vpn
+        ;;
+
+    doctor)
+        doctor
+        ;;
+
     check)
         sudo "$MANAGER" check
         ;;
@@ -144,6 +241,8 @@ case "${1:-status}" in
         echo "  vpn rvpn"
         echo "  vpn off"
         echo "  vpn status"
+        echo "  vpn test"
+        echo "  vpn doctor"
         echo "  vpn check"
         exit 2
         ;;

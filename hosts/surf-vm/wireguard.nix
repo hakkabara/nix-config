@@ -45,10 +45,10 @@ in
       configFile = config.sops.secrets."wireguard/homelab-full".path;
     };
 
-    "airvpn" = {
+    "rvpn" = {
       # RVPN is controlled by the persistent VPN manager.
       autostart = false;
-      configFile = config.sops.secrets."wireguard/airvpn".path;
+      configFile = config.sops.secrets."wireguard/rvpn".path;
     };
   };
 

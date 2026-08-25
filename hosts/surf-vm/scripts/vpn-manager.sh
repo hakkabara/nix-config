@@ -5,11 +5,11 @@ MODE_FILE="$STATE_DIR/mode"
 
 FULL="wg-quick-homelab-full.service"
 SPLIT="wg-quick-homelab-split.service"
-AIRVPN="wg-quick-airvpn.service"
+RVPN="wg-quick-rvpn.service"
 
 FULL_CONFIG="/run/secrets/wireguard/homelab-full"
 SPLIT_CONFIG="/run/secrets/wireguard/homelab-split"
-AIRVPN_CONFIG="/run/secrets/wireguard/airvpn"
+RVPN_CONFIG="/run/secrets/wireguard/rvpn"
 
 PROBE="wgprobe"
 PROBE_SOURCE="/run/wgprobe.conf"
@@ -18,7 +18,7 @@ PROBE_STRIPPED="/run/wgprobe-stripped.conf"
 HEALTH_TARGET="192.168.189.1"
 FULL_INTERFACE="homelab-full"
 SPLIT_INTERFACE="homelab-split"
-AIRVPN_INTERFACE="airvpn"
+RVPN_INTERFACE="rvpn"
 WIREGUARD_TRANSPORT_FWMARK="51820"
 WIREGUARD_TRANSPORT_FWMARK_HEX="0xca6c"
 INTERNET_ROUTE_TARGET="1.1.1.1"
@@ -56,7 +56,7 @@ ensure_state() {
         "$STATE_DIR"
 
     if [[ ! -e "$MODE_FILE" ]]; then
-        printf '%s\n' "auto" > "$MODE_FILE"
+        printf '%s\n' "full" > "$MODE_FILE"
         chmod 0644 "$MODE_FILE"
     fi
 }
@@ -68,7 +68,7 @@ read_mode() {
     mode="$(
         cat "$MODE_FILE" \
             2>/dev/null ||
-            printf '%s\n' "auto"
+            printf '%s\n' "full"
     )"
 
     case "$mode" in
@@ -77,8 +77,8 @@ read_mode() {
             ;;
 
         *)
-            log "invalid stored mode '$mode'; using auto" >&2
-            printf '%s\n' "auto"
+            log "invalid stored mode '$mode'; using full" >&2
+            printf '%s\n' "full"
             ;;
     esac
 }
@@ -184,10 +184,10 @@ clear_split_transport_mark() {
 
 
 stop_rvpn() {
-    # AirVPN must go down before the split transport mark is cleared.  While
-    # AirVPN owns the default policy-routing table, unmarked encrypted packets
-    # from homelab-split would otherwise be captured by AirVPN itself.
-    stop_service "$AIRVPN"
+    # RVPN must go down before the split transport mark is cleared.  While
+    # RVPN owns the default policy-routing table, unmarked encrypted packets
+    # from homelab-split would otherwise be captured by RVPN itself.
+    stop_service "$RVPN"
     clear_split_transport_mark
 }
 
@@ -460,8 +460,8 @@ full_healthy_deep() {
 rvpn_healthy() {
     RVPN_HEALTH_REASON=""
 
-    if ! service_active "$AIRVPN"; then
-        RVPN_HEALTH_REASON="AirVPN service inactive"
+    if ! service_active "$RVPN"; then
+        RVPN_HEALTH_REASON="RVPN service inactive"
         return 1
     fi
 
@@ -490,8 +490,8 @@ rvpn_healthy() {
         return 1
     fi
 
-    if ! route_uses_interface "$INTERNET_ROUTE_TARGET" "$AIRVPN_INTERFACE"; then
-        RVPN_HEALTH_REASON="Internet route is not on $AIRVPN_INTERFACE"
+    if ! route_uses_interface "$INTERNET_ROUTE_TARGET" "$RVPN_INTERFACE"; then
+        RVPN_HEALTH_REASON="Internet route is not on $RVPN_INTERFACE"
         return 1
     fi
 
@@ -504,7 +504,7 @@ rvpn_healthy_deep() {
         return 1
 
     if ! internet_egress_healthy; then
-        RVPN_HEALTH_REASON="AirVPN HTTPS egress failed"
+        RVPN_HEALTH_REASON="RVPN HTTPS egress failed"
         return 1
     fi
 
@@ -640,12 +640,12 @@ rvpn_step() {
     stop_service "$FULL"
 
     # Order matters: the split tunnel must exist and carry the same fwmark that
-    # wg-quick uses for AirVPN before AirVPN installs its default policy route.
+    # wg-quick uses for RVPN before RVPN installs its default policy route.
     # Otherwise the encrypted outer packets of homelab-split are recursively
-    # captured by the AirVPN full tunnel.
+    # captured by the RVPN full tunnel.
     start_service "$SPLIT"
     set_split_transport_mark
-    start_service "$AIRVPN"
+    start_service "$RVPN"
 }
 
 
@@ -668,7 +668,7 @@ configs_ready() {
 
 rvpn_configs_ready() {
     [[ -r "$SPLIT_CONFIG" ]] &&
-    [[ -r "$AIRVPN_CONFIG" ]]
+    [[ -r "$RVPN_CONFIG" ]]
 }
 
 
@@ -740,7 +740,7 @@ check_health() {
 
     echo "Desired mode: $mode"
 
-    if service_active "$AIRVPN"; then
+    if service_active "$RVPN"; then
         echo "Runtime: rvpn"
 
         if rvpn_healthy_deep; then
@@ -757,7 +757,7 @@ check_health() {
     if [[ "$mode" == "rvpn" ]]; then
         echo "Runtime: rvpn-degraded"
         echo "RVPN health: degraded"
-        echo "Reason: AirVPN service inactive"
+        echo "Reason: RVPN service inactive"
         exit 1
     fi
 
