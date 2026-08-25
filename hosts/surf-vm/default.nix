@@ -21,6 +21,7 @@
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/maintenance.nix
+    ../../modules/nixos/flatpak
   ];
 
   hakkabara = {
@@ -40,6 +41,7 @@
     imports = [
       ../../users/hakkabara
       ../../profiles/home/workstation-base.nix
+      ../../profiles/home/surf-vm-apps.nix
       ../../modules/home/desktop/plasma
       ../../modules/home/desktop/monitor
       ../../modules/home/ssh/personal-infra.nix

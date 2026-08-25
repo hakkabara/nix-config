@@ -4,6 +4,9 @@
   imports = [
     ./equibop.nix
     ./browsers
+    ./copyq
+    ./flameshot.nix
+    ./veracrypt.nix
   ];
 
   programs = {

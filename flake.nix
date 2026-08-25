@@ -30,6 +30,10 @@
       url = "github:Kyubai/wl-x11-clipsync";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-flatpak = {
+      url = "github:gmodena/nix-flatpak";
+    };
+
     # Zellij scratchpads and companion CLI.
     #
     # The concrete upstream revision is pinned in flake.lock.
@@ -48,6 +52,7 @@
       sops-nix,
       plasma-manager,
       wl-x11-clipsync,
+      nix-flatpak,
       zellij-tools,
       ...
     }:
@@ -71,6 +76,7 @@
         modules = [
           ./hosts/surf-vm
 
+          nix-flatpak.nixosModules.nix-flatpak
           home-manager.nixosModules.home-manager
           sops-nix.nixosModules.sops
 

@@ -181,6 +181,12 @@ in
               ];
             };
 
+            "services/org.flameshot.Flameshot.desktop" = {
+              "_launch" = [
+                "Meta+Shift+S"
+              ];
+            };
+
             plasmashell = {
               # Preserve Plasma's standard launcher bindings and add Meta+D.
               "activate application launcher" = [

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+CONTENT="$(cat)"
+
+tag=""
+
+case "${#CONTENT}" in
+  32)
+    if [[ "$CONTENT" =~ ^[a-fA-F0-9]+$ ]]; then
+      tag="md5"
+    fi
+    ;;
+  40)
+    if [[ "$CONTENT" =~ ^[a-fA-F0-9]+$ ]]; then
+      tag="sha1"
+    fi
+    ;;
+  64)
+    if [[ "$CONTENT" =~ ^[a-fA-F0-9]+$ ]]; then
+      tag="sha256"
+    fi
+    ;;
+  128)
+    if [[ "$CONTENT" =~ ^[a-fA-F0-9]+$ ]]; then
+      tag="sha512"
+    fi
+    ;;
+esac
+
+if [[ -n "$tag" ]]; then
+  echo "$tag"
+fi

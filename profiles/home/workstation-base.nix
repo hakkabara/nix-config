@@ -14,6 +14,8 @@
     cli.enable = lib.mkDefault true;
     shell.enable = lib.mkDefault true;
 
+    apps.flameshot.enable = lib.mkDefault true;
+
     editor.enable = lib.mkDefault true;
 
     git.enable = lib.mkDefault true;
