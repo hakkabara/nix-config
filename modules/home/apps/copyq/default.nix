@@ -3,11 +3,26 @@
 {
   imports = [
     ./dfir/hashes.nix
+    ./commands.nix
   ];
 
-  home.packages = [
-    pkgs.copyq
-  ];
+  home = {
+    packages = [
+      pkgs.copyq
+    ];
+
+    file = {
+      ".local/bin/copyq-dfir-tag" = {
+        source = ./scripts/copyq-dfir-tag;
+        executable = true;
+      };
+
+      ".local/bin/copyq-install-commands" = {
+        source = ./scripts/install-commands.sh;
+        executable = true;
+      };
+    };
+  };
 
   xdg.configFile."autostart/copyq.desktop".text = ''
     [Desktop Entry]
@@ -21,8 +36,7 @@
     StartupNotify=false
   '';
 
-  home.file.".local/bin/copyq-dfir-tag" = {
-    source = ./scripts/copyq-dfir-tag;
-    executable = true;
-  };
+  home.activation.copyqDfirCommands = ''
+    $HOME/.local/bin/copyq-install-commands
+  '';
 }
