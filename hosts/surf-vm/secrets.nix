@@ -95,6 +95,39 @@
         mode = "0400";
       };
 
+            # --------------------------------------------------------
+      # Pi-hole
+      # --------------------------------------------------------
+
+      "pihole/deacpi01/url" = {
+        key = "api/pihole/deacpi01/url";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+      "pihole/deacpi01/token" = {
+        key = "api/pihole/deacpi01/token";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+
+      "pihole/derbpi01/url" = {
+        key = "api/pihole/derbpi01/url";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+      "pihole/derbpi01/token" = {
+        key = "api/pihole/derbpi01/token";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
     };
 
   };

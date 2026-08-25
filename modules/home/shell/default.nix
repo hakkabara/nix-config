@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   cfg = config.hakkabara.shell;
@@ -14,6 +14,10 @@ in
         enable = true;
         enableCompletion = true;
 
+        initContent = ''
+          export PATH="$HOME/.local/bin:$PATH"
+        '';
+
         autosuggestion = {
           enable = true;
 
@@ -24,6 +28,43 @@ in
         };
 
         syntaxHighlighting.enable = true;
+
+        plugins = [
+          {
+            name = "zsh-completions";
+            src = pkgs.zsh-completions;
+          }
+
+          {
+            name = "fzf-tab";
+            src = pkgs.fetchFromGitHub {
+              owner = "Aloxaf";
+              repo = "fzf-tab";
+              rev = "v1.2.0";
+              hash = "sha256-1ojmr9+Wg5+X5Dip4sKjP4IKKACMncPQDZ8RtYQSQ80=";
+            };
+          }
+
+          {
+            name = "alias-tips";
+            src = pkgs.fetchFromGitHub {
+              owner = "djui";
+              repo = "alias-tips";
+              rev = "41cb143ccc3b8cc444bf20257276cb43275f65c4";
+              hash = "sha256-ZFWrwcwwwSYP5d8k7Lr/hL3WKAZmgn51Q9hYL3bq9vE=";
+            };
+          }
+
+          {
+            name = "zsh-you-should-use";
+            src = pkgs.fetchFromGitHub {
+              owner = "MichaelAquilina";
+              repo = "zsh-you-should-use";
+              rev = "5f3d129864ee4505043d88c3486224f1d75b692e";
+              hash = "sha256-1ojmr9+Wg5+X5Dip4sKjP4IKKACMncPQDZ8RtYQSQ80=";
+            };
+          }
+        ];
 
         history = {
           size = 100000;
@@ -55,9 +96,53 @@ in
         ];
 
         shellAliases = {
+          # Navigation
           ".." = "cd ..";
           "..." = "cd ../..";
           "...." = "cd ../../..";
+
+          # Git
+          gs = "git status";
+          ga = "git add";
+          gc = "git commit";
+          gp = "git push";
+          gl = "git log --oneline --graph --decorate";
+          gd = "git diff";
+          gco = "git checkout";
+          gb = "git branch";
+
+          # Nix
+          nrs = "sudo nixos-rebuild switch --flake .";
+          nrt = "sudo nixos-rebuild test --flake .";
+          nfc = "nix flake check";
+          nfu = "nix flake update";
+
+          # Docker
+          d = "docker";
+          dc = "docker compose";
+          dps = "docker ps";
+          dpsa = "docker ps -a";
+          di = "docker images";
+          dex = "docker exec -it";
+          dlog = "docker logs -f";
+
+          # Docker Compose
+          dcu = "docker compose up -d";
+          dcd = "docker compose down";
+          dcr = "docker compose restart";
+          dcl = "docker compose logs -f";
+
+          # Tools
+          ll = "eza -lah";
+          la = "eza -la";
+          disk = "duf";
+          usage = "dust";
+
+          # Network / Debug
+          ports = "ss -tulpn";
+          journal = "journalctl -xe";
+
+          # Kitty
           kssh = "kitten ssh";
           icat = "kitten icat";
         };

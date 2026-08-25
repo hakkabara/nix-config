@@ -7,6 +7,7 @@
     ./copyq
     ./flameshot.nix
     ./immich
+    ./pihole
     ./veracrypt.nix
   ];
 

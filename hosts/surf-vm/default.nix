@@ -52,6 +52,9 @@
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
       theme.matugen.enable = true;
+
+      apps.pihole.enable = true;
+
       ai = {
         enable = true;
 

@@ -83,3 +83,14 @@ tags = [
   "wireguard",
   "private-key",
 ]
+
+
+# ============================================================
+# False positives: Nix secret references
+# ============================================================
+
+[allowlist]
+description = "Ignore Nix sops secret reference paths"
+regexes = [
+  '''api/pihole/.*/(url|token)''',
+]

@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+BASE="/run/secrets/pihole"
+
+usage() {
+    echo "Usage:"
+    echo
+    echo "  pihole health <name>"
+    echo "  pihole status <name>"
+    echo
+    echo "Examples:"
+    echo "  pihole health deacpi01"
+    echo "  pihole status derbpi01"
+    exit 1
+}
+
+secret_exists() {
+    [[ -f "$BASE/$1/url" ]] &&
+    [[ -f "$BASE/$1/token" ]]
+}
+
+load_secret() {
+    NAME="$1"
+
+    URL="$(cat "$BASE/$NAME/url")"
+    TOKEN="$(cat "$BASE/$NAME/token")"
+}
+
+api_get() {
+    curl -ks \
+        --connect-timeout 5 \
+        -H "X-FTL-SID: $TOKEN" \
+        "$URL/api/$1"
+}
+
+health() {
+    NAME="$1"
+
+    if ! secret_exists "$NAME"; then
+        echo "Unknown Pi-hole: $NAME"
+        exit 1
+    fi
+
+    load_secret "$NAME"
+
+    echo "Pi-hole: $NAME"
+    echo
+    echo "URL:"
+    echo "$URL"
+    echo
+
+    if curl -ks \
+        --connect-timeout 5 \
+        "$URL" >/dev/null
+    then
+        echo "Connection: OK"
+    else
+        echo "Connection: FAILED"
+        exit 1
+    fi
+
+    echo
+
+    if api_get "stats/summary" >/dev/null
+    then
+        echo "API: OK"
+    else
+        echo "API: FAILED"
+        exit 1
+    fi
+}
+
+status() {
+    NAME="$1"
+
+    if ! secret_exists "$NAME"; then
+        echo "Unknown Pi-hole: $NAME"
+        exit 1
+    fi
+
+    load_secret "$NAME"
+
+    api_get "stats/summary" | jq
+}
+
+
+[[ $# -ge 1 ]] || usage
+
+
+case "$1" in
+
+health)
+    [[ $# -eq 2 ]] || usage
+    health "$2"
+    ;;
+
+status)
+    [[ $# -eq 2 ]] || usage
+    status "$2"
+    ;;
+
+*)
+    usage
+    ;;
+
+esac
