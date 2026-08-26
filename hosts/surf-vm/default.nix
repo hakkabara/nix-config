@@ -24,7 +24,7 @@
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
-    ../../modules/nixos/storage/disko-btrfs-luks.nix
+    ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/flatpak
   ];
 
@@ -46,11 +46,24 @@
     storage.disko = {
       enable = false;
       device = "/dev/sda";
-      allowDiscards = true;
+      filesystem = "btrfs";
+
+      partition.systemSize = "100%";
+
+      encryption = {
+        enable = true;
+        allowDiscards = true;
+        yubikey.enable = false;
+      };
+
+      btrfs.prepareForImpermanence = true;
+
       swap = {
         enable = true;
-        size = "8G";
+        sizeMiB = 8192;
       };
+
+      trim.enable = true;
     };
   };
 

@@ -3,20 +3,35 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../../modules/nixos/storage/disko-btrfs-luks.nix
+    ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/virtualization/vmware.nix
   ];
 
   hakkabara.storage.disko = {
     enable = true;
     device = "/dev/sda";
-    allowDiscards = true;
+    filesystem = "btrfs";
 
-    # Swap lives inside the LUKS-encrypted Btrfs filesystem.
+    partition.systemSize = "100%";
+
+    encryption = {
+      enable = true;
+      allowDiscards = true;
+
+      # Enable only after the normal LUKS password boot has been validated
+      # and a YubiKey has been enrolled with systemd-cryptenroll.
+      yubikey.enable = false;
+    };
+
+    btrfs.prepareForImpermanence = true;
+
+    # Swap lives inside Btrfs and therefore inside LUKS on this test VM.
     swap = {
       enable = true;
-      size = "8G";
+      sizeMiB = 8192;
     };
+
+    trim.enable = true;
   };
 
   networking = {
