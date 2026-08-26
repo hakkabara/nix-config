@@ -67,6 +67,7 @@ let
           # This only configures early boot to use the enrolled FIDO2 token.
           crypttabExtraOpts = [
             "fido2-device=${cfg.encryption.yubikey.device}"
+            "token-timeout=${cfg.encryption.yubikey.tokenTimeout}"
           ];
         };
 
@@ -152,6 +153,16 @@ in
           description = ''
             FIDO2 device used during early boot. "auto" automatically discovers
             a compatible enrolled FIDO2 token.
+          '';
+        };
+
+        tokenTimeout = lib.mkOption {
+          type = lib.types.str;
+          default = "10s";
+          example = "20s";
+          description = ''
+            How long systemd waits for the FIDO2 token before falling back
+            to another LUKS unlock method such as the normal password.
           '';
         };
       };
