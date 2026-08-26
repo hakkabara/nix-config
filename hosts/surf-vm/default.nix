@@ -269,6 +269,7 @@
   hakkabara.desktop.autologin = {
     enable = true;
     user = "hakkabara";
+    session = "plasmax11";
   };
 
   # Bootloader.

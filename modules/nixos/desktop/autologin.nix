@@ -1,25 +1,35 @@
 { config, lib, ... }:
 
-with lib;
-
 let
   cfg = config.hakkabara.desktop.autologin;
 in
 {
   options.hakkabara.desktop.autologin = {
-    enable = mkEnableOption "automatic graphical login";
+    enable = lib.mkEnableOption "automatic graphical login";
 
-    user = mkOption {
-      type = types.str;
+    user = lib.mkOption {
+      type = lib.types.str;
       default = "hakkabara";
-      description = "User for automatic login";
+      description = "User account used for graphical automatic login.";
+    };
+
+    session = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Display manager session used for automatic login.";
     };
   };
 
-  config = mkIf cfg.enable {
-    services.displayManager.autoLogin = {
-      enable = true;
-      inherit (cfg) user;
-    };
-  };
+  config = lib.mkMerge [
+    (lib.mkIf cfg.enable {
+      services.displayManager.autoLogin = {
+        enable = true;
+        inherit (cfg) user;
+      };
+    })
+
+    (lib.mkIf (cfg.enable && cfg.session != null) {
+      services.displayManager.defaultSession = cfg.session;
+    })
+  ];
 }
