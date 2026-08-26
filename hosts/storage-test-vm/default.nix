@@ -20,7 +20,7 @@
 
       # Enable only after the normal LUKS password boot has been validated
       # and a YubiKey has been enrolled with systemd-cryptenroll.
-      yubikey.enable = false;
+      yubikey.enable = true;
     };
 
     btrfs.prepareForImpermanence = true;
