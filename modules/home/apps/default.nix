@@ -9,6 +9,7 @@
     ./immich
     ./pihole
     ./veracrypt.nix
+    ./miniserve
   ];
 
   programs = {

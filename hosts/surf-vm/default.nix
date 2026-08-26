@@ -20,6 +20,7 @@
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
+    ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/flatpak
   ];
@@ -53,7 +54,14 @@
     hakkabara = {
       theme.matugen.enable = true;
 
-      apps.pihole.enable = true;
+      apps = {
+        pihole.enable = true;
+
+        miniserve = {
+          enable = true;
+          profile = "surf-vm";
+        };
+      };
 
       ai = {
         enable = true;
@@ -250,21 +258,27 @@
     "flakes"
   ];
 
+  hakkabara.desktop.autologin = {
+    enable = true;
+    user = "hakkabara";
+  };
+
   # Bootloader.
   boot.loader.grub = {
     enable = true;
     device = "/dev/sda";
     useOSProber = true;
   };
-  networking.hostName = "surf-vm"; # Define your hostname.
-  # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+  networking = {
+    hostName = "surf-vm"; # Define your hostname.
 
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+    # Enable networking
+    networkmanager.enable = true;
 
-  # Enable networking
-  networking.networkmanager.enable = true;
+    firewall.allowedTCPPorts = [
+      8443
+    ];
+  };
 
   # Mount shared folder
   fileSystems."/data" = {
@@ -348,9 +362,6 @@
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
 
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
