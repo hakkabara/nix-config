@@ -41,7 +41,7 @@ in
               owner = "Aloxaf";
               repo = "fzf-tab";
               rev = "v1.2.0";
-              hash = "sha256-1ojmr9+Wg5+X5Dip4sKjP4IKKACMncPQDZ8RtYQSQ80=";
+              hash = "sha256-q26XVS/LcyZPRqDNwKKA9exgBByE0muyuNb0Bbar2lY=";
             };
           }
 

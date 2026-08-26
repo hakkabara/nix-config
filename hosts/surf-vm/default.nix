@@ -49,6 +49,14 @@
       ../../modules/home/desktop/autostart.nix
     ];
 
+    # KWallet is intentionally disabled on the SurfVM.
+    # With graphical autologin there is no login password available
+    # to unlock a password-protected wallet automatically.
+    programs.plasma.configFile.kwalletrc.Wallet = {
+      Enabled = false;
+      "First Use" = false;
+    };
+
     # SurfVM-specific Yazi navigation.
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
