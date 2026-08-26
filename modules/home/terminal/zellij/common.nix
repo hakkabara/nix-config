@@ -36,11 +36,7 @@ in
         # zjstatus owns our custom default layout. If it is disabled, fall
         # back to Zellij's built-in compact layout so no dead plugin reference
         # remains.
-        default_layout =
-          if cfg.zellij.plugins.zjstatus.enable then
-            "default"
-          else
-            "compact";
+        default_layout = if cfg.zellij.plugins.zjstatus.enable then "default" else "compact";
 
         pane_frames = true;
 

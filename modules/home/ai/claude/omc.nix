@@ -43,14 +43,9 @@ let
   };
 in
 {
-  options.hakkabara.ai.claude.omc.enable =
-    lib.mkEnableOption "Oh My Claude Code CLI runtime";
+  options.hakkabara.ai.claude.omc.enable = lib.mkEnableOption "Oh My Claude Code CLI runtime";
 
-  config = lib.mkIf (
-    cfg.enable
-    && cfg.claude.enable
-    && cfg.claude.omc.enable
-  ) {
+  config = lib.mkIf (cfg.enable && cfg.claude.enable && cfg.claude.omc.enable) {
     home.packages = [
       omc
     ];

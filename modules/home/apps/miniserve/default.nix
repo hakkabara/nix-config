@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.hakkabara.apps.miniserve;
@@ -23,8 +28,7 @@ let
     };
   };
 
-  defaults =
-    profileDefaults.${cfg.profile};
+  defaults = profileDefaults.${cfg.profile};
 
 in
 {
@@ -44,7 +48,6 @@ in
 
   };
 
-
   config = lib.mkIf cfg.enable {
 
     home.packages = [
@@ -53,7 +56,6 @@ in
       pkgs.pwgen
       pkgs.wl-clipboard
     ];
-
 
     home.file.".local/bin/share" = {
 
@@ -193,9 +195,9 @@ in
 
 
         ${lib.optionalString defaults.upload ''
-        ARGS+=(
-          "--upload-files"
-        )
+          ARGS+=(
+            "--upload-files"
+          )
         ''}
 
 

@@ -24,115 +24,112 @@ let
     ];
 
     text = ''
-      managed="${config.xdg.configHome}/dark-reader/settings.json"
+            managed="${config.xdg.configHome}/dark-reader/settings.json"
 
-      usage() {
-        cat <<'EOF'
-Dark Reader declarative settings helper
+            usage() {
+              cat <<'EOF'
+      Dark Reader declarative settings helper
 
-Usage:
-  darkreader-settings path
-  darkreader-settings show
-  darkreader-settings check
-  darkreader-settings copy
-  darkreader-settings compare <export.json>
+      Usage:
+        darkreader-settings path
+        darkreader-settings show
+        darkreader-settings check
+        darkreader-settings copy
+        darkreader-settings compare <export.json>
 
-Commands:
-  path
-      Print the Home Manager managed settings path.
+      Commands:
+        path
+            Print the Home Manager managed settings path.
 
-  show
-      Pretty-print the declarative settings.
+        show
+            Pretty-print the declarative settings.
 
-  check
-      Validate that the managed file contains valid JSON.
+        check
+            Validate that the managed file contains valid JSON.
 
-  copy
-      Copy the declarative settings to:
-      ~/Downloads/Dark-Reader-Nix.json
+        copy
+            Copy the declarative settings to:
+            ~/Downloads/Dark-Reader-Nix.json
 
-      Import that file in Dark Reader:
-      Settings -> Manage settings -> Import settings
+            Import that file in Dark Reader:
+            Settings -> Manage settings -> Import settings
 
-  compare <export.json>
-      Compare a fresh Dark Reader export with the declarative baseline.
-EOF
-      }
+        compare <export.json>
+            Compare a fresh Dark Reader export with the declarative baseline.
+      EOF
+            }
 
-      case "''${1:-}" in
-        path)
-          printf '%s\n' "$managed"
-          ;;
+            case "''${1:-}" in
+              path)
+                printf '%s\n' "$managed"
+                ;;
 
-        show)
-          jq . "$managed"
-          ;;
+              show)
+                jq . "$managed"
+                ;;
 
-        check)
-          jq empty "$managed"
-          echo "OK: Dark Reader declarative settings are valid JSON."
-          ;;
+              check)
+                jq empty "$managed"
+                echo "OK: Dark Reader declarative settings are valid JSON."
+                ;;
 
-        copy)
-          destination="$HOME/Downloads/Dark-Reader-Nix.json"
+              copy)
+                destination="$HOME/Downloads/Dark-Reader-Nix.json"
 
-          mkdir -p "$HOME/Downloads"
-          install -m 600 "$managed" "$destination"
+                mkdir -p "$HOME/Downloads"
+                install -m 600 "$managed" "$destination"
 
-          echo "Created:"
-          echo "  $destination"
-          echo
-          echo "Import in Dark Reader:"
-          echo "  Settings -> Manage settings -> Import settings"
-          ;;
+                echo "Created:"
+                echo "  $destination"
+                echo
+                echo "Import in Dark Reader:"
+                echo "  Settings -> Manage settings -> Import settings"
+                ;;
 
-        compare)
-          export_file="''${2:-}"
+              compare)
+                export_file="''${2:-}"
 
-          if [ -z "$export_file" ] || [ ! -f "$export_file" ]; then
-            echo "ERROR: provide a Dark Reader JSON export" >&2
-            echo "Example:" >&2
-            echo "  darkreader-settings compare ~/Downloads/Dark-Reader-Settings.json" >&2
-            exit 1
-          fi
+                if [ -z "$export_file" ] || [ ! -f "$export_file" ]; then
+                  echo "ERROR: provide a Dark Reader JSON export" >&2
+                  echo "Example:" >&2
+                  echo "  darkreader-settings compare ~/Downloads/Dark-Reader-Settings.json" >&2
+                  exit 1
+                fi
 
-          tmp_managed="$(mktemp)"
-          tmp_export="$(mktemp)"
+                tmp_managed="$(mktemp)"
+                tmp_export="$(mktemp)"
 
-          trap 'rm -f "$tmp_managed" "$tmp_export"' EXIT
+                trap 'rm -f "$tmp_managed" "$tmp_export"' EXIT
 
-          jq -S . "$managed" > "$tmp_managed"
-          jq -S . "$export_file" > "$tmp_export"
+                jq -S . "$managed" > "$tmp_managed"
+                jq -S . "$export_file" > "$tmp_export"
 
-          if diff -u "$tmp_managed" "$tmp_export"; then
-            echo
-            echo "MATCH: export equals declarative baseline."
-          else
-            echo
-            echo "DIFFERENT: review the diff above."
-            exit 2
-          fi
-          ;;
+                if diff -u "$tmp_managed" "$tmp_export"; then
+                  echo
+                  echo "MATCH: export equals declarative baseline."
+                else
+                  echo
+                  echo "DIFFERENT: review the diff above."
+                  exit 2
+                fi
+                ;;
 
-        help|-h|--help|"")
-          usage
-          ;;
+              help|-h|--help|"")
+                usage
+                ;;
 
-        *)
-          echo "ERROR: unknown command: $1" >&2
-          echo >&2
-          usage >&2
-          exit 1
-          ;;
-      esac
+              *)
+                echo "ERROR: unknown command: $1" >&2
+                echo >&2
+                usage >&2
+                exit 1
+                ;;
+            esac
     '';
   };
 in
 {
-  config = lib.mkIf (
-    cfg.extensions.darkReader.enable
-    && (cfg.firefox.enable || cfg.floorp.enable)
-  ) {
+  config = lib.mkIf (cfg.extensions.darkReader.enable && (cfg.firefox.enable || cfg.floorp.enable)) {
     # This is deliberately NOT browser-extension-data/storage.js.
     #
     # Home Manager's extension.settings mechanism currently makes

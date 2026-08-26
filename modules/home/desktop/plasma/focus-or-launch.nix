@@ -69,29 +69,28 @@ let
     pkgs.writeShellApplication {
       name = "plasma-focus-or-launch-${id}";
       text = ''
-        exec ${lib.escapeShellArgs (
-          [
-            (lib.getExe focusOrLaunch)
-            (toString target.desktop)
-            target.classRegex
-            "--"
-          ]
-          ++ target.command
-        )}
+        exec ${
+          lib.escapeShellArgs (
+            [
+              (lib.getExe focusOrLaunch)
+              (toString target.desktop)
+              target.classRegex
+              "--"
+            ]
+            ++ target.command
+          )
+        }
       '';
     };
 in
 {
   options.hakkabara.desktop.plasma.focusOrLaunch = {
-    enable =
-      lib.mkEnableOption
-        "KWin/Wayland focus-or-launch application shortcuts";
+    enable = lib.mkEnableOption "KWin/Wayland focus-or-launch application shortcuts";
 
     targets = lib.mkOption {
       default = { };
 
-      description =
-        "Applications managed by the Plasma focus-or-launch helper.";
+      description = "Applications managed by the Plasma focus-or-launch helper.";
 
       type = lib.types.attrsOf (
         lib.types.submodule {
@@ -108,20 +107,17 @@ in
 
             desktop = lib.mkOption {
               type = lib.types.ints.positive;
-              description =
-                "Virtual desktop on which the application window is expected.";
+              description = "Virtual desktop on which the application window is expected.";
             };
 
             classRegex = lib.mkOption {
               type = lib.types.str;
-              description =
-                "Regular expression matched against the KWin window class.";
+              description = "Regular expression matched against the KWin window class.";
             };
 
             command = lib.mkOption {
               type = lib.types.listOf lib.types.str;
-              description =
-                "Command argv used only when no matching window exists.";
+              description = "Command argv used only when no matching window exists.";
             };
           };
         }
@@ -130,35 +126,26 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    assertions =
-      lib.mapAttrsToList
-        (
-          id: target: {
-            assertion = target.command != [ ];
-            message =
-              "focus-or-launch target '${id}' must define a non-empty command";
-          }
-        )
-        cfg.targets;
+    assertions = lib.mapAttrsToList (id: target: {
+      assertion = target.command != [ ];
+      message = "focus-or-launch target '${id}' must define a non-empty command";
+    }) cfg.targets;
 
     home.packages = [
       pkgs.kdotool
       focusOrLaunch
     ];
 
-    programs.plasma.hotkeys.commands =
-      lib.mapAttrs
-        (
-          id: target:
-          let
-            launcher = mkTargetLauncher id target;
-          in
-          {
-            inherit (target) name key;
-            command = "${launcher}/bin/plasma-focus-or-launch-${id}";
-            logs.enabled = false;
-          }
-        )
-        cfg.targets;
+    programs.plasma.hotkeys.commands = lib.mapAttrs (
+      id: target:
+      let
+        launcher = mkTargetLauncher id target;
+      in
+      {
+        inherit (target) name key;
+        command = "${launcher}/bin/plasma-focus-or-launch-${id}";
+        logs.enabled = false;
+      }
+    ) cfg.targets;
   };
 }

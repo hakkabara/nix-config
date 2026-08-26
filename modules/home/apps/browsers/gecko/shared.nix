@@ -40,24 +40,21 @@ let
   # runtime_*_hosts and permission blocking were introduced in
   # Firefox 153. Floorp currently uses Gecko 152, so never emit
   # these fields for Floorp until its Gecko base catches up.
-  firefoxRuntimeExtensionSettings =
-    lib.optionalAttrs (checkedBrowser == "firefox") (
-      (lib.optionalAttrs cfg.extensions.sponsorBlock.enable {
-        "sponsorBlocker@ajay.app" =
-          mkFirefoxExtensionAccessPolicy cfg.extensions.sponsorBlock.firefox;
-      })
-      // (lib.optionalAttrs cfg.extensions.enhancerForYouTube.enable {
-        "enhancerforyoutube@maximerf.addons.mozilla.org" =
-          mkFirefoxExtensionAccessPolicy cfg.extensions.enhancerForYouTube.firefox;
-      })
-      // (lib.optionalAttrs cfg.extensions.violentmonkey.enable {
-        "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}" =
-          mkFirefoxExtensionAccessPolicy cfg.extensions.violentmonkey.firefox;
-      })
-    );
+  firefoxRuntimeExtensionSettings = lib.optionalAttrs (checkedBrowser == "firefox") (
+    (lib.optionalAttrs cfg.extensions.sponsorBlock.enable {
+      "sponsorBlocker@ajay.app" = mkFirefoxExtensionAccessPolicy cfg.extensions.sponsorBlock.firefox;
+    })
+    // (lib.optionalAttrs cfg.extensions.enhancerForYouTube.enable {
+      "enhancerforyoutube@maximerf.addons.mozilla.org" =
+        mkFirefoxExtensionAccessPolicy cfg.extensions.enhancerForYouTube.firefox;
+    })
+    // (lib.optionalAttrs cfg.extensions.violentmonkey.enable {
+      "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}" =
+        mkFirefoxExtensionAccessPolicy cfg.extensions.violentmonkey.firefox;
+    })
+  );
 
-  effectiveExtensionSettings =
-    lib.recursiveUpdate extensionSettings firefoxRuntimeExtensionSettings;
+  effectiveExtensionSettings = lib.recursiveUpdate extensionSettings firefoxRuntimeExtensionSettings;
 
   firefoxSyncCfg = cfg.sync.firefox;
 

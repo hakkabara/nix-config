@@ -22,9 +22,7 @@ let
   # These are host match patterns, not URLs: no path component is
   # allowed. Examples: *://*, https://*.youtube.com.
   runtimeHostPatternType = lib.types.addCheck lib.types.str (
-    pattern:
-    pattern == "<all_urls>"
-    || builtins.match "(\\*|https?)://[^/]+" pattern != null
+    pattern: pattern == "<all_urls>" || builtins.match "(\\*|https?)://[^/]+" pattern != null
   );
 
   firefoxExtensionAccessType = lib.types.submodule {
@@ -158,7 +156,6 @@ in
     # ============================================================
     # Shared Gecko privacy configuration
     # ============================================================
-
 
     # Firefox Sync.
     #

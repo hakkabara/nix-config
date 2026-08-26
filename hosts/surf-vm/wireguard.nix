@@ -74,8 +74,7 @@ in
     serviceConfig = {
       Type = "simple";
 
-      ExecStart =
-        "${homelabVpnManager}/bin/homelab-vpn-manager run";
+      ExecStart = "${homelabVpnManager}/bin/homelab-vpn-manager run";
 
       Restart = "always";
       RestartSec = "3s";

@@ -11,20 +11,16 @@ let
   cfg = config.hakkabara.terminal;
   plugins = cfg.zellij.plugins;
 
-  zellijToolsPlugin =
-    zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  zellijToolsPlugin = zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
-  zellijToolsCli =
-    zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.cli;
+  zellijToolsCli = zellij-tools.packages.${pkgs.stdenv.hostPlatform.system}.cli;
 
   # Declarative zellij-tools configuration.
   #
   # We inject this inline into the plugin configuration. External config
   # files are useful for hot reload, but Home Manager already owns our
   # configuration lifecycle.
-  scratchpadConfig =
-    import ./scratchpads.nix { inherit pkgs; };
-
+  scratchpadConfig = import ./scratchpads.nix { inherit pkgs; };
 
   mkPluginEnableOption =
     description:
@@ -36,50 +32,47 @@ let
 
   # Harpoon does not publish a pre-built WASM release. Build the pinned
   # upstream v0.3.0 source reproducibly for wasm32-wasip1.
-  harpoonPlugin =
-    pkgsUnstable.pkgsCross.wasm32-wasip1.callPackage
-      (
-        {
-          fetchFromGitHub,
-          rustPlatform,
-          lld,
-        }:
-        rustPlatform.buildRustPackage {
-          pname = "zellij-harpoon";
-          version = "0.3.0";
+  harpoonPlugin = pkgsUnstable.pkgsCross.wasm32-wasip1.callPackage (
+    {
+      fetchFromGitHub,
+      rustPlatform,
+      lld,
+    }:
+    rustPlatform.buildRustPackage {
+      pname = "zellij-harpoon";
+      version = "0.3.0";
 
-          src = fetchFromGitHub {
-            owner = "Nacho114";
-            repo = "harpoon";
-            tag = "v0.3.0";
-            hash = "sha256-JmYcbzxIF6qZs2/RKuspHqNpyDibGp9CVQJj47y/BOQ=";
-          };
+      src = fetchFromGitHub {
+        owner = "Nacho114";
+        repo = "harpoon";
+        tag = "v0.3.0";
+        hash = "sha256-JmYcbzxIF6qZs2/RKuspHqNpyDibGp9CVQJj47y/BOQ=";
+      };
 
-          cargoHash = "sha256-lsv5Wssakni18jif++fPo3Z5WyBtvPsGpWwG3abR7jQ=";
+      cargoHash = "sha256-lsv5Wssakni18jif++fPo3Z5WyBtvPsGpWwG3abR7jQ=";
 
-          env.RUSTFLAGS = "-C linker=wasm-ld";
+      env.RUSTFLAGS = "-C linker=wasm-ld";
 
-          nativeBuildInputs = [
-            lld
-          ];
+      nativeBuildInputs = [
+        lld
+      ];
 
-          # Cross-compiled WASM cannot run as a native test binary.
-          doCheck = false;
+      # Cross-compiled WASM cannot run as a native test binary.
+      doCheck = false;
 
-          installPhase = ''
-            runHook preInstall
+      installPhase = ''
+        runHook preInstall
 
-            mkdir -p "$out"
+        mkdir -p "$out"
 
-            cp \
-              target/wasm32-wasip1/release/harpoon.wasm \
-              "$out/harpoon.wasm"
+        cp \
+          target/wasm32-wasip1/release/harpoon.wasm \
+          "$out/harpoon.wasm"
 
-            runHook postInstall
-          '';
-        }
-      )
-      { };
+        runHook postInstall
+      '';
+    }
+  ) { };
 
   # Lightweight CPU/RAM source for zjstatus. Linux already exposes everything
   # required through procfs, so no monitoring daemon is needed.
@@ -203,16 +196,16 @@ let
   sharedExceptLockedBindings = lib.concatStringsSep "\n" (
     (lib.optionals plugins.forgot.enable [
       ''
-      // Forgot: searchable help for the actual configured keybindings.
-      bind "Alt Shift /" {
-        LaunchOrFocusPlugin "file:${config.xdg.configHome}/zellij/plugins/zellij-forgot.wasm" {
-          floating true
-          "LOAD_ZELLIJ_BINDINGS" "true"
-        };
-      }
+        // Forgot: searchable help for the actual configured keybindings.
+        bind "Alt Shift /" {
+          LaunchOrFocusPlugin "file:${config.xdg.configHome}/zellij/plugins/zellij-forgot.wasm" {
+            floating true
+            "LOAD_ZELLIJ_BINDINGS" "true"
+          };
+        }
       ''
     ])
-    ++     (lib.optionals plugins.harpoon.enable [
+    ++ (lib.optionals plugins.harpoon.enable [
       ''
         // Harpoon: pinned/favorite panes.
         bind "Alt p" {
@@ -424,19 +417,15 @@ in
       # when the immutable Nix store target changes after an update.
       xdg.configFile =
         (lib.optionalAttrs plugins.autolock.enable {
-          "zellij/plugins/zellij-autolock.wasm".source =
-            pkgsUnstable.zellijPlugins.autolock;
+          "zellij/plugins/zellij-autolock.wasm".source = pkgsUnstable.zellijPlugins.autolock;
         })
         // (lib.optionalAttrs plugins.navigator.enable {
-          "zellij/plugins/vim-zellij-navigator.wasm".source =
-            pkgsUnstable.zellijPlugins.vim-zellij-navigator;
+          "zellij/plugins/vim-zellij-navigator.wasm".source = pkgsUnstable.zellijPlugins.vim-zellij-navigator;
         })
         // (lib.optionalAttrs plugins.zjstatus.enable {
-          "zellij/plugins/zjstatus.wasm".source =
-            pkgsUnstable.zellijPlugins.zjstatus;
+          "zellij/plugins/zjstatus.wasm".source = pkgsUnstable.zellijPlugins.zjstatus;
 
-          "zellij/layouts/default.kdl".source =
-            ./layouts/default.kdl;
+          "zellij/layouts/default.kdl".source = ./layouts/default.kdl;
         })
         // (lib.optionalAttrs plugins.room.enable {
           "zellij/plugins/room.wasm".source = pkgs.fetchurl {
@@ -445,8 +434,7 @@ in
           };
         })
         // (lib.optionalAttrs plugins.harpoon.enable {
-          "zellij/plugins/harpoon.wasm".source =
-            "${harpoonPlugin}/harpoon.wasm";
+          "zellij/plugins/harpoon.wasm".source = "${harpoonPlugin}/harpoon.wasm";
         })
         // (lib.optionalAttrs plugins.forgot.enable {
           "zellij/plugins/zellij-forgot.wasm".source = pkgs.fetchurl {
@@ -473,11 +461,7 @@ in
             }
           '')
 
-          (lib.optionalString (
-            plugins.autolock.enable
-            || plugins.tools.enable
-            || plugins.attention.enable
-          ) ''
+          (lib.optionalString (plugins.autolock.enable || plugins.tools.enable || plugins.attention.enable) ''
             // Background plugins stay alive for the whole Zellij session.
             load_plugins {
               ${lib.optionalString plugins.autolock.enable "autolock"}

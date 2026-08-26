@@ -66,31 +66,49 @@ let
     builtins.toJSON {
       inherit (cfg) backend safeOutput;
       watcher = {
-        inherit (cfg.watcher) debounceSeconds fallbackPollSeconds promptTimeoutSeconds popupDelayMilliseconds;
+        inherit (cfg.watcher)
+          debounceSeconds
+          fallbackPollSeconds
+          promptTimeoutSeconds
+          popupDelayMilliseconds
+          ;
       };
-      profiles = lib.mapAttrs (
-        _: profile: {
-          inherit (profile) label tolerance leftOutput rightOutput primaryOutput verticalAlignment;
-          matchSizes = map (size: [ size.width size.height ]) profile.matchSizes;
-        }
-      ) cfg.profiles;
+      profiles = lib.mapAttrs (_: profile: {
+        inherit (profile)
+          label
+          tolerance
+          leftOutput
+          rightOutput
+          primaryOutput
+          verticalAlignment
+          ;
+        matchSizes = map (size: [
+          size.width
+          size.height
+        ]) profile.matchSizes;
+      }) cfg.profiles;
     }
   );
 
   backendPackages =
-    lib.optionals (builtins.elem cfg.backend [
-      "plasma"
-      "auto"
-    ]) [
-      pkgs.kdePackages.libkscreen
-      pkgs.kdePackages.kscreen
-    ]
-    ++ lib.optionals (builtins.elem cfg.backend [
-      "niri"
-      "auto"
-    ]) [
-      pkgs.niri
-    ];
+    lib.optionals
+      (builtins.elem cfg.backend [
+        "plasma"
+        "auto"
+      ])
+      [
+        pkgs.kdePackages.libkscreen
+        pkgs.kdePackages.kscreen
+      ]
+    ++
+      lib.optionals
+        (builtins.elem cfg.backend [
+          "niri"
+          "auto"
+        ])
+        [
+          pkgs.niri
+        ];
 
   monitor = pkgs.writeShellApplication {
     name = "monitor";

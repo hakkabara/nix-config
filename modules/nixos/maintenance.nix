@@ -39,7 +39,6 @@ in
     # Prefer GC first when systemd happens to queue both jobs together.
     after = [ "nix-gc.service" ];
 
-    serviceConfig.ExecStart = lib.mkForce
-      "${flock} --exclusive ${maintenanceLock} ${nixStore} --optimise";
+    serviceConfig.ExecStart = lib.mkForce "${flock} --exclusive ${maintenanceLock} ${nixStore} --optimise";
   };
 }

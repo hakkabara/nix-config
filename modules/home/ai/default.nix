@@ -5,6 +5,5 @@
     ./claude
   ];
 
-  options.hakkabara.ai.enable =
-    lib.mkEnableOption "AI tools and integrations";
+  options.hakkabara.ai.enable = lib.mkEnableOption "AI tools and integrations";
 }
