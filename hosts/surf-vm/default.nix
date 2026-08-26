@@ -17,6 +17,7 @@
     ../../modules/nixos/features/python.nix
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/desktop/plasma.nix
+    ../../modules/nixos/apps/flameshot-plasma.nix
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
@@ -47,6 +48,7 @@
       ../../modules/home/desktop/monitor
       ../../modules/home/ssh/personal-infra.nix
       ../../modules/home/desktop/autostart.nix
+      ../../modules/home/apps/flameshot/plasma.nix
     ];
 
     # KWallet is intentionally disabled on the SurfVM.
@@ -381,5 +383,6 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "26.05"; # Did you read the comment?
+
 
 }
