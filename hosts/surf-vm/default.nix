@@ -8,6 +8,7 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
+    ./storage-legacy.nix
     ./secrets.nix
     ./wireguard.nix
     ./mounts.nix
@@ -23,6 +24,7 @@
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
+    ../../modules/nixos/storage/disko-btrfs-luks.nix
     ../../modules/nixos/flatpak
   ];
 
@@ -37,6 +39,19 @@
     };
 
     vmware.waylandClipboard.enable = true;
+
+    # Keep the live SurfVM on its current ext4 layout. Flip this to true only
+    # for a fresh Disko reinstall; never switch it on via nixos-rebuild on the
+    # existing ext4 installation.
+    storage.disko = {
+      enable = false;
+      device = "/dev/sda";
+      allowDiscards = true;
+      swap = {
+        enable = true;
+        size = "8G";
+      };
+    };
   };
 
   home-manager.users.hakkabara = {
@@ -274,12 +289,6 @@
     session = "plasmax11";
   };
 
-  # Bootloader.
-  boot.loader.grub = {
-    enable = true;
-    device = "/dev/sda";
-    useOSProber = true;
-  };
   networking = {
     hostName = "surf-vm"; # Define your hostname.
 
@@ -383,6 +392,5 @@
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "26.05"; # Did you read the comment?
-
 
 }

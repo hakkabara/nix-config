@@ -20,6 +20,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     plasma-manager = {
       url = "github:nix-community/plasma-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -50,6 +55,7 @@
       nixpkgs-unstable,
       home-manager,
       sops-nix,
+      disko,
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
@@ -79,6 +85,7 @@
           nix-flatpak.nixosModules.nix-flatpak
           home-manager.nixosModules.home-manager
           sops-nix.nixosModules.sops
+          disko.nixosModules.disko
 
           {
             home-manager = {
@@ -94,6 +101,17 @@
               };
             };
           }
+        ];
+      };
+
+      # Disposable integration target for validating Disko + LUKS2 + Btrfs
+      # before migrating the real SurfVM.
+      nixosConfigurations.storage-test-vm = nixpkgs.lib.nixosSystem {
+        inherit system;
+
+        modules = [
+          ./hosts/storage-test-vm
+          disko.nixosModules.disko
         ];
       };
     };
