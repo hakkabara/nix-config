@@ -22,6 +22,7 @@
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/security/sops.nix
+    ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
@@ -32,6 +33,17 @@
 
   hakkabara = {
     workstationVm.enable = true;
+
+    accounts.primary = {
+      enable = true;
+      username = "hakkabara";
+
+      password = {
+        sopsFile = ../../secrets/surf-vm/users.yaml;
+        secretName = "users/hakkabara-password-hash";
+        key = "hakkabara-password-hash";
+      };
+    };
 
     # DHCP is the default. Hosts can override this with a static profile.
     networking.enable = true;
