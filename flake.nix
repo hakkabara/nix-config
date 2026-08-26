@@ -72,47 +72,78 @@
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-tree;
 
-      nixosConfigurations.surf-vm = nixpkgs.lib.nixosSystem {
-        inherit system;
+      nixosConfigurations = {
+        surf-vm = nixpkgs.lib.nixosSystem {
+          inherit system;
 
-        specialArgs = {
-          inherit wl-x11-clipsync;
+          specialArgs = {
+            inherit wl-x11-clipsync;
+          };
+
+          modules = [
+            ./hosts/surf-vm
+
+            nix-flatpak.nixosModules.nix-flatpak
+            home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
+            disko.nixosModules.disko
+
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                # Extra arguments available to Home Manager modules.
+                #
+                # Modules use stable `pkgs` unless they explicitly request
+                # and select something from `pkgsUnstable`.
+                extraSpecialArgs = {
+                  inherit plasma-manager pkgsUnstable zellij-tools;
+                };
+              };
+            }
+          ];
         };
 
-        modules = [
-          ./hosts/surf-vm
+        # Full SurfVM integration target for validating a fresh
+        # Disko + LUKS2 + Btrfs installation without touching the live SurfVM.
+        surf-vm-disko-test = nixpkgs.lib.nixosSystem {
+          inherit system;
 
-          nix-flatpak.nixosModules.nix-flatpak
-          home-manager.nixosModules.home-manager
-          sops-nix.nixosModules.sops
-          disko.nixosModules.disko
+          specialArgs = {
+            inherit wl-x11-clipsync;
+          };
 
-          {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
+          modules = [
+            ./hosts/surf-vm-disko-test
+            nix-flatpak.nixosModules.nix-flatpak
+            home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
+            disko.nixosModules.disko
 
-              # Extra arguments available to Home Manager modules.
-              #
-              # Modules use stable `pkgs` unless they explicitly request
-              # and select something from `pkgsUnstable`.
-              extraSpecialArgs = {
-                inherit plasma-manager pkgsUnstable zellij-tools;
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                extraSpecialArgs = {
+                  inherit plasma-manager pkgsUnstable zellij-tools;
+                };
               };
-            };
-          }
-        ];
-      };
+            }
+          ];
+        };
 
-      # Disposable integration target for validating Disko + LUKS2 + Btrfs
-      # before migrating the real SurfVM.
-      nixosConfigurations.storage-test-vm = nixpkgs.lib.nixosSystem {
-        inherit system;
+        # Disposable integration target for validating Disko + LUKS2 + Btrfs
+        # before migrating the real SurfVM.
+        storage-test-vm = nixpkgs.lib.nixosSystem {
+          inherit system;
 
-        modules = [
-          ./hosts/storage-test-vm
-          disko.nixosModules.disko
-        ];
+          modules = [
+            ./hosts/storage-test-vm
+            disko.nixosModules.disko
+          ];
+        };
       };
     };
 }

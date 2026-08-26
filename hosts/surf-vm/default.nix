@@ -25,11 +25,16 @@
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
+    ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/security/remote-unlock.nix
     ../../modules/nixos/flatpak
   ];
 
   hakkabara = {
     workstationVm.enable = true;
+
+    # DHCP is the default. Hosts can override this with a static profile.
+    networking.enable = true;
 
     apps.steam.enable = true;
 
@@ -45,7 +50,6 @@
     # existing ext4 installation.
     storage.disko = {
       enable = false;
-      device = "/dev/sda";
       filesystem = "btrfs";
 
       partition.systemSize = "100%";

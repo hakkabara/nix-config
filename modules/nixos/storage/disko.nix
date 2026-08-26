@@ -56,6 +56,7 @@ let
       {
         type = "luks";
         name = cfg.encryption.name;
+        passwordFile = cfg.encryption.installPasswordFile;
 
         # No passwordFile/keyFile:
         # initial LUKS setup asks interactively for a password.
@@ -82,6 +83,7 @@ in
 
     device = lib.mkOption {
       type = lib.types.str;
+      default = "/dev/sda";
       example = "/dev/disk/by-id/wwn-...";
       description = ''
         Target disk used outside disko-install. During installation,
@@ -135,6 +137,17 @@ in
         description = "Name of the LUKS mapper device.";
       };
 
+      installPasswordFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "/tmp/disko-luks-password";
+        description = ''
+          Optional password file used only when initially creating LUKS.
+          Intended for installers such as nixos-anywhere. The file is not
+          required for normal boot or runtime unlocking.
+        '';
+      };
+
       allowDiscards = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -166,15 +179,6 @@ in
           '';
         };
 
-        tokenTimeout = lib.mkOption {
-          type = lib.types.str;
-          default = "10s";
-          example = "20s";
-          description = ''
-            How long systemd waits for the FIDO2 token before falling back
-            to another LUKS unlock method such as the normal password.
-          '';
-        };
       };
     };
 
