@@ -6,8 +6,8 @@
       [Desktop Entry]
       Type=Application
       Name=Equibop
-      Comment=Start Equibop minimized
-      Exec=${pkgs.equibop}/bin/equibop --start-minimized
+      Comment=Start Equibop
+      Exec=${pkgs.equibop}/bin/equibop
       Terminal=false
       Hidden=false
       StartupNotify=false
@@ -44,6 +44,18 @@
       Name=WhatsApp
       Comment=Start WhatsApp in an isolated Floorp profile
       Exec=${config.programs.floorp.finalPackage}/bin/floorp -P WhatsApp --new-instance --new-window https://web.whatsapp.com/
+      Terminal=false
+      Hidden=false
+      StartupNotify=false
+      X-GNOME-Autostart-enabled=true
+    '';
+
+    "autostart/element.desktop".text = ''
+      [Desktop Entry]
+      Type=Application
+      Name=Element
+      Comment=Start Element
+      Exec=${pkgs.element-desktop}/bin/element-desktop
       Terminal=false
       Hidden=false
       StartupNotify=false

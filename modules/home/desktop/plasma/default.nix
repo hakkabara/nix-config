@@ -107,6 +107,29 @@ in
         };
 
         programs.plasma = {
+          # Telegram may request activation when receiving messages or
+          # changing tray/window state. Never allow those requests to steal
+          # keyboard focus from the application currently being used.
+          #
+          # Explicit user activation (clicking/selecting Telegram) continues
+          # to work normally.
+          window-rules = [
+            {
+              description = "Telegram - prevent focus stealing";
+
+              match.window-class = {
+                value = "telegram";
+                type = "substring";
+                match-whole = false;
+              };
+
+              apply.fsplevel = {
+                value = 4;
+                apply = "force";
+              };
+            }
+          ];
+
           # Keep ten workspaces in one linear row.
           #
           # Meta+1..9 selects desktops 1..9 and Meta+0 selects desktop 10.

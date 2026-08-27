@@ -193,6 +193,44 @@ function classify(window) {
 
 
   if (
+    cls.indexOf(
+      "spotify",
+    ) !== -1 ||
+    desktopFile.indexOf(
+      "spotify",
+    ) !== -1
+  ) {
+    return {
+      desktop: 8,
+      label: "Spotify",
+      maximize: true,
+    };
+  }
+
+
+  if (
+    cls.indexOf(
+      "element",
+    ) !== -1 ||
+    cls.indexOf(
+      "riot",
+    ) !== -1 ||
+    desktopFile.indexOf(
+      "element",
+    ) !== -1 ||
+    desktopFile.indexOf(
+      "riot",
+    ) !== -1
+  ) {
+    return {
+      desktop: 9,
+      label: "Element",
+      maximize: true,
+    };
+  }
+
+
+  if (
     cls === "signal" ||
     desktopFile.indexOf(
       "signal",
@@ -700,7 +738,6 @@ function runQuickTileAttempt(
   const window =
     job.window;
 
-
   if (
     !isManagedWindow(window)
   ) {
@@ -712,10 +749,7 @@ function runQuickTileAttempt(
     return;
   }
 
-
-  // A previous attempt may have succeeded slightly after
-  // its verification timer. Never invoke the same shortcut
-  // again if the geometry is already correct.
+  // A previous attempt may already have succeeded.
   if (
     quickTileGeometryMatches(
       window,
@@ -730,44 +764,26 @@ function runQuickTileAttempt(
     return;
   }
 
-
-  if (window.hidden) {
-    scheduleQuickTileAttempt(
+  // Never reveal, unminimize, switch desktops for, or activate a
+  // background messenger just to perform layout management.
+  //
+  // The layout stays pending and activeChanged/windowActivated will
+  // retry naturally once the user actually activates the window.
+  if (
+    window.hidden ||
+    window.minimized ||
+    !window.active
+  ) {
+    finishQuickTileJob(
       job,
+      false,
     );
 
     return;
   }
 
-
-  if (window.minimized) {
-    window.minimized =
-      false;
-  }
-
-
-  if (window.fullScreen) {
-    window.fullScreen =
-      false;
-  }
-
-
-  window.setMaximize(
-    false,
-    false,
-  );
-
-
-  const previousDesktop =
-    workspace.currentDesktop;
-
-  const previousActive =
-    workspace.activeWindow;
-
-
   const desktops =
     window.desktops;
-
 
   if (
     desktops &&
@@ -775,181 +791,103 @@ function runQuickTileAttempt(
     workspace.currentDesktop !==
       desktops[0]
   ) {
-    workspace.currentDesktop =
-      desktops[0];
+    finishQuickTileJob(
+      job,
+      false,
+    );
+
+    return;
   }
 
+  if (window.fullScreen) {
+    window.fullScreen =
+      false;
+  }
 
-  workspace.activeWindow =
-    window;
+  window.setMaximize(
+    false,
+    false,
+  );
 
+  const shortcut =
+    job.side === "left"
+      ? "Window Quick Tile Left"
+      : "Window Quick Tile Right";
+
+  print(
+    "hakkabara-window-layout: invoking " +
+      shortcut +
+      " for already-active " +
+      job.target.label,
+  );
+
+  try {
+    callDBus(
+      "org.kde.kglobalaccel",
+      "/component/kwin",
+      "org.kde.kglobalaccel.Component",
+      "invokeShortcut",
+      shortcut,
+    );
+  } catch (error) {
+    print(
+      "hakkabara-window-layout: KGlobalAccel call failed for " +
+        job.target.label +
+        ": " +
+        error,
+    );
+
+    finishQuickTileJob(
+      job,
+      false,
+    );
+
+    return;
+  }
 
   if (
     !later(
-      300,
+      900,
       function () {
-        if (
-          !isManagedWindow(window)
-        ) {
-          restoreQuickTileContext(
-            previousDesktop,
-            previousActive,
+        const success =
+          quickTileGeometryMatches(
+            window,
+            job.side,
           );
 
-          finishQuickTileJob(
-            job,
-            false,
-          );
-
-          return;
-        }
-
-
-        // Reassert immediately before invoking KGlobalAccel.
-        workspace.activeWindow =
-          window;
-
-
-        if (
-          workspace.activeWindow !==
-          window
-        ) {
-          print(
-            "hakkabara-window-layout: " +
-              job.target.label +
-              " could not become active",
-          );
-
-
-          restoreQuickTileContext(
-            previousDesktop,
-            previousActive,
-          );
-
-          scheduleQuickTileAttempt(
-            job,
-          );
-
-          return;
-        }
-
-
-        const shortcut =
-          job.side === "left"
-            ? "Window Quick Tile Left"
-            : "Window Quick Tile Right";
-
+        const geometry =
+          window.frameGeometry;
 
         print(
-          "hakkabara-window-layout: invoking " +
-            shortcut +
-            " for " +
-            job.target.label,
+          "hakkabara-window-layout: verify " +
+            job.target.label +
+            " quick-tile " +
+            job.side +
+            " -> " +
+            success +
+            " geometry=x=" +
+            geometry.x +
+            " y=" +
+            geometry.y +
+            " w=" +
+            geometry.width +
+            " h=" +
+            geometry.height,
         );
 
-
-        try {
-          callDBus(
-            "org.kde.kglobalaccel",
-            "/component/kwin",
-            "org.kde.kglobalaccel.Component",
-            "invokeShortcut",
-            shortcut,
-          );
-
-        } catch (error) {
-          print(
-            "hakkabara-window-layout: KGlobalAccel call failed for " +
-              job.target.label +
-              ": " +
-              error,
-          );
-
-
-          restoreQuickTileContext(
-            previousDesktop,
-            previousActive,
-          );
-
-          scheduleQuickTileAttempt(
-            job,
-          );
-
-          return;
-        }
-
-
-        if (
-          !later(
-            900,
-            function () {
-              const success =
-                quickTileGeometryMatches(
-                  window,
-                  job.side,
-                );
-
-
-              const geometry =
-                window.frameGeometry;
-
-
-              print(
-                "hakkabara-window-layout: verify " +
-                  job.target.label +
-                  " quick-tile " +
-                  job.side +
-                  " -> " +
-                  success +
-                  " geometry=x=" +
-                  geometry.x +
-                  " y=" +
-                  geometry.y +
-                  " w=" +
-                  geometry.width +
-                  " h=" +
-                  geometry.height,
-              );
-
-
-              restoreQuickTileContext(
-                previousDesktop,
-                previousActive,
-              );
-
-
-              if (success) {
-                finishQuickTileJob(
-                  job,
-                  true,
-                );
-
-              } else {
-                scheduleQuickTileAttempt(
-                  job,
-                );
-              }
-            },
-          )
-        ) {
-          restoreQuickTileContext(
-            previousDesktop,
-            previousActive,
-          );
-
+        if (success) {
           finishQuickTileJob(
             job,
-            false,
+            true,
+          );
+        } else {
+          scheduleQuickTileAttempt(
+            job,
           );
         }
       },
     )
   ) {
-    restoreQuickTileContext(
-      previousDesktop,
-      previousActive,
-    );
-
     finishQuickTileJob(
       job,
       false,
