@@ -94,16 +94,12 @@
 
     # Permanent WorkVM storage layout.
     #
-    # Keep this aligned with the SurfVM:
+    # WorkVM intentionally does not use full-disk encryption:
     #   /dev/sda
     #   GPT + EFI/BIOS compatibility
-    #   LUKS2
     #   Btrfs + zstd
-    #   encrypted swap
+    #   Btrfs swapfile
     #   prepared /persist subvolume
-    #
-    # nixos-anywhere uploads the initial LUKS password to the temporary
-    # installPasswordFile. It is not needed during normal operation.
     storage.disko = {
       enable = true;
       device = "/dev/sda";
@@ -111,19 +107,7 @@
 
       partition.systemSize = "100%";
 
-      encryption = {
-        enable = true;
-        installPasswordFile = "/tmp/disko-luks-password";
-
-        # Useful for the thin-provisioned VMware virtual disk.
-        allowDiscards = true;
-
-        # Permanent target state. For the very first installation we will
-        # temporarily disable this exactly like surf-vm-disko-test, boot
-        # once with the normal LUKS password, enroll the YubiKey, and then
-        # use this permanent configuration.
-        yubikey.enable = true;
-      };
+      encryption.enable = false;
 
       btrfs.prepareForImpermanence = true;
 

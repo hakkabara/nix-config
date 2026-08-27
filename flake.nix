@@ -113,40 +113,6 @@
           ];
         };
 
-        # Fresh-install integration target for WorkVM.
-        #
-        # It reuses the complete permanent WorkVM configuration and only
-        # disables FIDO2 for the first LUKS-password boot.
-        work-vm-disko-test = nixpkgs.lib.nixosSystem {
-          inherit system;
-
-          specialArgs = {
-            inherit pkgsUnstable wl-x11-clipsync;
-          };
-
-          modules = [
-            ./hosts/work-vm-disko-test
-
-            disko.nixosModules.disko
-            home-manager.nixosModules.home-manager
-            sops-nix.nixosModules.sops
-
-            {
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-
-                extraSpecialArgs = {
-                  inherit
-                    pkgsUnstable
-                    zellij-tools
-                    ;
-                };
-              };
-            }
-          ];
-        };
-
         surf-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 
