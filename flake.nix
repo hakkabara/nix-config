@@ -39,6 +39,16 @@
       url = "github:gmodena/nix-flatpak";
     };
 
+    # DankMaterialShell desktop shell.
+    #
+    # Use the official upstream DMS flake directly. DMS upstream itself
+    # targets nixos-unstable, so reuse our already pinned unstable package
+    # set instead of introducing a second independent Nixpkgs revision.
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     # Zellij scratchpads and companion CLI.
     #
     # The concrete upstream revision is pinned in flake.lock.
@@ -59,6 +69,7 @@
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
+      dms,
       zellij-tools,
       ...
     }:
@@ -98,7 +109,12 @@
                 # Modules use stable `pkgs` unless they explicitly request
                 # and select something from `pkgsUnstable`.
                 extraSpecialArgs = {
-                  inherit plasma-manager pkgsUnstable zellij-tools;
+                  inherit
+                    dms
+                    plasma-manager
+                    pkgsUnstable
+                    zellij-tools
+                    ;
                 };
               };
             }
@@ -127,7 +143,12 @@
                 useUserPackages = true;
 
                 extraSpecialArgs = {
-                  inherit plasma-manager pkgsUnstable zellij-tools;
+                  inherit
+                    dms
+                    plasma-manager
+                    pkgsUnstable
+                    zellij-tools
+                    ;
                 };
               };
             }
