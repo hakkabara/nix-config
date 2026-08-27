@@ -72,7 +72,7 @@
         installPasswordFile = "/tmp/disko-luks-password";
 
         allowDiscards = true;
-        yubikey.enable = false;
+        yubikey.enable = true;
       };
 
       btrfs.prepareForImpermanence = true;
