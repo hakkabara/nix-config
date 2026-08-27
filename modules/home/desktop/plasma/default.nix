@@ -128,6 +128,49 @@ in
                 apply = "force";
               };
             }
+            {
+              description = "Equibop - maximized";
+
+              match.window-class = {
+                value = "equibop";
+                type = "substring";
+                match-whole = false;
+              };
+
+              apply = {
+                maximizehoriz = {
+                  value = true;
+                  apply = "force";
+                };
+
+                maximizevert = {
+                  value = true;
+                  apply = "force";
+                };
+              };
+            }
+
+            {
+              description = "Element - maximized";
+
+              match.window-class = {
+                value = "element";
+                type = "substring";
+                match-whole = false;
+              };
+
+              apply = {
+                maximizehoriz = {
+                  value = true;
+                  apply = "force";
+                };
+
+                maximizevert = {
+                  value = true;
+                  apply = "force";
+                };
+              };
+            }
           ];
 
           # Keep ten workspaces in one linear row.
