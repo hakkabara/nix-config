@@ -8,7 +8,6 @@
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
-    ./storage-legacy.nix
     ./secrets.nix
     ./wireguard.nix
     ./mounts.nix
@@ -57,17 +56,21 @@
 
     vmware.waylandClipboard.enable = true;
 
-    # Keep the live SurfVM on its current ext4 layout. Flip this to true only
-    # for a fresh Disko reinstall; never switch it on via nixos-rebuild on the
-    # existing ext4 installation.
+    # Permanent SurfVM storage layout. The same configuration is used both
+    # by nixos-anywhere for fresh installs and by the running system.
     storage.disko = {
-      enable = false;
+      enable = true;
       filesystem = "btrfs";
 
       partition.systemSize = "100%";
 
       encryption = {
         enable = true;
+
+        # nixos-anywhere uploads the initial LUKS password here.
+        # Normal nixos-rebuild does not format the disk or consume this file.
+        installPasswordFile = "/tmp/disko-luks-password";
+
         allowDiscards = true;
         yubikey.enable = false;
       };
