@@ -189,7 +189,17 @@
                 clearOnShutdown = true;
 
                 # Shared SurfVM persistence whitelist.
-                persistentOrigins = [ ];
+                # Keep login/session state for selected trusted web apps.
+                persistentOrigins = [
+                  "https://web.whatsapp.com"
+
+                  "https://chatgpt.com"
+                  "https://auth.openai.com"
+
+                  "https://gemini.google.com"
+
+                  "https://claude.ai"
+                ];
               };
 
               # Both currently inherit the SurfVM common baseline.
@@ -332,9 +342,13 @@
     ];
   };
 
-  # Mount shared folder
+  # Mount all VMware Shared Folders below /data.
+  #
+  # VMware exposes each configured host share as a directory below .host:/,
+  # e.g. /data/notes-and-passwords, /data/knowhowdb, /data/it-sec and
+  # /data/surfvm.
   fileSystems."/data" = {
-    device = ".host:/data";
+    device = ".host:/";
     fsType = "fuse./run/current-system/sw/bin/vmhgfs-fuse";
     options = [
       "rw"
