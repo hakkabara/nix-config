@@ -51,7 +51,6 @@
 
     python = {
       python3.enable = true;
-      python2.enable = true;
     };
 
     vmware.waylandClipboard.enable = true;
