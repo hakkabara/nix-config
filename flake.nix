@@ -44,10 +44,6 @@
     # Use the official upstream DMS flake directly. DMS upstream itself
     # targets nixos-unstable, so reuse our already pinned unstable package
     # set instead of introducing a second independent Nixpkgs revision.
-    dms = {
-      url = "github:AvengeMedia/DankMaterialShell";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
-    };
 
     # Zellij scratchpads and companion CLI.
     #
@@ -69,7 +65,6 @@
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
-      dms,
       zellij-tools,
       ...
     }:
@@ -84,6 +79,39 @@
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-tree;
 
       nixosConfigurations = {
+        work-vm = nixpkgs.lib.nixosSystem {
+          inherit system;
+
+          specialArgs = {
+            inherit pkgsUnstable wl-x11-clipsync;
+          };
+
+          modules = [
+            ./hosts/work-vm
+
+            disko.nixosModules.disko
+            home-manager.nixosModules.home-manager
+
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                # Home Manager itself remains on release-26.05/stable.
+                #
+                # pkgsUnstable is exposed only for modules that explicitly
+                # opt into fast-moving applications such as Niri/Zellij.
+                extraSpecialArgs = {
+                  inherit
+                    pkgsUnstable
+                    zellij-tools
+                    ;
+                };
+              };
+            }
+          ];
+        };
+
         surf-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 
@@ -110,7 +138,6 @@
                 # and select something from `pkgsUnstable`.
                 extraSpecialArgs = {
                   inherit
-                    dms
                     plasma-manager
                     pkgsUnstable
                     zellij-tools
@@ -144,7 +171,6 @@
 
                 extraSpecialArgs = {
                   inherit
-                    dms
                     plasma-manager
                     pkgsUnstable
                     zellij-tools
