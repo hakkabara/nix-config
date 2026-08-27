@@ -91,6 +91,7 @@
 
             disko.nixosModules.disko
             home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
 
             {
               home-manager = {

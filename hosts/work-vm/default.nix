@@ -24,6 +24,8 @@
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
+    ../../modules/nixos/security/sops.nix
+    ../../modules/nixos/accounts/primary.nix
   ];
 
   networking.hostName = "work-vm";
@@ -69,6 +71,18 @@
   };
 
   hakkabara = {
+    # Declarative primary account password via sops-nix.
+    accounts.primary = {
+      enable = true;
+      username = "hakkabara";
+
+      password = {
+        sopsFile = ../../secrets/work-vm/users.yaml;
+        secretName = "users/hakkabara-password-hash";
+        key = "hakkabara-password-hash";
+      };
+    };
+
     # Workstation VM policy: never suspend/hibernate independently.
     workstationVm.enable = true;
 
