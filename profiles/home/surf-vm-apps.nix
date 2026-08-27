@@ -80,7 +80,7 @@
     jellyfin-desktop
 
     # Documents / reading
-    libreoffice-qt-fresh
+    libreoffice-qt-stable
     kdePackages.okular
     koreader
   ];
