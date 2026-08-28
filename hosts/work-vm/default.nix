@@ -59,9 +59,9 @@
 
   programs.zsh.enable = true;
 
-  users.users.hakkabara = {
+  users.users.mko = {
     isNormalUser = true;
-    description = "hakkabara";
+    description = "mko";
     shell = pkgs.zsh;
 
     extraGroups = [
@@ -74,12 +74,12 @@
     # Declarative primary account password via sops-nix.
     accounts.primary = {
       enable = true;
-      username = "hakkabara";
+      username = "mko";
 
       password = {
         sopsFile = ../../secrets/work-vm/users.yaml;
-        secretName = "users/hakkabara-password-hash";
-        key = "hakkabara-password-hash";
+        secretName = "users/mko-password-hash";
+        key = "mko-password-hash";
       };
     };
 
@@ -135,7 +135,7 @@
     # Automatic login directly into the Niri session.
     desktop.autologin = {
       enable = true;
-      user = "hakkabara";
+      user = "mko";
       session = "niri";
     };
   };
@@ -159,9 +159,9 @@
     compositor.name = "niri";
   };
 
-  home-manager.users.hakkabara = {
+  home-manager.users.mko = {
     imports = [
-      ../../users/hakkabara
+      ../../users/mko
       ../../profiles/home/work-vm.nix
     ];
   };
