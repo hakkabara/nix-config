@@ -10,6 +10,16 @@ result-*
 
 
 # -----------------------------------------------------------------------------
+# Backup / conflict files
+# -----------------------------------------------------------------------------
+
+*.backup*
+*.bak
+*.orig
+*.rej
+
+
+# -----------------------------------------------------------------------------
 # Python bytecode / caches
 # -----------------------------------------------------------------------------
 
@@ -56,9 +66,10 @@ __pypackages__/
 
 
 # -----------------------------------------------------------------------------
-# Defensive secret/plaintext patterns
+# Defensive plaintext-secret patterns
 #
 # These are convenience protections, not a security boundary.
+# Actual repository secret policy is enforced by nix-check.sh + gitleaks.
 # -----------------------------------------------------------------------------
 
 *.plaintext
@@ -70,9 +81,64 @@ secrets/**/.*.tmp
 
 
 # -----------------------------------------------------------------------------
+# Credential / private-key filenames
+# -----------------------------------------------------------------------------
+
+# SSH / TLS private keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+
+# age / PGP private material
+*.agekey
+secring.*
+*.gpg
+*.asc
+
+# Linux / admin credential files
+.netrc
+.pgpass
+.pgpass.*
+htpasswd
+*.htpasswd
+shadow
+kubeconfig
+*.kubeconfig
+
+# Password manager databases
+*.kdbx
+*.psafe3
+
+# Windows unattended installation files
+unattend.xml
+Autounattend.xml
+
+# WireGuard live configurations
+wg*.conf
+
+
+# -----------------------------------------------------------------------------
 # Local environment files
 # -----------------------------------------------------------------------------
 
 .env
 .env.*
 !.env.example
+
+
+# -----------------------------------------------------------------------------
+# Encrypted SOPS material under secrets/ is intentionally version controlled.
+#
+# Keep these negations AFTER the defensive filename patterns above.
+# nix-check.sh verifies that every file under secrets/ is actually encrypted.
+# -----------------------------------------------------------------------------
+
+!secrets/
+!secrets/**

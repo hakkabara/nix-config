@@ -35,6 +35,24 @@ tags = [
 
 
 # ============================================================
+# age secret keys / SOPS identities
+# ============================================================
+
+[[rules]]
+id = "age-secret-key"
+description = "age secret identity committed in plaintext"
+regex = '''AGE-SECRET-KEY-[1][0-9A-Z]{50,}'''
+keywords = [
+  "AGE-SECRET-KEY-",
+]
+tags = [
+  "age",
+  "private-key",
+  "sops",
+]
+
+
+# ============================================================
 # NixOS user passwords
 # ============================================================
 
@@ -52,6 +70,13 @@ tags = [
   "nixos",
   "password",
 ]
+
+  [[rules.allowlists]]
+  description = "Locked or disabled account markers are not secrets"
+  regexTarget = "match"
+  regexes = [
+    '''\b(initialPassword|password)\s*=\s*"[!*]+"\s*;''',
+  ]
 
 
 [[rules]]
@@ -82,6 +107,49 @@ secretGroup = 2
 tags = [
   "wireguard",
   "private-key",
+]
+
+
+# ============================================================
+# Connection URLs / DSNs with embedded passwords
+#
+# Intentionally no keywords filter: all URI schemes are inspected, including
+# https, sftp and custom/internal protocols.
+# ============================================================
+
+[[rules]]
+id = "url-embedded-password"
+description = "Password embedded in connection URL or DSN"
+regex = '''[a-zA-Z][a-zA-Z0-9+.-]*://[^\s:/@]+:([^\s:/@]{3,})@'''
+secretGroup = 1
+tags = [
+  "connection-string",
+  "password",
+]
+
+  [[rules.allowlists]]
+  description = "Stock NixOS proxy example uses placeholder credentials"
+  regexTarget = "line"
+  regexes = [
+    '''networking\.proxy\.default\s*=\s*\"http://user:password@proxy:port/\";''',
+  ]
+
+
+# ============================================================
+# Windows Group Policy Preferences
+# ============================================================
+
+[[rules]]
+id = "windows-gpp-cpassword"
+description = "Windows GPP cpassword"
+regex = '''(?i)cpassword\s*=\s*["\x27]([A-Za-z0-9+/=]{16,})["\x27]'''
+secretGroup = 1
+keywords = [
+  "cpassword",
+]
+tags = [
+  "windows",
+  "gpp",
 ]
 
 

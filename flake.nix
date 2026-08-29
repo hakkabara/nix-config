@@ -105,50 +105,6 @@
           ];
         };
 
-        # Full SurfVM integration target for validating a fresh
-        # Disko + LUKS2 + Btrfs installation without touching the live SurfVM.
-        surf-vm-disko-test = nixpkgs.lib.nixosSystem {
-          inherit system;
-
-          specialArgs = {
-            inherit wl-x11-clipsync;
-          };
-
-          modules = [
-            ./hosts/surf-vm-disko-test
-            nix-flatpak.nixosModules.nix-flatpak
-            home-manager.nixosModules.home-manager
-            sops-nix.nixosModules.sops
-            disko.nixosModules.disko
-
-            {
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-
-                extraSpecialArgs = {
-                  inherit plasma-manager pkgsUnstable zellij-tools;
-                };
-              };
-            }
-          ];
-        };
-
-        # Installation target for a fresh encrypted real SurfVM.
-        #
-        # This keeps destructive Disko settings separate from the currently
-        # running legacy SurfVM configuration.
-
-        # Disposable integration target for validating Disko + LUKS2 + Btrfs
-        # before migrating the real SurfVM.
-        storage-test-vm = nixpkgs.lib.nixosSystem {
-          inherit system;
-
-          modules = [
-            ./hosts/storage-test-vm
-            disko.nixosModules.disko
-          ];
-        };
       };
     };
 }
