@@ -8,6 +8,8 @@
   imports = [
     ./browsers
     ./flameshot.nix
+    ./obsidian.nix
+    ./signal.nix
     ./pihole
     ./miniserve
   ];

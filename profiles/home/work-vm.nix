@@ -9,6 +9,11 @@
     ../../modules/home/desktop/niri
   ];
 
+  hakkabara.apps = {
+    obsidian.enable = lib.mkDefault true;
+    signal.enable = lib.mkDefault true;
+  };
+
   # WorkVM Wayland compositor configuration.
   #
   # DMS itself is intentionally configured at the NixOS level through the

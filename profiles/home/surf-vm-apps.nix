@@ -16,6 +16,11 @@
     ../../modules/home/apps/element.nix
   ];
 
+  hakkabara.apps = {
+    obsidian.enable = true;
+    signal.enable = true;
+  };
+
   programs.thunderbird = {
     enable = true;
 
@@ -68,11 +73,7 @@
     # Password manager
     bitwarden-desktop
 
-    # Notes / knowledge
-    obsidian
-
     # Communication
-    signal-desktop
     telegram-desktop
 
     # Media
