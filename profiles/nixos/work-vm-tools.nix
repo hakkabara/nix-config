@@ -136,6 +136,7 @@
           "shodan"
           "sqlmap"
           "subfinder"
+          "thcHydra"
           "wfuzz"
           "whatweb"
           "zap"

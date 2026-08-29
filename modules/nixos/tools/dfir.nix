@@ -48,7 +48,12 @@ let
     inherit (pkgs) volatility3;
     inherit (pkgsUnstable) yara;
     yaraX = pkgsUnstable.yara-x;
-    inherit (pkgs) zircolite;
+    zircolite = pkgs.zircolite.overridePythonAttrs (oldAttrs: {
+      dependencies = (oldAttrs.dependencies or [ ]) ++ [
+        pkgs.python3Packages.chardet
+        pkgs.python3Packages.restrictedpython
+      ];
+    });
   };
 in
 {
