@@ -8,6 +8,7 @@
   imports = [
     ./browsers
     ./flameshot.nix
+    ./keepassxc.nix
     ./obsidian.nix
     ./signal.nix
     ./pihole
