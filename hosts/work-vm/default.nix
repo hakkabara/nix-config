@@ -11,6 +11,7 @@
     # Shared workstation/VM integration.
     ../../modules/nixos/features/workstation-vm.nix
     ../../modules/nixos/features/python.nix
+    ../../modules/nixos/features/wireshark.nix
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
@@ -94,6 +95,13 @@
     python = {
       python3.enable = true;
       python2.enable = true;
+    };
+
+    # Wireshark GUI with privileged dumpcap wrapper for non-root captures.
+    wireshark = {
+      enable = true;
+      users = [ "mko" ];
+      usbCapture = false;
     };
 
     # Rootful Docker for containerized DFIR/security tooling.
