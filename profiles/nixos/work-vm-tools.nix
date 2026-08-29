@@ -54,6 +54,7 @@
     dfir =
       lib.genAttrs
         [
+          "extractMsg"
           "acquire"
           "afflib"
           "apfsprogs"
