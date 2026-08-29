@@ -171,9 +171,6 @@ in
       # Processes / logs
       procs
 
-      # Git / GitHub
-      gh
-
       # HTTP / networking
       curl
       wget
