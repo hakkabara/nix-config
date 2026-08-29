@@ -93,6 +93,12 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
 
+                # Preserve a colliding existing user file instead of failing
+                # Home Manager activation. A later activation may replace
+                # the previous automatic backup.
+                backupFileExtension = "hm-backup";
+                overwriteBackup = true;
+
                 # Extra arguments available to Home Manager modules.
                 #
                 # Modules use stable `pkgs` unless they explicitly request
