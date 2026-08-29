@@ -10,6 +10,7 @@
 
     # Shared workstation/VM integration.
     ../../modules/nixos/features/workstation-vm.nix
+    ../../modules/nixos/features/python.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
 
@@ -85,6 +86,13 @@
 
     # Workstation VM policy: never suspend/hibernate independently.
     workstationVm.enable = true;
+
+    # Python runtimes used by WorkVM tooling.
+    # Python 2 is intentionally limited to this legacy/security-tool use case.
+    python = {
+      python3.enable = true;
+      python2.enable = true;
+    };
 
     # DHCP through NetworkManager.
     networking.enable = true;

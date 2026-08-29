@@ -1,12 +1,17 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
 {
   imports = [
     ./cli.nix
+  ];
+
+  home.packages = [
+    pkgs.libnotify
   ];
 
   # Shared baseline for interactive workstation-like systems.
