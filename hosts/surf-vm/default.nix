@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   imports = [
@@ -110,6 +110,11 @@
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
       theme.matugen.enable = true;
+
+      git.githubCli = {
+        enable = true;
+        tokenFile = config.sops.secrets."github/gh-token".path;
+      };
 
       apps = {
         pihole.enable = true;

@@ -21,3 +21,9 @@ creation_rules:
       - age:
           - *surf_vm
           - *recovery
+
+  - path_regex: ^secrets/surf-vm/github\.yaml$
+    key_groups:
+      - age:
+          - *surf_vm
+          - *recovery

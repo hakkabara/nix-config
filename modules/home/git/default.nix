@@ -4,6 +4,10 @@ let
   cfg = config.hakkabara.git;
 in
 {
+  imports = [
+    ./github-cli.nix
+  ];
+
   options.hakkabara.git.enable = lib.mkEnableOption "shared Git configuration";
 
   config = lib.mkIf cfg.enable {
