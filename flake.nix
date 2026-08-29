@@ -74,16 +74,27 @@
       # A second package set used only by modules that explicitly opt in.
       # `pkgs` remains the NixOS 26.05 stable package set.
       pkgsUnstable = nixpkgs-unstable.legacyPackages.${system};
+
+      # Custom DFIR packages use the same pinned unstable revision they were
+      # developed against. Unfree is allowed only in this dedicated package set.
+      pkgsDfirBase = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      pkgsDfir = import ./packages { pkgsUnstable = pkgsDfirBase; };
     in
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-tree;
+
+      # Expose custom packages for local per-package and batch builds.
+      packages.${system} = pkgsDfir;
 
       nixosConfigurations = {
         work-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 
           specialArgs = {
-            inherit pkgsUnstable wl-x11-clipsync;
+            inherit pkgsDfir pkgsUnstable wl-x11-clipsync;
           };
 
           modules = [

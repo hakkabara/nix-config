@@ -2,12 +2,44 @@
   config,
   lib,
   pkgs,
+  pkgsDfir,
   pkgsUnstable,
   ...
 }:
 
 let
   cfg = config.hakkabara.tools.dfir;
+
+  customTools = {
+    chainsawRules = pkgsDfir.chainsaw-rules;
+    cryptnetUrlCacheParser = pkgsDfir.cryptnet-url-cache-parser;
+    inherit (pkgsDfir) dexray;
+    dfirNtfs = pkgsDfir.dfir-ntfs;
+    esetLogParser = pkgsDfir.esetlogparser;
+    eventTranscriptParser = pkgsDfir.eventtranscriptparser;
+    ezTools = pkgsDfir.ez-tools;
+    hackBrowserData = pkgsDfir.hackbrowserdata;
+    inherit (pkgsDfir) hindsight;
+    inherit (pkgsDfir) kstrike;
+    inherit (pkgsDfir) libesedb;
+    inherit (pkgsDfir) libevt;
+    inherit (pkgsDfir) libvshadow;
+    lokiScanner = pkgsDfir.loki-scanner;
+    inherit (pkgsDfir) notatin;
+    inherit (pkgsDfir) plaso;
+    rdpCacheStitcher = pkgsDfir.rdpcachestitcher;
+    inherit (pkgsDfir) recuperabit;
+    inherit (pkgsDfir) regipy;
+    regRipper4 = pkgsDfir.regripper4;
+    sharpHound = pkgsDfir.sharphound;
+    inherit (pkgsDfir) sidr;
+    signatureBase = pkgsDfir.signature-base;
+    srumDump = pkgsDfir.srum-dump;
+    inherit (pkgsDfir) takajo;
+    inherit (pkgsDfir) velociraptor;
+    vmfsTools = pkgsDfir.vmfs-tools;
+    yaraForge = pkgsDfir.yara-forge;
+  };
 
   tools = {
     extractMsg = pkgsUnstable.python3Packages.extract-msg;
@@ -54,14 +86,21 @@ let
         pkgs.python3Packages.restrictedpython
       ];
     });
-  };
+  }
+  // customTools;
 in
 {
   options.hakkabara.tools.dfir = lib.mapAttrs (name: _: {
     enable = lib.mkEnableOption "Install ${name}";
   }) tools;
 
-  config.environment.systemPackages = lib.attrValues (
-    lib.filterAttrs (name: _: cfg.${name}.enable) tools
-  );
+  config = {
+    environment.systemPackages = lib.attrValues (lib.filterAttrs (name: _: cfg.${name}.enable) tools);
+
+    environment.pathsToLink =
+      lib.optionals cfg.chainsawRules.enable [ "/share/chainsaw" ]
+      ++ lib.optionals cfg.signatureBase.enable [ "/share/signature-base" ]
+      ++ lib.optionals cfg.sharpHound.enable [ "/share/sharphound" ]
+      ++ lib.optionals cfg.yaraForge.enable [ "/share/yara-forge" ];
+  };
 }
