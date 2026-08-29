@@ -183,7 +183,6 @@ in
 
       # File transfer / sync
       rsync
-      rclone
 
       # Archives
       zip

@@ -11,6 +11,7 @@
     # Shared workstation/VM integration.
     ../../modules/nixos/features/workstation-vm.nix
     ../../modules/nixos/features/python.nix
+    ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
 
