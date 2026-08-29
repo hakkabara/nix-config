@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   guard:
-    name: Guard (lint, secrets, format, flake check)
+    name: Guard (lint, secrets, format, flake check, build)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -46,4 +46,21 @@ jobs:
 
       - name: Repository guard
         run: |
-          nix shell             nixpkgs#bash             nixpkgs#statix             nixpkgs#deadnix             nixpkgs#sops             nixpkgs#gitleaks             nixpkgs#findutils             --command bash -eu -o pipefail               modules/home/nix-dev/scripts/nix-check.sh
+          nix shell \
+            nixpkgs#bash \
+            nixpkgs#statix \
+            nixpkgs#deadnix \
+            nixpkgs#sops \
+            nixpkgs#gitleaks \
+            nixpkgs#findutils \
+            --command bash -eu -o pipefail \
+              modules/home/nix-dev/scripts/nix-check.sh
+
+      # nix flake check evaluates NixOS configurations, but does not build the
+      # complete system closure. Keep a real toplevel build as a separate gate
+      # so package collisions and other build-only failures are caught by CI.
+      - name: Build SurfVM system
+        run: |
+          nix build \
+            .#nixosConfigurations.surf-vm.config.system.build.toplevel \
+            --no-link
