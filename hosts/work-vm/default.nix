@@ -14,6 +14,7 @@
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
+    ../../modules/nixos/virtualization/docker.nix
 
     # Desktop foundation.
     ../../modules/nixos/audio/pipewire.nix
@@ -93,6 +94,13 @@
     python = {
       python3.enable = true;
       python2.enable = true;
+    };
+
+    # Rootful Docker for containerized DFIR/security tooling.
+    # Members of the docker group effectively have root-equivalent access.
+    virtualization.docker = {
+      enable = true;
+      users = [ "mko" ];
     };
 
     # DHCP through NetworkManager.
