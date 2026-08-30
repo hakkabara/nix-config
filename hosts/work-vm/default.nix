@@ -28,6 +28,7 @@
     ../../modules/nixos/desktop/autologin.nix
 
     # Shared system policies.
+    ../../modules/nixos/network/vpn-clients.nix
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
@@ -132,6 +133,24 @@
 
     # DHCP through NetworkManager.
     networking.enable = true;
+
+    # Generic VPN client capabilities only.
+    # No SurfVM Homelab VPN profiles are imported into the WorkVM.
+    network.vpnClients = {
+      enable = true;
+
+      openvpn = {
+        enable = true;
+        networkManager.enable = true;
+      };
+
+      wireguard.enable = true;
+
+      fortinet = {
+        enable = true;
+        networkManager.enable = true;
+      };
+    };
 
     # VMware host <-> Wayland clipboard bridge.
     vmware.waylandClipboard.enable = true;
