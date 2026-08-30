@@ -6,6 +6,7 @@
 {
   imports = [
     ./workstation-base.nix
+    ../../modules/home/desktop/dms
     ../../modules/home/desktop/niri
   ];
 
@@ -46,6 +47,8 @@
     #
     # DMS itself is intentionally configured at the NixOS level through the
     # native programs.dms-shell module available in NixOS 26.05.
+    desktop.dms.clipboardHistoryPersistence.enable = lib.mkDefault false;
+
     desktop.niri = {
       enable = lib.mkDefault true;
       # Keep DMS IPC shortcuts in the generated Niri configuration.

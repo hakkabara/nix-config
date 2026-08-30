@@ -29,8 +29,8 @@ let
         spawn "dms" "ipc" "call" "notepad" "toggle";
     }
 
-    Mod+V hotkey-overlay-title="Clipboard" {
-        spawn "dms" "ipc" "call" "clipboard" "toggle";
+    Mod+V hotkey-overlay-title="CopyQ Clipboard" {
+        spawn "copyq" "-e" "toggle()";
     }
 
     Mod+X hotkey-overlay-title="Power Menu" {
