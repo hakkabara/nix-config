@@ -152,9 +152,11 @@ in
 
           Mod+Shift+Q { close-window; }
 
-          Print { screenshot; }
-          Ctrl+Print { screenshot-screen; }
-          Alt+Print { screenshot-window; }
+          // Use Flameshot consistently across desktop environments.
+          // Niris native screenshot actions are intentionally not bound.
+          Mod+Shift+S hotkey-overlay-title="Flameshot Screenshot" {
+              spawn "flameshot" "gui";
+          }
 
           // Useful for RDP/VM applications that request shortcut inhibition.
           Mod+Escape allow-inhibiting=false {
