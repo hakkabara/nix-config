@@ -34,7 +34,11 @@
         };
       };
 
-      chromium.chromium.enable = lib.mkDefault true;
+      chromium = {
+        chromium.enable = lib.mkDefault true;
+        googleChrome.enable = lib.mkDefault true;
+        vivaldi.enable = lib.mkDefault true;
+      };
     };
 
     # WorkVM Wayland compositor configuration.

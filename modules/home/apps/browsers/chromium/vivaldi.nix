@@ -1,15 +1,17 @@
 {
   config,
-  lib,
   pkgs,
+  pkgsUnstable,
   ...
 }:
 
-let
-  cfg = config.hakkabara.browsers.chromium.vivaldi;
-in
 {
-  home.packages = lib.optionals cfg.enable [
-    pkgs.vivaldi
-  ];
+  programs.vivaldi = {
+    enable = config.hakkabara.browsers.chromium.vivaldi.enable;
+
+    package = pkgs.vivaldi.override {
+      proprietaryCodecs = true;
+      inherit (pkgsUnstable) vivaldi-ffmpeg-codecs;
+    };
+  };
 }
