@@ -13,6 +13,7 @@
     ../../modules/nixos/features/python.nix
     ../../modules/nixos/features/wireshark.nix
     ../../modules/nixos/apps/remote-desktop
+    ../../modules/nixos/apps/teams.nix
     ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -97,6 +98,14 @@
     python = {
       python3.enable = true;
       python2.enable = true;
+    };
+
+    # Teams inside the VM is intentionally limited to chat/downloads.
+    # Calls and meetings are handled on the Windows host.
+    apps.teams = {
+      enable = true;
+      user = "mko";
+      chatOnly = true;
     };
 
     # Remote support clients. All are started manually when needed;
