@@ -152,8 +152,20 @@
       # selectively overridden here.
       browsers = {
         gecko = {
-          firefox.enable = true;
-          floorp.enable = true;
+          firefox = {
+            enable = true;
+            profileName = "surf";
+            profileDisplayName = "Surf";
+            profileId = 0;
+          };
+
+          floorp = {
+            enable = true;
+            profileName = "surf";
+            profileDisplayName = "Surf";
+            profileId = 0;
+            whatsappProfile.enable = true;
+          };
 
           # SurfVM Firefox selective Sync.
           #
@@ -250,8 +262,49 @@
             documentTitle = "SurfVM Bookmarks";
           };
 
-          extensions.tokyoNightTheme.enable = true;
-          extensions.twitchAdSolutions.enable = true;
+          extensions = {
+            # Common workstation extensions are inherited from
+            # workstation-base: uBlock Origin, Consent-O-Matic,
+            # Dark Reader and the Tokyo Night theme.
+
+            violentmonkey = {
+              enable = true;
+              firefox.runtimeBlockedHosts = [
+                "*://*"
+              ];
+            };
+
+            bitwarden.enable = true;
+            multiAccountContainers.enable = true;
+
+            sponsorBlock = {
+              enable = true;
+              firefox = {
+                runtimeBlockedHosts = [
+                  "*://*"
+                ];
+                runtimeAllowedHosts = [
+                  "https://*.youtube.com"
+                  "https://www.youtube-nocookie.com"
+                  "https://sponsor.ajay.app"
+                ];
+              };
+            };
+
+            enhancerForYouTube = {
+              enable = true;
+              firefox = {
+                runtimeBlockedHosts = [
+                  "*://*"
+                ];
+                runtimeAllowedHosts = [
+                  "https://www.youtube.com"
+                ];
+              };
+            };
+
+            twitchAdSolutions.enable = true;
+          };
         };
 
         chromium = {

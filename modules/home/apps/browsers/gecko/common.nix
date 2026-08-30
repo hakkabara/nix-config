@@ -16,6 +16,21 @@ let
       default = false;
       inherit description;
     };
+  browserOverrideType = lib.types.submodule {
+    options = {
+      policies = lib.mkOption {
+        type = lib.types.attrs;
+        default = { };
+        description = "Additional or overriding Gecko enterprise policies.";
+      };
+
+      settings = lib.mkOption {
+        type = lib.types.attrs;
+        default = { };
+        description = "Additional or overriding Gecko profile preferences.";
+      };
+    };
+  };
 
   # Firefox 153+ can restrict individual extensions at runtime.
   #
@@ -150,8 +165,69 @@ let
 in
 {
   options.hakkabara.browsers.gecko = {
-    firefox.enable = lib.mkEnableOption "Firefox";
-    floorp.enable = lib.mkEnableOption "Floorp";
+    firefox = {
+      enable = lib.mkEnableOption "Firefox";
+
+      profileName = lib.mkOption {
+        type = lib.types.str;
+        default = "default";
+        description = "Internal Home Manager Firefox profile name.";
+      };
+
+      profileDisplayName = lib.mkOption {
+        type = lib.types.str;
+        default = "Default";
+        description = "Human-readable Firefox profile name.";
+      };
+
+      profileId = lib.mkOption {
+        type = lib.types.int;
+        default = 0;
+        description = "Firefox profile ID.";
+      };
+    };
+
+    floorp = {
+      enable = lib.mkEnableOption "Floorp";
+
+      profileName = lib.mkOption {
+        type = lib.types.str;
+        default = "default";
+        description = "Internal Home Manager Floorp profile name.";
+      };
+
+      profileDisplayName = lib.mkOption {
+        type = lib.types.str;
+        default = "Default";
+        description = "Human-readable Floorp profile name.";
+      };
+
+      profileId = lib.mkOption {
+        type = lib.types.int;
+        default = 0;
+        description = "Floorp profile ID.";
+      };
+
+      whatsappProfile.enable = lib.mkEnableOption "dedicated Floorp WhatsApp profile";
+    };
+
+    overrides = {
+      common = lib.mkOption {
+        type = browserOverrideType;
+        default = { };
+        description = "Overrides shared by Firefox and Floorp.";
+      };
+      firefox = lib.mkOption {
+        type = browserOverrideType;
+        default = { };
+        description = "Firefox-only policy and preference overrides.";
+      };
+      floorp = lib.mkOption {
+        type = browserOverrideType;
+        default = { };
+        description = "Floorp-only policy and preference overrides.";
+      };
+    };
 
     # ============================================================
     # Shared Gecko privacy configuration

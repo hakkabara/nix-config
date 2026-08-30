@@ -27,52 +27,15 @@
 
     nixDev.enable = lib.mkDefault true;
 
-    # Common Gecko extension baseline.
+    # Common Gecko browser baseline.
     #
-    # Individual hosts may override any one of these with false.
+    # These extensions and the Tokyo Night browser rice are useful on
+    # every workstation. Hosts can override each mkDefault individually.
     browsers.gecko.extensions = {
       uBlockOrigin.enable = lib.mkDefault true;
-      darkReader.enable = lib.mkDefault true;
-      violentmonkey.enable = lib.mkDefault true;
-
-      # Violentmonkey is deny-by-default. Individual hosts must
-      # explicitly allow every origin on which userscripts may
-      # execute or communicate.
-      violentmonkey.firefox.runtimeBlockedHosts = lib.mkDefault [
-        "*://*"
-      ];
-      bitwarden.enable = lib.mkDefault true;
-      multiAccountContainers.enable = lib.mkDefault true;
       consentOMatic.enable = lib.mkDefault true;
-      sponsorBlock = {
-        enable = lib.mkDefault true;
-
-        firefox = {
-          runtimeBlockedHosts = lib.mkDefault [
-            "*://*"
-          ];
-
-          runtimeAllowedHosts = lib.mkDefault [
-            "https://*.youtube.com"
-            "https://www.youtube-nocookie.com"
-            "https://sponsor.ajay.app"
-          ];
-        };
-      };
-
-      enhancerForYouTube = {
-        enable = lib.mkDefault true;
-
-        firefox = {
-          runtimeBlockedHosts = lib.mkDefault [
-            "*://*"
-          ];
-
-          runtimeAllowedHosts = lib.mkDefault [
-            "https://www.youtube.com"
-          ];
-        };
-      };
+      darkReader.enable = lib.mkDefault true;
+      tokyoNightTheme.enable = lib.mkDefault true;
     };
 
     # Shared workstation navigation.

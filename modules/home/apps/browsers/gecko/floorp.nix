@@ -6,10 +6,13 @@ let
   shared = import ./shared.nix {
     inherit lib cfg;
     browser = "floorp";
-    profile = "surf";
+    profile = cfg.floorp.profileName;
   };
 
   bookmarks = import ./bookmarks.nix;
+  bookmarkPolicies = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.policies;
+
+  bookmarkProfileSettings = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.profileSettings;
 
   # ============================================================
   # Floorp-specific stable profile preferences
@@ -336,12 +339,12 @@ in
     enable = cfg.floorp.enable;
 
     # Firefox-compatible baseline shared with Firefox.
-    policies = lib.recursiveUpdate shared.policies bookmarks.policies;
+    policies = lib.recursiveUpdate (lib.recursiveUpdate shared.policies bookmarkPolicies) cfg.overrides.floorp.policies;
 
     # Floorp keeps its own profile state below ~/.floorp.
-    profiles.surf = {
-      id = 0;
-      name = "Surf";
+    profiles.${cfg.floorp.profileName} = {
+      id = cfg.floorp.profileId;
+      name = cfg.floorp.profileDisplayName;
       isDefault = true;
 
       # Minimal declarative Floorp chrome cleanup.
@@ -358,7 +361,9 @@ in
         }
       '';
 
-      settings = shared.profileSettings // bookmarks.profileSettings // floorpSettings;
+      settings = lib.recursiveUpdate (
+        shared.profileSettings // bookmarkProfileSettings // floorpSettings
+      ) cfg.overrides.floorp.settings;
 
       search = import ./search.nix;
     };
@@ -368,7 +373,7 @@ in
     # Keep WhatsApp separate from the normal Surf profile so
     # session restore and ordinary browser tabs cannot become
     # part of the WhatsApp autostart window.
-    profiles.whatsapp = {
+    profiles.whatsapp = lib.mkIf cfg.floorp.whatsappProfile.enable {
       id = 1;
       name = "WhatsApp";
       isDefault = false;

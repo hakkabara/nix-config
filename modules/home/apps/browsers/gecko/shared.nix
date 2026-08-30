@@ -199,145 +199,148 @@ in
   # Shared Firefox-compatible enterprise policies
   # ============================================================
 
-  policies = {
-    # Browser binaries themselves are updated through Nix.
-    DisableAppUpdate = true;
+  policies = lib.recursiveUpdate (
+    {
+      # Browser binaries themselves are updated through Nix.
+      DisableAppUpdate = true;
 
-    # Extensions may update independently.
-    ExtensionUpdate = true;
+      # Extensions may update independently.
+      ExtensionUpdate = true;
 
-    # XDG decides which browser is the system default.
-    DontCheckDefaultBrowser = true;
+      # XDG decides which browser is the system default.
+      DontCheckDefaultBrowser = true;
 
-    # Account/Sync policy is merged below so Firefox can opt into
-    # selective Sync while unsupported Gecko derivatives stay disabled.
+      # Account/Sync policy is merged below so Firefox can opt into
+      # selective Sync while unsupported Gecko derivatives stay disabled.
 
-    # ==========================================================
-    # Privacy / telemetry
-    # ==========================================================
+      # ==========================================================
+      # Privacy / telemetry
+      # ==========================================================
 
-    DisableTelemetry = true;
-    DisableFirefoxStudies = true;
-    DisableFeedbackCommands = true;
+      DisableTelemetry = true;
+      DisableFirefoxStudies = true;
+      DisableFeedbackCommands = true;
 
-    EnableTrackingProtection = {
-      Value = true;
-      Category = "strict";
+      EnableTrackingProtection = {
+        Value = true;
+        Category = "strict";
 
-      Cryptomining = true;
-      Fingerprinting = true;
-      EmailTracking = true;
-      SuspectedFingerprinting = true;
-      BaselineExceptions = true;
-      ConvenienceExceptions = false;
+        Cryptomining = true;
+        Fingerprinting = true;
+        EmailTracking = true;
+        SuspectedFingerprinting = true;
+        BaselineExceptions = true;
+        ConvenienceExceptions = false;
 
-      Locked = false;
-    };
-
-    # Remote search-engine suggestions are separate from local
-    # history/bookmark/open-tab results.
-    SearchSuggestEnabled = cfg.privacy.remoteSearchSuggestions.enable;
-
-    # ==========================================================
-    # Managed Gecko preferences
-    # ==========================================================
-
-    Preferences = {
-      "browser.translations.automaticallyPopup" = {
-        Value = false;
-        Status = "locked";
+        Locked = false;
       };
 
-      "browser.translations.neverTranslateLanguages" = {
-        Value = "de,en";
-        Status = "locked";
+      # Remote search-engine suggestions are separate from local
+      # history/bookmark/open-tab results.
+      SearchSuggestEnabled = cfg.privacy.remoteSearchSuggestions.enable;
+
+      # ==========================================================
+      # Managed Gecko preferences
+      # ==========================================================
+
+      Preferences = {
+        "browser.translations.automaticallyPopup" = {
+          Value = false;
+          Status = "locked";
+        };
+
+        "browser.translations.neverTranslateLanguages" = {
+          Value = "de,en";
+          Status = "locked";
+        };
+
+        "identity.fxaccounts.toolbar.enabled" = {
+          Value = false;
+          Status = "locked";
+        };
+
+        "identity.fxaccounts.toolbar.defaultVisible" = {
+          Value = false;
+          Status = "locked";
+        };
       };
 
-      "identity.fxaccounts.toolbar.enabled" = {
-        Value = false;
-        Status = "locked";
+      # ==========================================================
+      # DNS / HTTPS
+      # ==========================================================
+
+      DNSOverHTTPS = {
+        Enabled = false;
+        Locked = true;
       };
 
-      "identity.fxaccounts.toolbar.defaultVisible" = {
-        Value = false;
-        Status = "locked";
-      };
-    };
+      HttpsOnlyMode = "enabled";
 
-    # ==========================================================
-    # DNS / HTTPS
-    # ==========================================================
+      # ==========================================================
+      # Passwords / autofill
+      # ==========================================================
 
-    DNSOverHTTPS = {
-      Enabled = false;
-      Locked = true;
-    };
+      PasswordManagerEnabled = false;
+      OfferToSaveLogins = false;
 
-    HttpsOnlyMode = "enabled";
+      AutofillAddressEnabled = false;
+      AutofillCreditCardEnabled = false;
 
-    # ==========================================================
-    # Passwords / autofill
-    # ==========================================================
+      # ==========================================================
+      # Performance
+      # ==========================================================
 
-    PasswordManagerEnabled = false;
-    OfferToSaveLogins = false;
+      HardwareAcceleration = true;
 
-    AutofillAddressEnabled = false;
-    AutofillCreditCardEnabled = false;
+      # ==========================================================
+      # Extensions
+      # ==========================================================
 
-    # ==========================================================
-    # Performance
-    # ==========================================================
-
-    HardwareAcceleration = true;
-
-    # ==========================================================
-    # Extensions
-    # ==========================================================
-
-    ExtensionSettings = effectiveExtensionSettings;
-  }
-  // firefoxSyncPolicies
-  // antiClutterPolicies
-  // cookiePolicies;
+      ExtensionSettings = effectiveExtensionSettings;
+    }
+    // firefoxSyncPolicies
+    // antiClutterPolicies
+    // cookiePolicies
+  ) cfg.overrides.common.policies;
 
   # ============================================================
   # Shared profile preferences
   # ============================================================
 
-  profileSettings = {
-    "privacy.globalprivacycontrol.enabled" = true;
+  profileSettings = lib.recursiveUpdate (
+    {
+      "privacy.globalprivacycontrol.enabled" = true;
 
-    # The dedicated "End Private Session" toolbar widget is
-    # redundant for our normal browsing workflow.
-    "browser.privatebrowsing.resetPBM.enabled" = false;
+      # The dedicated "End Private Session" toolbar widget is
+      # redundant for our normal browsing workflow.
+      "browser.privatebrowsing.resetPBM.enabled" = false;
 
-    # Keep useful local URL-bar sources enabled.
-    "browser.urlbar.suggest.history" = true;
-    "browser.urlbar.suggest.bookmark" = true;
-    "browser.urlbar.suggest.openpage" = true;
-    "browser.urlbar.suggest.engines" = true;
-  }
-  // lib.optionalAttrs cfg.extensions.tokyoNightTheme.enable {
-    # Keep Firefox and Floorp on the same declarative
-    # Tokyo Night theme when enabled for this host.
-    "extensions.activeThemeID" = "{cebd391d-f568-473f-bb6e-698d08ec81ec}";
-  }
-  // lib.optionalAttrs cfg.privacy.antiClutter.enable {
-    # Do not open the URL-bar view merely to show Top Sites.
-    "browser.urlbar.suggest.topsites" = false;
+      # Keep useful local URL-bar sources enabled.
+      "browser.urlbar.suggest.history" = true;
+      "browser.urlbar.suggest.bookmark" = true;
+      "browser.urlbar.suggest.openpage" = true;
+      "browser.urlbar.suggest.engines" = true;
+    }
+    // lib.optionalAttrs cfg.extensions.tokyoNightTheme.enable {
+      # Keep Firefox and Floorp on the same declarative
+      # Tokyo Night theme when enabled for this host.
+      "extensions.activeThemeID" = "{cebd391d-f568-473f-bb6e-698d08ec81ec}";
+    }
+    // lib.optionalAttrs cfg.privacy.antiClutter.enable {
+      # Do not open the URL-bar view merely to show Top Sites.
+      "browser.urlbar.suggest.topsites" = false;
 
-    # Disable additional recommendation providers that are not
-    # part of the useful local history/bookmark/tab sources.
-    "browser.urlbar.suggest.addons" = false;
-    "browser.urlbar.suggest.yelp" = false;
-    "browser.urlbar.sponsoredTopSites" = false;
+      # Disable additional recommendation providers that are not
+      # part of the useful local history/bookmark/tab sources.
+      "browser.urlbar.suggest.addons" = false;
+      "browser.urlbar.suggest.yelp" = false;
+      "browser.urlbar.sponsoredTopSites" = false;
 
-    # Defense in depth for Firefox Suggest / Quick Suggest.
-    "browser.urlbar.quicksuggest.dataCollection.enabled" = false;
-    "browser.urlbar.suggest.quicksuggest.sponsored" = false;
-  };
-
+      # Defense in depth for Firefox Suggest / Quick Suggest.
+      "browser.urlbar.quicksuggest.dataCollection.enabled" = false;
+      "browser.urlbar.suggest.quicksuggest.sponsored" = false;
+    }
+  ) cfg.overrides.common.settings;
   # Useful for validation/debugging without duplicating merge logic.
   cookiePolicy = {
     inherit effectiveClearOnShutdown effectiveOrigins;
