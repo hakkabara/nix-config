@@ -97,6 +97,22 @@ in
           }
       }
 
+
+      // CopyQ acts as a transient clipboard overlay.
+      // Match the KDE Plasma clipboard popup proportions while Niri
+      // keeps the floating window centered.
+      window-rule {
+          match app-id=r#"^com\.github\.hluk\.copyq$"#
+
+          open-floating true
+          open-maximized false
+          default-floating-position x=0 y=0 relative-to="bottom"
+
+          // Plasma reference: 647x629 on a 2558x1280 output.
+          default-column-width { proportion 0.253; }
+          default-window-height { proportion 0.491; }
+      }
+
       binds {
           Mod+Return hotkey-overlay-title="Terminal" {
               spawn "${cfg.terminal}";
