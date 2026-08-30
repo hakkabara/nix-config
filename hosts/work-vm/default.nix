@@ -12,6 +12,8 @@
     ../../modules/nixos/features/workstation-vm.nix
     ../../modules/nixos/features/python.nix
     ../../modules/nixos/features/wireshark.nix
+    ../../modules/nixos/apps/remote-desktop
+    ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
@@ -95,6 +97,14 @@
     python = {
       python3.enable = true;
       python2.enable = true;
+    };
+
+    # Remote support clients. All are started manually when needed;
+    # no permanent RMM daemon is enabled.
+    apps.remoteDesktop = {
+      rustdesk.enable = true;
+      anydesk.enable = true;
+      teamviewer.enable = true;
     };
 
     # Wireshark GUI with privileged dumpcap wrapper for non-root captures.

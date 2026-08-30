@@ -74,6 +74,12 @@
       # A second package set used only by modules that explicitly opt in.
       # `pkgs` remains the NixOS 26.05 stable package set.
       pkgsUnstable = nixpkgs-unstable.legacyPackages.${system};
+      # Dedicated unstable package set for explicitly selected
+      # proprietary applications such as TeamViewer.
+      pkgsUnstableUnfree = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
 
       # Custom DFIR packages use the same pinned unstable revision they were
       # developed against. Unfree is allowed only in this dedicated package set.
@@ -94,12 +100,18 @@
           inherit system;
 
           specialArgs = {
-            inherit pkgsDfir pkgsUnstable wl-x11-clipsync;
+            inherit
+              pkgsDfir
+              pkgsUnstable
+              pkgsUnstableUnfree
+              wl-x11-clipsync
+              ;
           };
 
           modules = [
             ./hosts/work-vm
 
+            nix-flatpak.nixosModules.nix-flatpak
             disko.nixosModules.disko
             home-manager.nixosModules.home-manager
             sops-nix.nixosModules.sops
@@ -134,7 +146,10 @@
           inherit system;
 
           specialArgs = {
-            inherit wl-x11-clipsync;
+            inherit
+              pkgsUnstableUnfree
+              wl-x11-clipsync
+              ;
           };
 
           modules = [

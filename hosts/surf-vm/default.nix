@@ -20,6 +20,7 @@
     ../../modules/nixos/apps/flameshot-plasma.nix
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
+    ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/desktop/autologin.nix
@@ -28,6 +29,7 @@
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/security/remote-unlock.nix
     ../../modules/nixos/flatpak
+    ../../modules/nixos/flatpak/surf-vm.nix
   ];
 
   hakkabara = {
@@ -48,6 +50,7 @@
     networking.enable = true;
 
     apps.steam.enable = true;
+    apps.remoteDesktop.rustdesk.enable = true;
 
     python = {
       python3.enable = true;
