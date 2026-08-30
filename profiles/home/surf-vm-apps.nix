@@ -10,7 +10,6 @@
   # They can later be converted to reusable enable-based app modules.
   imports = [
     ../../modules/home/apps/equibop.nix
-    ../../modules/home/apps/copyq
     ../../modules/home/apps/immich
     ../../modules/home/apps/veracrypt.nix
     ../../modules/home/apps/element.nix

@@ -12,6 +12,7 @@
   hakkabara = {
     apps = {
       keepassxc.enable = lib.mkDefault true;
+      copyq.enable = lib.mkDefault true;
       obsidian.enable = lib.mkDefault true;
       signal.enable = lib.mkDefault true;
     };

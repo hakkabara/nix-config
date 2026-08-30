@@ -7,6 +7,7 @@
   # Profiles decide which applications are actually enabled.
   imports = [
     ./browsers
+    ./copyq
     ./flameshot.nix
     ./keepassxc.nix
     ./obsidian.nix
