@@ -15,5 +15,19 @@
       owner = "mko";
       mode = "0400";
     };
+
+    "docker/bloodhound-ce.env" = {
+      sopsFile = ../../secrets/work-vm/docker.yaml;
+      key = "bloodhound-ce-env";
+      owner = "mko";
+      mode = "0400";
+    };
+
+    "docker/bloodhound-legacy.env" = {
+      sopsFile = ../../secrets/work-vm/docker.yaml;
+      key = "bloodhound-legacy-env";
+      owner = "mko";
+      mode = "0400";
+    };
   };
 }
