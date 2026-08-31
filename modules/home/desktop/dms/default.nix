@@ -85,6 +85,33 @@ let
     chmod 600 "$config_file"
   '';
 
+  applyAlwaysOnPolicy = pkgs.writeShellScript "dms-apply-always-on-policy" ''
+    config_dir="$HOME/.config/DankMaterialShell"
+    config_file="$config_dir/settings.json"
+    tmp_file="$config_file.tmp"
+
+    mkdir -p "$config_dir"
+
+    if [ -f "$config_file" ] && ${pkgs.jq}/bin/jq empty "$config_file" >/dev/null 2>&1; then
+      ${pkgs.jq}/bin/jq '
+        .acMonitorTimeout = 0
+        | .acLockTimeout = 0
+        | .acSuspendTimeout = 0
+        | .acHibernateTimeout = 0
+        | .acPostLockMonitorTimeout = 0
+        | .batteryMonitorTimeout = 0
+        | .batteryLockTimeout = 0
+        | .batterySuspendTimeout = 0
+        | .batteryHibernateTimeout = 0
+        | .batteryPostLockMonitorTimeout = 0
+        | .lockBeforeSuspend = false
+      ' "$config_file" > "$tmp_file"
+
+      mv "$tmp_file" "$config_file"
+      chmod 600 "$config_file"
+    fi
+  '';
+
   disableClipboardPersistence = pkgs.writeShellScript "dms-disable-clipboard-persistence" (
     builtins.concatStringsSep "\n" [
       "config_dir=\"$HOME/.config/DankMaterialShell\""
@@ -105,6 +132,8 @@ let
   );
 in
 {
+  options.hakkabara.desktop.dms.alwaysOn.enable = lib.mkEnableOption "always-on DMS desktop policy";
+
   options.hakkabara.desktop.dms.clipboardHistoryPersistence.enable = lib.mkOption {
     type = lib.types.bool;
     default = true;
@@ -114,16 +143,22 @@ in
   config = {
     xdg.configFile."DankMaterialShell/themes/tokyo-night.json".source = dmsTokyoNightTheme;
 
-    home.activation.dmsApplyTokyoNightTheme = lib.hm.dag.entryAfter [
-      "writeBoundary"
-    ] "${applyTokyoNightTheme}";
+    home.activation = {
+      dmsApplyTokyoNightTheme = lib.hm.dag.entryAfter [
+        "writeBoundary"
+      ] "${applyTokyoNightTheme}";
 
-    home.activation.dmsDisableClipboardHistoryPersistence =
-      lib.mkIf (!cfg.clipboardHistoryPersistence.enable)
-        (
-          lib.hm.dag.entryAfter [
-            "dmsApplyTokyoNightTheme"
-          ] "${disableClipboardPersistence}"
-        );
+      dmsApplyAlwaysOnPolicy = lib.mkIf cfg.alwaysOn.enable (
+        lib.hm.dag.entryAfter [
+          "dmsApplyTokyoNightTheme"
+        ] "${applyAlwaysOnPolicy}"
+      );
+
+      dmsDisableClipboardHistoryPersistence = lib.mkIf (!cfg.clipboardHistoryPersistence.enable) (
+        lib.hm.dag.entryAfter [
+          "dmsApplyTokyoNightTheme"
+        ] "${disableClipboardPersistence}"
+      );
+    };
   };
 }

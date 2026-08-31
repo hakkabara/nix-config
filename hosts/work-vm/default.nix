@@ -262,6 +262,8 @@
       ../../profiles/home/work-vm.nix
     ];
 
+    hakkabara.desktop.dms.alwaysOn.enable = true;
+
     hakkabara.git.githubCli = {
       enable = true;
       tokenFile = config.sops.secrets."github/gh-token".path;
