@@ -57,16 +57,27 @@ let
          | .customThemeFile = $theme
          | .cornerRadius = 12
          | .animationSpeed = 1
-         | .dankBarTransparency = 0.12
-         | .dankBarWidgetTransparency = 0.82'          "$config_file" > "$tmp_file"
+         | .dankBarTransparency = 0.35
+         | .dankBarWidgetTransparency = 0.90
+         | .innerPadding = 6
+         | if (.barConfigs | type) == "array"
+           then .barConfigs |= map(
+             if type == "object"
+             then .innerPadding = 6
+             else .
+             end
+           )
+           else .
+           end'          "$config_file" > "$tmp_file"
     else
       ${pkgs.jq}/bin/jq -n         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json"         '{
           currentThemeName: "custom",
           customThemeFile: $theme,
           cornerRadius: 12,
           animationSpeed: 1,
-          dankBarTransparency: 0.12,
-          dankBarWidgetTransparency: 0.82
+          dankBarTransparency: 0.35,
+          dankBarWidgetTransparency: 0.90,
+          innerPadding: 6
         }' > "$tmp_file"
     fi
 

@@ -54,7 +54,7 @@ in
 
     gaps = lib.mkOption {
       type = lib.types.ints.unsigned;
-      default = 8;
+      default = 16;
       description = "Niri layout gap in logical pixels.";
     };
 
@@ -78,6 +78,11 @@ in
       // Do not edit ~/.config/niri/config.kdl manually.
 
       prefer-no-csd
+
+      // Compact desktop cursor.
+      cursor {
+          xcursor-size 18
+      }
 
       hotkey-overlay {
           skip-at-startup

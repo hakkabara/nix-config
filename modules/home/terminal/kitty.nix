@@ -78,7 +78,8 @@ in
         disable_ligatures = "never";
 
         # Slight transparency while keeping logs/code highly readable.
-        background_opacity = "0.94";
+        background_opacity = "0.88";
+        dynamic_background_opacity = true;
         window_padding_width = 6;
         cursor_shape = "beam";
         cursor_blink_interval = 0;
