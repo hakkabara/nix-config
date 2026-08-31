@@ -70,6 +70,12 @@ let
     inherit (pkgs) libewf;
     inherit (pkgs) libpff;
     inherit (pkgs) lnav;
+    inherit (pkgs) gptfdisk;
+    inherit (pkgs) imhex;
+    mupdf = pkgs.mupdf-headless;
+    inherit (pkgs) qpdf;
+    sg3Utils = pkgs.sg3_utils;
+    popplerUtils = pkgs.poppler-utils;
     macRobber = pkgs.mac-robber;
     inherit (pkgs) ntfs3g;
     inherit (pkgs) scalpel;

@@ -20,6 +20,17 @@
           "perl"
           "powershell"
           "sqlite"
+          "choose"
+          "expect"
+          "htopVim"
+          "imagemagick"
+          "jc"
+          "jless"
+          "nixosAnywhere"
+          "openssl"
+          "unrar"
+          "xxd"
+          "xan"
         ]
         (_: {
           enable = true;
@@ -46,6 +57,10 @@
           "smbmap"
           "tcpdump"
           "whois"
+          "openiscsi"
+          "socat"
+          "sshfs"
+          "sshpass"
         ]
         (_: {
           enable = true;
@@ -93,6 +108,12 @@
           "yara"
           "yaraX"
           "zircolite"
+          "gptfdisk"
+          "imhex"
+          "mupdf"
+          "qpdf"
+          "sg3Utils"
+          "popplerUtils"
 
           # Custom DFIR packages.
           "chainsawRules"
@@ -147,6 +168,7 @@
           "dploot"
           "feroxbuster"
           "ffuf"
+          "flawz"
           "gau"
           "gobuster"
           "hakrawler"

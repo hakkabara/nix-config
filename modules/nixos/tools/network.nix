@@ -27,6 +27,10 @@ let
     inherit (pkgs) smbmap;
     inherit (pkgs) tcpdump;
     inherit (pkgs) whois;
+    inherit (pkgs) openiscsi;
+    inherit (pkgs) socat;
+    inherit (pkgs) sshfs;
+    inherit (pkgs) sshpass;
   };
 in
 {

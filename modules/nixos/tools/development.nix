@@ -20,6 +20,17 @@ let
     inherit (pkgs) perl;
     inherit (pkgs) powershell;
     inherit (pkgs) sqlite;
+    inherit (pkgs) choose;
+    inherit (pkgs) expect;
+    htopVim = pkgs.htop-vim;
+    inherit (pkgs) imagemagick;
+    inherit (pkgs) jc;
+    inherit (pkgs) jless;
+    nixosAnywhere = pkgs.nixos-anywhere;
+    inherit (pkgs) openssl;
+    inherit (pkgs) unrar;
+    xxd = pkgs.unixtools.xxd;
+    inherit (pkgs) xan;
   };
 in
 {
