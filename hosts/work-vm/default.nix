@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   pkgsUnstable,
@@ -8,6 +9,7 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./secrets.nix
 
     # Shared workstation/VM integration.
     ../../modules/nixos/features/workstation-vm.nix
@@ -236,6 +238,18 @@
       ../../users/mko
       ../../profiles/home/work-vm.nix
     ];
+
+    hakkabara.git.githubCli = {
+      enable = true;
+      tokenFile = config.sops.secrets."github/gh-token".path;
+    };
+
+    programs.ssh.settings."github.com" = {
+      HostName = "github.com";
+      User = "git";
+      IdentityFile = config.sops.secrets."github/ssh-key".path;
+      IdentitiesOnly = true;
+    };
   };
 
   # Do not change this on normal updates.

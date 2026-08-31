@@ -3,6 +3,7 @@
 {
   imports = [
     ../../modules/home/shell
+    ../../modules/home/ssh
     ../../modules/home/cli
     ../../modules/home/apps
     ../../modules/home/ai
