@@ -1,4 +1,5 @@
 {
+  lib,
   pkgs,
   pkgsUnstable,
   ...
@@ -66,6 +67,14 @@
   };
 
   programs.zsh.enable = true;
+
+  # WorkVM intentionally runs without a desktop keyring/Secret Service.
+  # KeePassXC is only used to open local KDBX vaults and does not replace it.
+  # Autologin would otherwise cause interactive keyring creation/unlock prompts.
+  services.gnome.gnome-keyring.enable = lib.mkForce false;
+
+  security.pam.services.login.enableGnomeKeyring = lib.mkForce false;
+  security.pam.services.greetd.enableGnomeKeyring = lib.mkForce false;
 
   users.users.mko = {
     isNormalUser = true;
