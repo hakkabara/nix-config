@@ -42,6 +42,69 @@ let
   };
 
   tools = {
+    zeekPcap = pkgs.writeShellApplication {
+      name = "zeek-pcap";
+
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.docker
+      ];
+
+      text = ''
+        if (( "$#" < 1 || "$#" > 2 )); then
+          echo "Usage: zeek-pcap <pcap-file> [output-directory]" >&2
+          exit 2
+        fi
+
+        input="$(realpath "$1")"
+
+        if [[ ! -f "$input" ]]; then
+          echo "ERROR: PCAP file not found: $input" >&2
+          exit 1
+        fi
+
+        input_dir="$(dirname "$input")"
+        input_name="$(basename "$input")"
+
+        if (( "$#" == 2 )); then
+          output="$(realpath -m "$2")"
+        else
+          stem="''${input_name%.*}"
+          output="$PWD/''${stem}-zeek"
+        fi
+
+        mkdir -p "$output"
+        output="$(realpath "$output")"
+
+        echo "============================================================"
+        echo "ZEEK PCAP ANALYSIS"
+        echo "============================================================"
+        echo "Input:  $input"
+        echo "Output: $output"
+        echo
+
+        docker run \
+          --rm \
+          --user "$(id -u):$(id -g)" \
+          --volume "$input_dir:/pcap:ro" \
+          --volume "$output:/output" \
+          --workdir /output \
+          docker.io/zeek/zeek:8.2.1 \
+          zeek -r "/pcap/$input_name"
+
+        echo
+        echo "===== GENERATED LOGS ====="
+        find "$output" \
+          -maxdepth 1 \
+          -type f \
+          -printf '%f\n' \
+          | sort
+
+        echo
+        echo "PASS: Zeek analysis complete."
+      '';
+    };
+
     extractMsg = pkgsUnstable.python3Packages.extract-msg;
     inherit (pkgs) acquire;
     inherit (pkgs) afflib;

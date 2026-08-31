@@ -149,6 +149,19 @@
         "docker.io/scmanjarrez/bloodhound:4.3.1"
         "docker.io/log2timeline/plaso:20260720"
         "ghcr.io/velocidex/velociraptor-server:0.77.2"
+
+        # Network forensics / timeline analysis.
+        "docker.io/zeek/zeek:8.2.1"
+
+        # Timesketch release stack.
+        "us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:20260630"
+        "docker.io/opensearchproject/opensearch:2.19.5"
+        "docker.io/library/postgres:13.0-alpine"
+        "docker.io/library/redis:7.2.11-alpine"
+        "docker.io/library/nginx:1.25.5-alpine-slim"
+
+        # Arkime packet analysis.
+        "ghcr.io/arkime/arkime/arkime:v6.6.0"
       ];
     };
 
@@ -264,4 +277,6 @@
 
   # Do not change this on normal updates.
   system.stateVersion = "26.05";
+  boot.kernel.sysctl."vm.max_map_count" = 262144;
+
 }

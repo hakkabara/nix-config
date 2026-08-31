@@ -51,3 +51,61 @@ An archived third-party image is available but is not enabled by default:
       up -d
 
 Prefer the native Legacy client whenever possible.
+
+## Arkime
+
+Local offline-PCAP analysis stack.
+
+Components:
+
+- Arkime 6.6.0
+- OpenSearch 2.19.5
+- Arkime Viewer
+- UI PCAP upload
+
+Runtime secret:
+
+    /run/secrets/docker/arkime.env
+
+The UI is published only on:
+
+    http://127.0.0.1:8005
+
+First-time initialization:
+
+    cd docker/arkime
+
+    docker compose \
+      --env-file /run/secrets/docker/arkime.env \
+      up -d opensearch
+
+    docker compose \
+      --env-file /run/secrets/docker/arkime.env \
+      run --rm arkime-init
+
+    docker compose \
+      --env-file /run/secrets/docker/arkime.env \
+      run --rm arkime-user
+
+    docker compose \
+      --env-file /run/secrets/docker/arkime.env \
+      up -d viewer
+
+The admin username is:
+
+    admin
+
+The admin password is stored only in the SOPS runtime environment.
+
+## Zeek PCAP helper
+
+Analyze an offline PCAP with the preloaded Zeek container:
+
+    zeek-pcap evidence.pcap
+
+Optional output directory:
+
+    zeek-pcap evidence.pcap ./zeek-output
+
+The input is mounted read-only and generated Zeek logs are written as
+the current WorkVM user.

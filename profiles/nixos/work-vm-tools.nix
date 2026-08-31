@@ -109,6 +109,7 @@
           "yara"
           "yaraX"
           "zircolite"
+          "zeekPcap"
           "gptfdisk"
           "imhex"
           "mupdf"
