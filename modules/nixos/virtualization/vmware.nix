@@ -28,6 +28,27 @@
     enable=true
   '';
 
+  # Expose all VMware Shared Folders below /data/<share>.
+  #
+  # Mounting .host:/ exposes every share configured in VMware as a
+  # directory below /data without requiring per-share Nix configuration.
+  #
+  # Permission/mount behavior follows the proven VMware HGFS setup used by
+  # Kyubai, adapted to our mko:users UID/GID (1000:100).
+  fileSystems."/data" = {
+    device = ".host:/";
+    fsType = "fuse./run/current-system/sw/bin/vmhgfs-fuse";
+
+    options = [
+      "uid=1000"
+      "gid=100"
+      "umask=0033"
+      "allow_other"
+      "auto_unmount"
+      "nofail"
+    ];
+  };
+
   # Keep VMware's Xorg video driver available for X11/XWayland compatibility.
   #
   # The actual kernel graphics driver is vmwgfx; this package is the Xorg
