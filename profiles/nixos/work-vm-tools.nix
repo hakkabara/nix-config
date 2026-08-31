@@ -9,6 +9,7 @@
     development =
       lib.genAttrs
         [
+          "angleGrinder"
           "binutils"
           "cargo"
           "clang"

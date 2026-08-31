@@ -6,6 +6,7 @@
 
 {
   imports = [
+    ../../modules/nixos/tools/development.nix
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./secrets.nix
@@ -33,6 +34,8 @@
   ];
 
   hakkabara = {
+    # Remote NixOS deployments from the SurfVM.
+    tools.development.nixosAnywhere.enable = true;
     workstationVm.enable = true;
 
     accounts.primary = {
