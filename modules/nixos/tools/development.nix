@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  pkgsUnstable ? pkgs,
   ...
 }:
 
@@ -9,7 +10,7 @@ let
   cfg = config.hakkabara.tools.development;
 
   tools = {
-    angleGrinder = pkgs.angle-grinder;
+    angleGrinder = pkgsUnstable.angle-grinder;
     inherit (pkgs) binutils;
     inherit (pkgs) cargo;
     inherit (pkgs) clang;
