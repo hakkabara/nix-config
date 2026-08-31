@@ -83,8 +83,16 @@ in
           skip-at-startup
       }
 
+      // NIRI RICE: Tokyo Night
       layout {
           gaps ${toString cfg.gaps}
+
+          // Keep single windows centered while retaining Niri's
+          // scrolling-column behavior once the workspace gets busy.
+          center-focused-column "on-overflow"
+          always-center-single-column
+
+          background-color "#1a1b26"
 
           preset-column-widths {
               proportion 0.33333
@@ -95,6 +103,91 @@ in
           default-column-width {
               proportion 0.5
           }
+
+          // Thin Tokyo Night border instead of the default focus ring.
+          focus-ring {
+              off
+          }
+
+          border {
+              on
+              width 2
+              active-color "#7aa2f7"
+              inactive-color "#3b4261"
+              urgent-color "#f7768e"
+          }
+
+          // Subtle depth around windows.
+          shadow {
+              on
+              softness 24
+              spread -2
+              offset x=0 y=4
+              color "#00000066"
+              inactive-color "#00000040"
+          }
+
+          // Placement hint when moving windows/columns.
+          insert-hint {
+              on
+              color "#bb9af780"
+          }
+
+          // Mostly invisible until tabbed columns are used.
+          tab-indicator {
+              on
+              hide-when-single-tab
+              place-within-column
+              gap 5
+              width 4
+              length total-proportion=1.0
+              position "top"
+              gaps-between-tabs 4
+              corner-radius 8
+
+              active-color "#7aa2f7"
+              inactive-color "#3b4261"
+              urgent-color "#f7768e"
+          }
+      }
+
+      // Crisp rather than floaty animations.
+      animations {
+          workspace-switch {
+              spring damping-ratio=1.0 stiffness=900 epsilon=0.0001
+          }
+
+          horizontal-view-movement {
+              spring damping-ratio=1.0 stiffness=850 epsilon=0.0001
+          }
+
+          window-movement {
+              spring damping-ratio=1.0 stiffness=850 epsilon=0.0001
+          }
+
+          window-resize {
+              spring damping-ratio=1.0 stiffness=900 epsilon=0.0001
+          }
+
+          window-open {
+              duration-ms 140
+              curve "ease-out-quad"
+          }
+
+          window-close {
+              duration-ms 120
+              curve "ease-out-cubic"
+          }
+
+          overview-open-close {
+              spring damping-ratio=1.0 stiffness=850 epsilon=0.0001
+          }
+      }
+
+      // Uniform rounded corners for normal and floating applications.
+      window-rule {
+          geometry-corner-radius 12
+          clip-to-geometry true
       }
 
 
