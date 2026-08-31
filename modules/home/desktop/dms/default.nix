@@ -59,11 +59,11 @@ let
          | .animationSpeed = 1
          | .dankBarTransparency = 0.35
          | .dankBarWidgetTransparency = 0.90
-         | .innerPadding = 6
+         | .innerPadding = 4
          | if (.barConfigs | type) == "array"
            then .barConfigs |= map(
              if type == "object"
-             then .innerPadding = 6
+             then .innerPadding = 4
              else .
              end
            )
@@ -77,7 +77,7 @@ let
           animationSpeed: 1,
           dankBarTransparency: 0.35,
           dankBarWidgetTransparency: 0.90,
-          innerPadding: 6
+          innerPadding: 4
         }' > "$tmp_file"
     fi
 

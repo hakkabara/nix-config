@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -70,6 +71,18 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # Keep the cursor consistent across Niri, GTK, XWayland and
+    # applications launched through DMS/systemd.
+    home.pointerCursor = {
+      enable = true;
+      package = pkgs.bibata-cursors;
+      name = "Bibata-Modern-Ice";
+      size = 20;
+
+      gtk.enable = true;
+      x11.enable = true;
+    };
+
     # Home Manager 26.05 does not yet contain the newer typed Niri module.
     # Managing config.kdl with xdg.configFile remains fully declarative and
     # keeps the configuration in the Nix repository.
@@ -81,7 +94,8 @@ in
 
       // Compact desktop cursor.
       cursor {
-          xcursor-size 18
+          xcursor-theme "Bibata-Modern-Ice"
+          xcursor-size 20
       }
 
       hotkey-overlay {
