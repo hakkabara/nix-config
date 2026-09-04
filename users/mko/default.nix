@@ -2,6 +2,8 @@
 
 {
   imports = [
+    ./git.nix
+
     ../../modules/home/shell
     ../../modules/home/ssh
     ../../modules/home/cli

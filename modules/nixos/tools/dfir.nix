@@ -17,6 +17,7 @@ let
     dfirNtfs = pkgsDfir.dfir-ntfs;
     esetLogParser = pkgsDfir.esetlogparser;
     eventTranscriptParser = pkgsDfir.eventtranscriptparser;
+    inherit (pkgsDfir) forensicsim;
     ezTools = pkgsDfir.ez-tools;
     hackBrowserData = pkgsDfir.hackbrowserdata;
     inherit (pkgsDfir) hindsight;
@@ -28,6 +29,8 @@ let
     inherit (pkgsDfir) notatin;
     inherit (pkgsDfir) plaso;
     rdpCacheStitcher = pkgsDfir.rdpcachestitcher;
+    inherit (pkgsDfir) regrippy;
+    inherit (pkgsDfir) rifiuti2;
     inherit (pkgsDfir) recuperabit;
     inherit (pkgsDfir) regipy;
     regRipper4 = pkgsDfir.regripper4;
@@ -38,6 +41,7 @@ let
     inherit (pkgsDfir) takajo;
     inherit (pkgsDfir) velociraptor;
     vmfsTools = pkgsDfir.vmfs-tools;
+    inherit (pkgsDfir) whapa;
     yaraForge = pkgsDfir.yara-forge;
   };
 
