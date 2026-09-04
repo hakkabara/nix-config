@@ -33,6 +33,7 @@
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/split-dns.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/security/sops.nix
