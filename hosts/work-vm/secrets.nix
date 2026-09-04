@@ -1,4 +1,4 @@
-{ ... }:
+{ config, ... }:
 
 {
   sops.secrets = {
@@ -36,5 +36,18 @@
       owner = "mko";
       mode = "0400";
     };
+
+    "network/dnsmasq-private.conf" = {
+      sopsFile = ../../secrets/work-vm/dns.yaml;
+      key = "dnsmasq-private";
+      owner = "dnsmasq";
+      group = "dnsmasq";
+      mode = "0400";
+    };
+  };
+
+  hakkabara.networking.splitDns = {
+    enable = true;
+    privateConfigFile = config.sops.secrets."network/dnsmasq-private.conf".path;
   };
 }
