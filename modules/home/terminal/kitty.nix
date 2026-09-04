@@ -46,8 +46,9 @@ in
         copy_on_select = "clipboard";
         strip_trailing_spaces = "smart";
 
-        # Keep Kitty's paste-safety checks enabled.
-        paste_actions = "quote-urls-at-prompt,confirm";
+        # Never interrupt pastes with a confirmation dialog. Sanitize
+        # dangerous terminal control codes automatically instead.
+        paste_actions = "quote-urls-at-prompt,replace-dangerous-control-codes";
 
         # URL / OSC8 hyperlink handling.
         detect_urls = true;
@@ -65,6 +66,15 @@ in
 
         # Do not expose Kitty remote control by default.
         allow_remote_control = "no";
+
+        # No interactive Kitty confirmation dialogs.
+        confirm_os_window_close = 0;
+        allow_hyperlinks = "yes";
+        allow_cloning = "no";
+
+        # Programs may write to the clipboard, but clipboard reads from
+        # terminal applications/remote SSH sessions are denied silently.
+        clipboard_control = "write-clipboard write-primary";
 
         update_check_interval = 0;
         # -----------------------------------------------------------------------
