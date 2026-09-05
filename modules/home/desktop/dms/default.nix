@@ -53,38 +53,70 @@ let
     mkdir -p "$config_dir"
 
     if [ -f "$config_file" ] && ${pkgs.jq}/bin/jq empty "$config_file" >/dev/null 2>&1; then
-      ${pkgs.jq}/bin/jq         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json"         '.currentThemeName = "custom"
-         | .customThemeFile = $theme
-         | .cornerRadius = 12
-         | .animationSpeed = 1
-         | .dankBarTransparency = 0.35
-         | .dankBarWidgetTransparency = 0.90
-         | .innerPadding = 4
-         | if (.barConfigs | type) == "array"
-           then .barConfigs |= map(
-             if type == "object"
-             then .innerPadding = 4
-             else .
-             end
-           )
-           else .
-           end'          "$config_file" > "$tmp_file"
+      ${pkgs.jq}/bin/jq \
+        --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
+        '
+          .currentThemeName = "custom"
+          | .customThemeFile = $theme
+          | .cornerRadius = 12
+          | .animationSpeed = 1
+          | .dankBarTransparency = 0.35
+          | .dankBarWidgetTransparency = 0.90
+          | .innerPadding = 4
+
+          # WorkVM weather.
+          | .weatherEnabled = true
+          | .useAutoLocation = true
+          | .useFahrenheit = false
+
+          # Keep weather in the center and remove the unnecessary
+          # battery widget from the WorkVM bar.
+          # existing DMS 1.6 bar configurations.
+          | if (.barConfigs | type) == "array" then
+              .barConfigs |= map(
+                if .id == "default" then
+                  .innerPadding = 4
+                  | .centerWidgets = (
+                    ((.centerWidgets // []) | map(select(. != "weather")))
+                    + ["weather"]
+                  )
+                  | .rightWidgets = (
+                    (.rightWidgets // [])
+                    | map(select(. != "battery"))
+                  )
+                else
+                  .
+                end
+              )
+            else
+              .
+            end
+        ' "$config_file" > "$tmp_file"
     else
-      ${pkgs.jq}/bin/jq -n         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json"         '{
+      ${pkgs.jq}/bin/jq -n \
+        --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
+        '{
           currentThemeName: "custom",
           customThemeFile: $theme,
           cornerRadius: 12,
           animationSpeed: 1,
-          dankBarTransparency: 0.35,
-          dankBarWidgetTransparency: 0.90,
-          innerPadding: 4
+          dankBarTransparency: 0.12,
+          dankBarWidgetTransparency: 0.82,
+
+          weatherEnabled: true,
+          useAutoLocation: true,
+          useFahrenheit: false,
+          showWeather: true,
+
+          showBattery: false,
+          controlCenterShowBluetoothIcon: false,
+          controlCenterShowNetworkIcon: true
         }' > "$tmp_file"
     fi
 
     mv "$tmp_file" "$config_file"
     chmod 600 "$config_file"
   '';
-
   applyAlwaysOnPolicy = pkgs.writeShellScript "dms-apply-always-on-policy" ''
     config_dir="$HOME/.config/DankMaterialShell"
     config_file="$config_dir/settings.json"
