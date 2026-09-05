@@ -47,59 +47,61 @@ in
       lib.mkIf
         (terminalCfg.enable && terminalCfg.zellij.enable && terminalCfg.zellij.plugins.navigator.enable)
         {
-          "nvim/lua/plugins/zellij-navigation.lua".text = ''
-            return {
-              {
-                -- Lazy.nvim only loads the local source. Nix owns downloading,
-                -- versioning and pinning of smart-splits.
-                name = "smart-splits.nvim",
-                dir = "${pkgsUnstable.vimPlugins.smart-splits-nvim}",
+          "nvim/plugin/zellij-navigation.lua".text = ''
+            -- Nix owns the smart-splits source. Load it directly from the
+            -- immutable store instead of relying on Lazy.nvim discovery.
+            vim.opt.runtimepath:prepend("${pkgsUnstable.vimPlugins.smart-splits-nvim}")
 
-                -- Multiplexer integration should be ready immediately.
-                lazy = false,
+            -- Explicitly select Zellij instead of relying on auto-detection.
+            vim.g.smart_splits_multiplexer_integration = "zellij"
 
-                opts = {
-                  -- Pane navigation and tab navigation are intentionally separate.
-                  zellij_move_focus_or_tab = false,
-                },
+            local splits = require("smart-splits")
 
-                config = function(_, opts)
-                  local splits = require("smart-splits")
+            splits.setup({
+              multiplexer_integration = "zellij",
+              zellij_move_focus_or_tab = false,
+            })
 
-                  splits.setup(opts)
+            local function set_navigation_keymaps()
+              vim.keymap.set("n", "<C-h>", splits.move_cursor_left, {
+                desc = "Move left across Neovim/Zellij",
+              })
+              vim.keymap.set("n", "<C-j>", splits.move_cursor_down, {
+                desc = "Move down across Neovim/Zellij",
+              })
+              vim.keymap.set("n", "<C-k>", splits.move_cursor_up, {
+                desc = "Move up across Neovim/Zellij",
+              })
+              vim.keymap.set("n", "<C-l>", splits.move_cursor_right, {
+                desc = "Move right across Neovim/Zellij",
+              })
 
-                  -- Navigation: same Vim directions inside Neovim and across Zellij.
-                  vim.keymap.set("n", "<C-h>", splits.move_cursor_left, {
-                    desc = "Move left across Neovim/Zellij",
-                  })
-                  vim.keymap.set("n", "<C-j>", splits.move_cursor_down, {
-                    desc = "Move down across Neovim/Zellij",
-                  })
-                  vim.keymap.set("n", "<C-k>", splits.move_cursor_up, {
-                    desc = "Move up across Neovim/Zellij",
-                  })
-                  vim.keymap.set("n", "<C-l>", splits.move_cursor_right, {
-                    desc = "Move right across Neovim/Zellij",
-                  })
+              vim.keymap.set("n", "<A-h>", splits.resize_left, {
+                desc = "Resize left",
+              })
+              vim.keymap.set("n", "<A-j>", splits.resize_down, {
+                desc = "Resize down",
+              })
+              vim.keymap.set("n", "<A-k>", splits.resize_up, {
+                desc = "Resize up",
+              })
+              vim.keymap.set("n", "<A-l>", splits.resize_right, {
+                desc = "Resize right",
+              })
+            end
 
-                  -- Resize follows the same directional muscle memory.
-                  vim.keymap.set("n", "<A-h>", splits.resize_left, {
-                    desc = "Resize left",
-                  })
-                  vim.keymap.set("n", "<A-j>", splits.resize_down, {
-                    desc = "Resize down",
-                  })
-                  vim.keymap.set("n", "<A-k>", splits.resize_up, {
-                    desc = "Resize up",
-                  })
-                  vim.keymap.set("n", "<A-l>", splits.resize_right, {
-                    desc = "Resize right",
-                  })
-                end,
-              },
-            }
+            -- Set them immediately and once again after LazyVim has installed
+            -- its default keymaps so LazyVim cannot overwrite them.
+            set_navigation_keymaps()
+
+            vim.api.nvim_create_autocmd("User", {
+              pattern = "VeryLazy",
+              once = true,
+              callback = set_navigation_keymaps,
+            })
           '';
         };
+
     programs.zsh.shellAliases = {
       vi = "nvim";
       vim = "nvim";
