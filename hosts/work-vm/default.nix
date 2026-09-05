@@ -258,7 +258,7 @@
     compositor.name = "niri";
   };
 
-  home-manager.users.mko = {
+  home-manager.users.mko = { lib, ... }: {
     imports = [
       ../../users/mko
       ../../profiles/home/work-vm.nix
@@ -270,6 +270,26 @@
       enable = true;
       tokenFile = config.sops.secrets."github/gh-token".path;
     };
+
+    programs.ssh.includes = lib.mkAfter [
+      config.sops.secrets."ssh/work-config".path
+    ];
+
+    home.activation.installCustomerSshTemplate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      ssh_dir="$HOME/.ssh/config.d"
+      template="$ssh_dir/90-customers.conf.example"
+      local_config="$ssh_dir/90-customers.conf"
+
+      mkdir -p "$ssh_dir"
+      chmod 700 "$HOME/.ssh"
+      chmod 700 "$ssh_dir"
+
+      install -m 600           "${config.sops.secrets."ssh/customer-template".path}"           "$template"
+
+      if [ ! -e "$local_config" ]; then
+        install -m 600 "$template" "$local_config"
+      fi
+    '';
 
     programs.ssh.settings."github.com" = {
       HostName = "github.com";

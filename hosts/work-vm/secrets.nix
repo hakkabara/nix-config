@@ -16,6 +16,22 @@
       mode = "0400";
     };
 
+    "ssh/work-config" = {
+      sopsFile = ../../secrets/work-vm/ssh.yaml;
+      key = "ssh-config";
+      owner = "mko";
+      group = "users";
+      mode = "0400";
+    };
+
+    "ssh/customer-template" = {
+      sopsFile = ../../secrets/work-vm/ssh.yaml;
+      key = "customer-template";
+      owner = "mko";
+      group = "users";
+      mode = "0400";
+    };
+
     "docker/bloodhound-ce.env" = {
       sopsFile = ../../secrets/work-vm/docker.yaml;
       key = "bloodhound-ce-env";
