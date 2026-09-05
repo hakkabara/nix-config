@@ -44,6 +44,10 @@
     # Use the official upstream DMS flake directly. DMS upstream itself
     # targets nixos-unstable, so reuse our already pinned unstable package
     # set instead of introducing a second independent Nixpkgs revision.
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/v1.6.0";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
 
     # Zellij scratchpads and companion CLI.
     #
@@ -65,6 +69,7 @@
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
+      dms,
       zellij-tools,
       ...
     }:
@@ -104,6 +109,7 @@
               pkgsDfir
               pkgsUnstable
               pkgsUnstableUnfree
+              dms
               wl-x11-clipsync
               ;
           };

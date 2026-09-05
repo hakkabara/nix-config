@@ -1,5 +1,6 @@
 {
   config,
+  dms,
   lib,
   pkgs,
   pkgsUnstable,
@@ -248,7 +249,7 @@
   # DankGreeter automatically inherits these same packages.
   hakkabara.desktop.dms = {
     enable = true;
-    package = pkgsUnstable.dms-shell;
+    package = dms.packages.${pkgs.stdenv.hostPlatform.system}.dms-shell;
     quickshellPackage = pkgsUnstable.quickshell;
   };
 
