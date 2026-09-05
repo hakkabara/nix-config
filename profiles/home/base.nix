@@ -9,5 +9,6 @@
   hakkabara = {
     shell.enable = lib.mkDefault true;
     git.enable = lib.mkDefault true;
+    ssh.enable = lib.mkDefault true;
   };
 }

@@ -1,41 +1,73 @@
 { config, lib, ... }:
 
+let
+  cfg = config.hakkabara.ssh;
+  localConfigDir = "${config.home.homeDirectory}/.ssh/config.d";
+in
 {
-  # Persistent per-user OpenSSH agent.
-  services.ssh-agent.enable = true;
+  options.hakkabara.ssh = {
+    enable = lib.mkEnableOption "shared OpenSSH client configuration";
 
-  programs.ssh = {
-    enable = true;
-    enableDefaultConfig = false;
+    agent.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the per-user OpenSSH authentication agent.";
+    };
 
-    # Local machine-specific/customer configuration.
-    #
-    # Files below ~/.ssh/config.d/ are intentionally NOT managed by
-    # Home Manager so customer systems can be added/changed immediately
-    # without touching Git, SOPS or rebuilding NixOS.
-    includes = lib.mkBefore [
-      "${config.home.homeDirectory}/.ssh/config.d/*.conf"
-    ];
+    defaults.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable shared safe OpenSSH client defaults.";
+    };
 
-    settings."*" = {
-      ForwardAgent = false;
-      ForwardX11 = false;
-
-      AddKeysToAgent = "yes";
-
-      ServerAliveInterval = 30;
-      ServerAliveCountMax = 3;
-      ConnectTimeout = 10;
-
-      HashKnownHosts = true;
-      UpdateHostKeys = true;
+    localConfig.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Include locally editable SSH configuration fragments.";
     };
   };
 
-  # Create only the directory. Files inside remain user-managed.
-  home.activation.ensureSshConfigDirectory = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${config.home.homeDirectory}/.ssh/config.d"
-    chmod 700 "${config.home.homeDirectory}/.ssh"
-    chmod 700 "${config.home.homeDirectory}/.ssh/config.d"
-  '';
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        programs.ssh = {
+          enable = true;
+          enableDefaultConfig = false;
+        };
+      }
+
+      (lib.mkIf cfg.agent.enable {
+        services.ssh-agent.enable = true;
+      })
+
+      (lib.mkIf cfg.defaults.enable {
+        programs.ssh.settings."*" = {
+          ForwardAgent = false;
+          ForwardX11 = false;
+
+          AddKeysToAgent = "yes";
+
+          ServerAliveInterval = 30;
+          ServerAliveCountMax = 3;
+          ConnectTimeout = 10;
+
+          HashKnownHosts = true;
+          UpdateHostKeys = true;
+        };
+      })
+
+      (lib.mkIf cfg.localConfig.enable {
+        programs.ssh.includes = lib.mkBefore [
+          "${localConfigDir}/*.conf"
+        ];
+
+        # Create only the directory. Files inside remain user-managed.
+        home.activation.ensureSshConfigDirectory = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          mkdir -p "${localConfigDir}"
+          chmod 700 "${config.home.homeDirectory}/.ssh"
+          chmod 700 "${localConfigDir}"
+        '';
+      })
+    ]
+  );
 }
