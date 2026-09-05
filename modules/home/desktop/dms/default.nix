@@ -69,9 +69,8 @@ let
           | .useAutoLocation = true
           | .useFahrenheit = false
 
-          # Keep weather in the center and remove the unnecessary
-          # battery widget from the WorkVM bar.
-          # existing DMS 1.6 bar configurations.
+          # Keep weather in the center and remove battery and DMS clipboard
+          # widgets from existing DMS 1.6 WorkVM bar configurations.
           | if (.barConfigs | type) == "array" then
               .barConfigs |= map(
                 if .id == "default" then
@@ -82,7 +81,7 @@ let
                   )
                   | .rightWidgets = (
                     (.rightWidgets // [])
-                    | map(select(. != "battery"))
+                    | map(select(. != "battery" and . != "clipboard"))
                   )
                 else
                   .
