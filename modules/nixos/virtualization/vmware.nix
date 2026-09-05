@@ -1,6 +1,13 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
+  # VMware guests use virtual Ethernet. Physical Wi-Fi and Bluetooth
+  # services are disabled by default, but individual hosts can override
+  # this policy when hardware is deliberately passed through.
+  networking.wireless.enable = lib.mkDefault false;
+  hardware.bluetooth.enable = lib.mkDefault false;
+  services.blueman.enable = lib.mkDefault false;
+
   # Enable NixOS' official VMware guest integration.
   #
   # This provides open-vm-tools, vmtoolsd and the VMware user integration.
