@@ -69,6 +69,11 @@ let
           | .useAutoLocation = true
           | .useFahrenheit = false
 
+          # WorkVM clock.
+          | .clockFormat = "24h"
+          | .showSeconds = false
+          | .clockDateFormat = "ddd dd.MM."
+
           # Keep weather in the center and remove battery and DMS clipboard
           # widgets from existing DMS 1.6 WorkVM bar configurations.
           | if (.barConfigs | type) == "array" then
@@ -105,6 +110,10 @@ let
           weatherEnabled: true,
           useAutoLocation: true,
           useFahrenheit: false,
+
+          clockFormat: "24h",
+          showSeconds: false,
+          clockDateFormat: "ddd dd.MM.",
           showWeather: true,
 
           showBattery: false,
