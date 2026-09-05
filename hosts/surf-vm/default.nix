@@ -60,7 +60,11 @@
       python2.enable = true;
     };
 
-    vmware.waylandClipboard.enable = true;
+    vmware = {
+      enable = true;
+      sharedFolders.enable = true;
+      waylandClipboard.enable = true;
+    };
 
     # Permanent SurfVM storage layout. The same configuration is used both
     # by nixos-anywhere for fresh installs and by the running system.
@@ -403,22 +407,6 @@
 
     firewall.allowedTCPPorts = [
       8443
-    ];
-  };
-
-  # Mount all VMware Shared Folders below /data.
-  #
-  # VMware exposes each configured host share as a directory below .host:/,
-  # e.g. /data/notes-and-passwords, /data/knowhowdb, /data/it-sec and
-  # /data/surfvm.
-  fileSystems."/data" = {
-    device = ".host:/";
-    fsType = "fuse./run/current-system/sw/bin/vmhgfs-fuse";
-    options = [
-      "rw"
-      "allow_other"
-      "nofail"
-      "x-systemd.automount"
     ];
   };
 

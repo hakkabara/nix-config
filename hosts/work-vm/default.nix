@@ -107,6 +107,11 @@
     # Workstation VM policy: never suspend/hibernate independently.
     workstationVm.enable = true;
 
+    vmware = {
+      enable = true;
+      sharedFolders.enable = true;
+    };
+
     # Python runtimes used by WorkVM tooling.
     # Python 2 is intentionally limited to this legacy/security-tool use case.
     python = {
