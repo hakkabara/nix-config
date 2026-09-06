@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.hakkabara.browsers.gecko;
@@ -13,6 +18,21 @@ let
   bookmarkPolicies = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.policies;
 
   bookmarkProfileSettings = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.profileSettings;
+
+  xwaylandGlxSettings = lib.optionalAttrs cfg.floorp.graphics.xwaylandGlx.enable {
+    # VMware SVGA works correctly through GLX, while Floorp's EGL path
+    # falls back to llvmpipe on the WorkVM.
+    "gfx.x11-egl.force-disabled" = true;
+  };
+
+  floorpXwaylandGlxLauncher = pkgs.writeShellScriptBin "floorp-xwayland-glx" ''
+    export GDK_BACKEND=x11
+    export MOZ_ENABLE_WAYLAND=0
+    export MOZ_WEBRENDER=1
+    export MOZ_ACCELERATED=1
+
+    exec ${config.programs.floorp.finalPackage}/bin/floorp "$@"
+  '';
 
   # ============================================================
   # Floorp-specific stable profile preferences
@@ -335,6 +355,53 @@ in
     source = ../../../../../assets/floorp/newtab/tokyo-night.png;
   };
 
+  # Override only Floorp's desktop launcher when the GLX workaround
+  # is enabled. Niri and all other applications remain native Wayland.
+  xdg.desktopEntries.floorp = lib.mkIf (cfg.floorp.enable && cfg.floorp.graphics.xwaylandGlx.enable) {
+    name = "Floorp";
+    genericName = "Web Browser";
+    comment = "Browse the Web";
+    icon = "floorp";
+
+    exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --name floorp %U";
+
+    terminal = false;
+    startupNotify = true;
+
+    categories = [
+      "Network"
+      "WebBrowser"
+    ];
+
+    mimeType = [
+      "text/html"
+      "text/xml"
+      "application/xhtml+xml"
+      "application/vnd.mozilla.xul+xml"
+      "x-scheme-handler/http"
+      "x-scheme-handler/https"
+    ];
+
+    settings.StartupWMClass = "floorp";
+
+    actions = {
+      new-window = {
+        name = "New Window";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --new-window %U";
+      };
+
+      new-private-window = {
+        name = "New Private Window";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --private-window %U";
+      };
+
+      profile-manager-window = {
+        name = "Profile Manager";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --ProfileManager";
+      };
+    };
+  };
+
   programs.floorp = {
     enable = cfg.floorp.enable;
 
@@ -362,7 +429,7 @@ in
       '';
 
       settings = lib.recursiveUpdate (
-        shared.profileSettings // bookmarkProfileSettings // floorpSettings
+        shared.profileSettings // bookmarkProfileSettings // floorpSettings // xwaylandGlxSettings
       ) cfg.overrides.floorp.settings;
 
       search = import ./search.nix;

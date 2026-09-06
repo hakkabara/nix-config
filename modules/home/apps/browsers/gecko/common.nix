@@ -209,6 +209,12 @@ in
       };
 
       whatsappProfile.enable = lib.mkEnableOption "dedicated Floorp WhatsApp profile";
+
+      graphics.xwaylandGlx.enable = lib.mkEnableOption ''
+        XWayland/GLX rendering with forced hardware WebRender for Floorp.
+        This is useful for virtual GPUs such as VMware SVGA where the
+        native Wayland/EGL path falls back to software rendering.
+      '';
     };
 
     overrides = {

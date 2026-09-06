@@ -33,6 +33,8 @@
           profileDisplayName = lib.mkDefault "Work";
           profileId = lib.mkDefault 0;
           whatsappProfile.enable = lib.mkDefault false;
+
+          graphics.xwaylandGlx.enable = lib.mkDefault true;
         };
       };
 
