@@ -8,6 +8,43 @@
 let
   cfg = config.hakkabara.desktop.dms;
 
+  controlCenterFilter = lib.optionalString cfg.controlCenter.enable ''
+    | .controlCenterShowNetworkIcon = ${lib.boolToString cfg.controlCenter.icons.network}
+    | .controlCenterShowBluetoothIcon = ${lib.boolToString cfg.controlCenter.icons.bluetooth}
+    | .controlCenterShowAudioIcon = ${lib.boolToString cfg.controlCenter.icons.audio}
+    | .controlCenterShowVpnIcon = ${lib.boolToString cfg.controlCenter.icons.vpn}
+    | .controlCenterShowBrightnessIcon = ${lib.boolToString cfg.controlCenter.icons.brightness}
+    | .controlCenterShowMicIcon = ${lib.boolToString cfg.controlCenter.icons.mic}
+    | .controlCenterShowBatteryIcon = ${lib.boolToString cfg.controlCenter.icons.battery}
+    | .controlCenterShowScreenSharingIcon = ${lib.boolToString cfg.controlCenter.icons.screenSharing}
+
+    | .controlCenterWidgets = (
+        (
+          if (.controlCenterWidgets | type) == "array" then
+            .controlCenterWidgets
+          else
+            [
+              { id: "volumeSlider", enabled: true, width: 50 },
+              { id: "brightnessSlider", enabled: true, width: 50 },
+              { id: "wifi", enabled: true, width: 50 },
+              { id: "bluetooth", enabled: true, width: 50 },
+              { id: "audioOutput", enabled: true, width: 50 },
+              { id: "audioInput", enabled: true, width: 50 },
+              { id: "nightMode", enabled: true, width: 50 },
+              { id: "darkMode", enabled: true, width: 50 }
+            ]
+          end
+        )
+        | map(
+            if $ccWidgetOverrides[.id] != null then
+              .enabled = $ccWidgetOverrides[.id]
+            else
+              .
+            end
+          )
+      )
+  '';
+
   dmsTokyoNightTheme = pkgs.writeText "dms-tokyo-night.json" (
     builtins.toJSON {
       dark = {
@@ -55,6 +92,7 @@ let
     if [ -f "$config_file" ] && ${pkgs.jq}/bin/jq empty "$config_file" >/dev/null 2>&1; then
       ${pkgs.jq}/bin/jq \
         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
+        --argjson ccWidgetOverrides '${builtins.toJSON cfg.controlCenter.widgets}' \
         '
           .currentThemeName = "custom"
           | .customThemeFile = $theme
@@ -73,6 +111,8 @@ let
           | .clockFormat = "24h"
           | .showSeconds = false
           | .clockDateFormat = "ddd dd.MM."
+
+          ${controlCenterFilter}
 
           # Keep weather in the center and remove battery and DMS clipboard
           # widgets from existing DMS 1.6 WorkVM bar configurations.
@@ -99,6 +139,7 @@ let
     else
       ${pkgs.jq}/bin/jq -n \
         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
+        --argjson ccWidgetOverrides '${builtins.toJSON cfg.controlCenter.widgets}' \
         '{
           currentThemeName: "custom",
           customThemeFile: $theme,
@@ -116,10 +157,10 @@ let
           clockDateFormat: "ddd dd.MM.",
           showWeather: true,
 
-          showBattery: false,
-          controlCenterShowBluetoothIcon: false,
-          controlCenterShowNetworkIcon: true
-        }' > "$tmp_file"
+          showBattery: false
+        }
+        ${controlCenterFilter}
+        ' > "$tmp_file"
     fi
 
     mv "$tmp_file" "$config_file"
@@ -172,12 +213,77 @@ let
   );
 in
 {
-  options.hakkabara.desktop.dms.alwaysOn.enable = lib.mkEnableOption "always-on DMS desktop policy";
+  options.hakkabara.desktop.dms = {
+    controlCenter = {
+      enable = lib.mkEnableOption "declarative DMS control-center configuration";
 
-  options.hakkabara.desktop.dms.clipboardHistoryPersistence.enable = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = "Allow DankMaterialShell to persist clipboard history to disk.";
+      icons = {
+        network = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show the network status icon in the DMS control center.";
+        };
+
+        bluetooth = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show the Bluetooth status icon in the DMS control center.";
+        };
+
+        audio = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show the audio status icon in the DMS control center.";
+        };
+
+        vpn = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show the VPN status icon in the DMS control center.";
+        };
+
+        brightness = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Show the brightness status icon in the DMS control center.";
+        };
+
+        mic = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Show the microphone status icon in the DMS control center.";
+        };
+
+        battery = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Show the battery status icon in the DMS control center.";
+        };
+
+        screenSharing = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show the screen-sharing status icon in the DMS control center.";
+        };
+      };
+
+      widgets = lib.mkOption {
+        type = lib.types.attrsOf lib.types.bool;
+        default = { };
+        description = ''
+          Enable or disable individual DMS control-center widgets by their
+          upstream widget ID.
+        '';
+      };
+    };
+
+    alwaysOn.enable = lib.mkEnableOption "always-on DMS desktop policy";
+
+    clipboardHistoryPersistence.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Allow DankMaterialShell to persist clipboard history to disk.";
+    };
   };
 
   config = {

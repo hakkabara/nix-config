@@ -269,7 +269,35 @@
       ../../profiles/home/work-vm.nix
     ];
 
-    hakkabara.desktop.dms.alwaysOn.enable = true;
+    hakkabara.desktop.dms = {
+      alwaysOn.enable = true;
+
+      controlCenter = {
+        enable = true;
+
+        icons = {
+          network = true;
+          bluetooth = false;
+          audio = true;
+          vpn = true;
+          brightness = false;
+          mic = false;
+          battery = false;
+          screenSharing = true;
+        };
+
+        widgets = {
+          volumeSlider = true;
+          brightnessSlider = false;
+          wifi = false;
+          bluetooth = false;
+          audioOutput = true;
+          audioInput = false;
+          nightMode = true;
+          darkMode = false;
+        };
+      };
+    };
 
     hakkabara.git.githubCli = {
       enable = true;
