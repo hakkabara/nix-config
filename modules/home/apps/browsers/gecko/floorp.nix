@@ -197,6 +197,7 @@ let
     };
 
     "floorp.keyboardshortcut.config" = builtins.toJSON {
+      schemaVersion = 2;
       enabled = true;
 
       shortcuts = {
@@ -285,6 +286,66 @@ let
             shift = true;
           };
         };
+
+        # --------------------------------------------------------
+        # Tab navigation / TailorKey
+        # --------------------------------------------------------
+        #
+        # TailorKey's Ctrl-Tab switcher keeps Ctrl held while its
+        # Cursor layer emits Left/Right. Map those directions to
+        # previous/next browser tab.
+        "gecko-show-previous-tab" = {
+          action = "gecko-show-previous-tab";
+          key = "ArrowLeft";
+
+          modifiers = {
+            alt = false;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
+
+        "gecko-show-next-tab" = {
+          action = "gecko-show-next-tab";
+          key = "ArrowRight";
+
+          modifiers = {
+            alt = false;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
+
+        # Keep Niri Super+Q for closing the complete window while
+        # Super+Shift+Q closes only the current Floorp tab.
+        "gecko-close-tab" = {
+          action = "gecko-close-tab";
+          key = "KeyQ";
+
+          modifiers = {
+            alt = false;
+            ctrl = false;
+            meta = true;
+            shift = true;
+          };
+        };
+
+        # --------------------------------------------------------
+        # Zen Mode
+        # --------------------------------------------------------
+        "floorp-toggle-zen-mode" = {
+          action = "floorp-toggle-zen-mode";
+          key = "KeyZ";
+
+          modifiers = {
+            alt = true;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
       };
     };
 
@@ -354,6 +415,12 @@ in
   xdg.dataFile."floorp/newtab/tokyo-night.png" = lib.mkIf cfg.floorp.enable {
     source = ../../../../../assets/floorp/newtab/tokyo-night.png;
   };
+
+  # Expose the accelerated Floorp launcher as a command as well.
+  # This lets Niri shortcuts use the same tested VMware GLX path.
+  home.packages = lib.optionals (cfg.floorp.enable && cfg.floorp.graphics.xwaylandGlx.enable) [
+    floorpXwaylandGlxLauncher
+  ];
 
   # Override only Floorp's desktop launcher when the GLX workaround
   # is enabled. Niri and all other applications remain native Wayland.
