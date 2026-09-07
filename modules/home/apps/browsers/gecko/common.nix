@@ -428,6 +428,7 @@ in
         description = "Firefox-specific Violentmonkey runtime access policy.";
       };
       bitwarden.enable = mkExtensionOption "Bitwarden browser extension";
+      foxyProxy.enable = mkExtensionOption "FoxyProxy Standard proxy manager";
 
       multiAccountContainers.enable = mkExtensionOption "Firefox Multi-Account Containers";
 

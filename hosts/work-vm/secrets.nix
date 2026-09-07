@@ -60,6 +60,14 @@
       group = "dnsmasq";
       mode = "0400";
     };
+
+    "browser/foxyproxy-config.json" = {
+      sopsFile = ../../secrets/work-vm/foxyproxy.yaml;
+      key = "config";
+      owner = "mko";
+      group = "users";
+      mode = "0400";
+    };
   };
 
   hakkabara.networking.splitDns = {

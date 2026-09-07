@@ -20,6 +20,8 @@
 
     browsers = {
       gecko = {
+        extensions.foxyProxy.enable = lib.mkDefault true;
+
         firefox = {
           enable = lib.mkDefault true;
           profileName = lib.mkDefault "work";
