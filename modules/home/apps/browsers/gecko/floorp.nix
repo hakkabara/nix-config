@@ -17,6 +17,12 @@ let
   bookmarks = import ./bookmarks.nix;
   bookmarkPolicies = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.policies;
 
+  # Floorp-only browser policies.
+  floorpPolicies = {
+    # Disable Firefox/Floorp's built-in IP Protection / VPN feature.
+    IPProtectionAvailable = false;
+  };
+
   bookmarkProfileSettings = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.profileSettings;
 
   xwaylandGlxSettings = lib.optionalAttrs cfg.floorp.graphics.xwaylandGlx.enable {
@@ -473,7 +479,7 @@ in
     enable = cfg.floorp.enable;
 
     # Firefox-compatible baseline shared with Firefox.
-    policies = lib.recursiveUpdate (lib.recursiveUpdate shared.policies bookmarkPolicies) cfg.overrides.floorp.policies;
+    policies = lib.recursiveUpdate (lib.recursiveUpdate (lib.recursiveUpdate shared.policies bookmarkPolicies) floorpPolicies) cfg.overrides.floorp.policies;
 
     # Floorp keeps its own profile state below ~/.floorp.
     profiles.${cfg.floorp.profileName} = {
@@ -490,7 +496,9 @@ in
         #profile-manager-button,
         #undo-closed-tab,
         #import-button,
-        #firefox-view-button {
+        #firefox-view-button,
+        #fxa-toolbar-menu-button,
+        #ipprotection-button {
           display: none !important;
         }
       '';
