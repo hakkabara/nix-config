@@ -11,10 +11,10 @@ let
   dmsBinds = lib.optionalString cfg.dmsIntegration.enable ''
     // DankMaterialShell IPC integration.
     //
-    // DMS itself is started through its Home Manager systemd service.
-    // These bindings only invoke DMS functionality.
+    // Keep Niri's standard window-management bindings available and put
+    // WorkVM-specific shell functions on otherwise unused combinations.
 
-    Mod+Space hotkey-overlay-title="Application Launcher" {
+    Mod+D hotkey-overlay-title="Application Launcher" {
         spawn "dms" "ipc" "call" "spotlight" "toggle";
     }
 
@@ -22,7 +22,7 @@ let
         spawn "dms" "ipc" "call" "notifications" "toggle";
     }
 
-    Mod+Comma hotkey-overlay-title="DMS Settings" {
+    Mod+Ctrl+Comma hotkey-overlay-title="DMS Settings" {
         spawn "dms" "ipc" "call" "settings" "toggle";
     }
 
@@ -30,7 +30,7 @@ let
         spawn "dms" "ipc" "call" "notepad" "toggle";
     }
 
-    Mod+V hotkey-overlay-title="CopyQ Clipboard" {
+    Mod+Ctrl+V hotkey-overlay-title="CopyQ Clipboard" {
         spawn "copyq" "-e" "toggle()";
     }
 
@@ -38,6 +38,7 @@ let
         spawn "dms" "ipc" "call" "powermenu" "toggle";
     }
 
+    // Super+L is intercepted by the Windows/VMware host.
     Super+Alt+L hotkey-overlay-title="Lock Session" {
         spawn "dms" "ipc" "call" "lock" "lock";
     }
@@ -226,20 +227,118 @@ in
       }
 
       binds {
+          // Important-hotkey overview.
+          Mod+Shift+Slash { show-hotkey-overlay; }
+
+          // Applications.
           Mod+Return hotkey-overlay-title="Terminal" {
               spawn "${cfg.terminal}";
           }
+          Mod+T hotkey-overlay-title="Terminal" {
+              spawn "${cfg.terminal}";
+          }
+
+          // Frequently used applications.
+          Mod+B hotkey-overlay-title="Browser" {
+              spawn "floorp-xwayland-glx" "--name" "floorp";
+          }
+
+          Mod+E hotkey-overlay-title="File Manager (Yazi)" {
+              spawn "kitty" "-e" "yazi";
+          }
+
+          // Overview and basic window lifecycle.
+          // Familiar Windows/TailorKey Task View behavior.
+          Mod+Tab repeat=false hotkey-overlay-title="Task View / Overview" {
+            toggle-overview;
+          }
+
+          Mod+O repeat=false { toggle-overview; }
+          Mod+Q repeat=false { close-window; }
+
+          // Focus: arrows and Vim-style H/J/K/L.
+          Mod+Left  { focus-column-left; }
+          Mod+Down  { focus-window-down; }
+          Mod+Up    { focus-window-up; }
+          Mod+Right { focus-column-right; }
 
           Mod+H { focus-column-left; }
           Mod+J { focus-window-down; }
           Mod+K { focus-window-up; }
           Mod+L { focus-column-right; }
 
+          // Move windows/columns.
+          Mod+Ctrl+Left  { move-column-left; }
+          Mod+Ctrl+Down  { move-window-down; }
+          Mod+Ctrl+Up    { move-window-up; }
+          Mod+Ctrl+Right { move-column-right; }
+
           Mod+Ctrl+H { move-column-left; }
           Mod+Ctrl+J { move-window-down; }
           Mod+Ctrl+K { move-window-up; }
           Mod+Ctrl+L { move-column-right; }
 
+          // First/last column.
+          Mod+Home { focus-column-first; }
+          Mod+End { focus-column-last; }
+          Mod+Ctrl+Home { move-column-to-first; }
+          Mod+Ctrl+End { move-column-to-last; }
+
+          // Monitor navigation.
+          Mod+Shift+Left  { focus-monitor-left; }
+          Mod+Shift+Down  { focus-monitor-down; }
+          Mod+Shift+Up    { focus-monitor-up; }
+          Mod+Shift+Right { focus-monitor-right; }
+
+          Mod+Shift+H { focus-monitor-left; }
+          Mod+Shift+J { focus-monitor-down; }
+          Mod+Shift+K { focus-monitor-up; }
+          Mod+Shift+L { focus-monitor-right; }
+
+          // Move a complete column between monitors.
+          Mod+Shift+Ctrl+Left  { move-column-to-monitor-left; }
+          Mod+Shift+Ctrl+Down  { move-column-to-monitor-down; }
+          Mod+Shift+Ctrl+Up    { move-column-to-monitor-up; }
+          Mod+Shift+Ctrl+Right { move-column-to-monitor-right; }
+
+          Mod+Shift+Ctrl+H { move-column-to-monitor-left; }
+          Mod+Shift+Ctrl+J { move-column-to-monitor-down; }
+          Mod+Shift+Ctrl+K { move-column-to-monitor-up; }
+          Mod+Shift+Ctrl+L { move-column-to-monitor-right; }
+
+          // Dynamic workspaces.
+          Mod+Page_Down { focus-workspace-down; }
+          Mod+Page_Up { focus-workspace-up; }
+          Mod+U { focus-workspace-down; }
+          Mod+I { focus-workspace-up; }
+
+          Mod+Ctrl+Page_Down { move-column-to-workspace-down; }
+          Mod+Ctrl+Page_Up { move-column-to-workspace-up; }
+          Mod+Ctrl+U { move-column-to-workspace-down; }
+          Mod+Ctrl+I { move-column-to-workspace-up; }
+
+          Mod+Shift+Page_Down { move-workspace-down; }
+          Mod+Shift+Page_Up { move-workspace-up; }
+          Mod+Shift+U { move-workspace-down; }
+          Mod+Shift+I { move-workspace-up; }
+
+          // Workspace switching with mouse wheel.
+          Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+          Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+          Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+          Mod+Ctrl+WheelScrollUp cooldown-ms=150 { move-column-to-workspace-up; }
+
+          Mod+WheelScrollRight { focus-column-right; }
+          Mod+WheelScrollLeft { focus-column-left; }
+          Mod+Ctrl+WheelScrollRight { move-column-right; }
+          Mod+Ctrl+WheelScrollLeft { move-column-left; }
+
+          Mod+Shift+WheelScrollDown { focus-column-right; }
+          Mod+Shift+WheelScrollUp { focus-column-left; }
+          Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
+          Mod+Ctrl+Shift+WheelScrollUp { move-column-left; }
+
+          // Explicit workspace numbers.
           Mod+1 { focus-workspace 1; }
           Mod+2 { focus-workspace 2; }
           Mod+3 { focus-workspace 3; }
@@ -250,27 +349,91 @@ in
           Mod+8 { focus-workspace 8; }
           Mod+9 { focus-workspace 9; }
 
-          Mod+Shift+1 { move-column-to-workspace 1; }
-          Mod+Shift+2 { move-column-to-workspace 2; }
-          Mod+Shift+3 { move-column-to-workspace 3; }
-          Mod+Shift+4 { move-column-to-workspace 4; }
-          Mod+Shift+5 { move-column-to-workspace 5; }
-          Mod+Shift+6 { move-column-to-workspace 6; }
-          Mod+Shift+7 { move-column-to-workspace 7; }
-          Mod+Shift+8 { move-column-to-workspace 8; }
-          Mod+Shift+9 { move-column-to-workspace 9; }
+          // Move only the focused window to a numbered workspace.
+          // This mirrors the familiar i3/Sway Super+Shift+number workflow.
+          Mod+Shift+1 { move-window-to-workspace 1; }
+          Mod+Shift+2 { move-window-to-workspace 2; }
+          Mod+Shift+3 { move-window-to-workspace 3; }
+          Mod+Shift+4 { move-window-to-workspace 4; }
+          Mod+Shift+5 { move-window-to-workspace 5; }
+          Mod+Shift+6 { move-window-to-workspace 6; }
+          Mod+Shift+7 { move-window-to-workspace 7; }
+          Mod+Shift+8 { move-window-to-workspace 8; }
+          Mod+Shift+9 { move-window-to-workspace 9; }
 
-          Mod+F { fullscreen-window; }
+          // Move the complete Niri column to a numbered workspace.
+          Mod+Ctrl+1 { move-column-to-workspace 1; }
+          Mod+Ctrl+2 { move-column-to-workspace 2; }
+          Mod+Ctrl+3 { move-column-to-workspace 3; }
+          Mod+Ctrl+4 { move-column-to-workspace 4; }
+          Mod+Ctrl+5 { move-column-to-workspace 5; }
+          Mod+Ctrl+6 { move-column-to-workspace 6; }
+          Mod+Ctrl+7 { move-column-to-workspace 7; }
+          Mod+Ctrl+8 { move-column-to-workspace 8; }
+          Mod+Ctrl+9 { move-column-to-workspace 9; }
 
-          Mod+Shift+Q { close-window; }
+          // Column composition.
+          Mod+BracketLeft { consume-or-expel-window-left; }
+          Mod+BracketRight { consume-or-expel-window-right; }
+          Mod+Comma { consume-window-into-column; }
+          Mod+Period { expel-window-from-column; }
+
+          // Column/window sizing.
+          Mod+R { switch-preset-column-width; }
+          Mod+Shift+R { switch-preset-column-width-back; }
+          Mod+Ctrl+Shift+R { switch-preset-window-height; }
+          Mod+Ctrl+R { reset-window-height; }
+
+          Mod+F { maximize-column; }
+          Mod+Shift+F { fullscreen-window; }
+          Mod+M { maximize-window-to-edges; }
+          Mod+Ctrl+F { expand-column-to-available-width; }
+
+          Mod+C { center-column; }
+          Mod+Ctrl+C { center-visible-columns; }
+
+          // Consistent arrow-key workflow:
+          // Super        = focus
+          // Super+Ctrl   = move
+          // Super+Alt    = resize
+          // Super+Shift  = monitor
+          Mod+Alt+Left  { set-column-width "-10%"; }
+          Mod+Alt+Right { set-column-width "+10%"; }
+          Mod+Alt+Up    { set-window-height "-10%"; }
+          Mod+Alt+Down  { set-window-height "+10%"; }
+
+          // EurKEY/AltGr path used by the Glove80 TailorKey thumb key.
+          Mod+Mod5+Left  { set-column-width "-10%"; }
+          Mod+Mod5+Right { set-column-width "+10%"; }
+          Mod+Mod5+Up    { set-window-height "-10%"; }
+          Mod+Mod5+Down  { set-window-height "+10%"; }
+
+          // TailorKey directional resize on the home-row-like J/K/L/; cluster.
+          // J = left, K = up, L = down, ; = right.
+          Mod+Mod5+J hotkey-overlay-title="Resize — TailorKey J/K/L/;" {
+            set-column-width "-10%";
+          }
+          Mod+Mod5+K { set-window-height "-10%"; }
+          Mod+Mod5+L { set-window-height "+10%"; }
+          Mod+Mod5+Semicolon { set-column-width "+10%"; }
+
+          Mod+Minus { set-column-width "-10%"; }
+          Mod+Equal { set-column-width "+10%"; }
+          Mod+Shift+Minus { set-window-height "-10%"; }
+          Mod+Shift+Equal { set-window-height "+10%"; }
+
+          // Floating and tabbed columns.
+          Mod+V { toggle-window-floating; }
+          Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+          Mod+W { toggle-column-tabbed-display; }
 
           // Use Flameshot consistently across desktop environments.
-          // Niris native screenshot actions are intentionally not bound.
+          // Niri's native screenshot actions remain intentionally unbound.
           Mod+Shift+S hotkey-overlay-title="Flameshot Screenshot" {
               spawn "flameshot" "gui";
           }
 
-          // Useful for RDP/VM applications that request shortcut inhibition.
+          // Escape hatch for RDP/VM applications requesting shortcut inhibition.
           Mod+Escape allow-inhibiting=false {
               toggle-keyboard-shortcuts-inhibit;
           }
