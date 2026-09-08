@@ -21,6 +21,9 @@
   hakkabara = {
     terminal.enable = lib.mkDefault true;
 
+    # Shared SSH host TUI for workstation-like systems.
+    cli.sshelf.enable = lib.mkDefault true;
+
     apps.flameshot.enable = lib.mkDefault true;
 
     editor.enable = lib.mkDefault true;

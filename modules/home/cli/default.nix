@@ -9,6 +9,10 @@ let
   cfg = config.hakkabara.cli;
 in
 {
+  imports = [
+    ./sshelf.nix
+  ];
+
   options.hakkabara.cli = {
     enable = lib.mkEnableOption "shared command-line tool environment";
 
