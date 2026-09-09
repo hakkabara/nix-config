@@ -129,8 +129,16 @@
 
       partition.systemSize = "100%";
 
+      # This VM has been explicitly configured and verified to boot via UEFI,
+      # so it does not need the extra legacy BIOS boot partition.
+      boot.biosCompatibility = false;
+
       encryption = {
         enable = true;
+
+        # nixos-anywhere uploads the initial LUKS passphrase here.
+        # Normal nixos-rebuild does not format the disk or consume this file.
+        installPasswordFile = "/tmp/disko-luks-password";
 
         # Do not leak free-block information through LUKS by default.
         # We can deliberately revisit this if thin-disk reclaim becomes

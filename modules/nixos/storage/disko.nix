@@ -289,6 +289,12 @@ in
           efiSupport = true;
           efiInstallAsRemovable = true;
           useOSProber = false;
+        }
+        // lib.optionalAttrs (!cfg.boot.biosCompatibility) {
+          # Pure UEFI installations do not install GRUB into a disk MBR.
+          # Without the EF02 BIOS partition Disko cannot infer a GRUB disk,
+          # so explicitly select EFI-only installation mode.
+          device = "nodev";
         };
 
         services.fstrim.enable = cfg.trim.enable;

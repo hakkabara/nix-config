@@ -3,6 +3,8 @@ keys:
   - &recovery age10hl0lhp7g9f8532te3hmw6agyytrmp9n4x4yy6xah5ka2eq9yc0qnkz6qq
 
   - &work_vm age13g7nv0lq0x72lz8qq7jnzgm9202t5vjngyuuksdmhkq5qhyjaqvqrs8t7q
+  - &deploy_vm age1v92zvsxyufu8vzedzuq5w3mhuqcg2m8f2hfkm8njax20tvh8la5qr00ehp
+
 creation_rules:
   - path_regex: ^secrets/surf-vm(\.yaml|/.*)$
     key_groups:
@@ -14,6 +16,12 @@ creation_rules:
     key_groups:
       - age:
           - *work_vm
+          - *recovery
+
+  - path_regex: ^secrets/deploy-vm(\.yaml|/.*)$
+    key_groups:
+      - age:
+          - *deploy_vm
           - *recovery
 
   - path_regex: ^secrets/shared/ssh-personal-infra$
