@@ -11,7 +11,15 @@ in
 {
   imports = [ ./network-tools.nix ];
 
-  options.hakkabara.shell.enable = lib.mkEnableOption "shared interactive shell environment";
+  options.hakkabara.shell = {
+    enable = lib.mkEnableOption "shared interactive shell environment";
+
+    aliasTips.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the alias-tips Zsh plugin.";
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     programs = {
@@ -50,6 +58,8 @@ in
             };
           }
 
+        ]
+        ++ lib.optionals cfg.aliasTips.enable [
           {
             name = "alias-tips";
             src = pkgs.fetchFromGitHub {
@@ -60,6 +70,8 @@ in
             };
           }
 
+        ]
+        ++ [
           {
             name = "zsh-you-should-use";
             src = pkgs.fetchFromGitHub {

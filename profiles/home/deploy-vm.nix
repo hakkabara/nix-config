@@ -11,6 +11,10 @@
   # proves genuinely useful later, it will become a separate optional layer
   # rather than part of the trusted minimal baseline.
   hakkabara = {
+    # alias-tips currently requires Python at shell runtime. This minimal
+    # appliance does not need the plugin and therefore avoids that dependency.
+    shell.aliasTips.enable = lib.mkDefault false;
+
     cli.sshelf.enable = lib.mkDefault true;
 
     terminal = {

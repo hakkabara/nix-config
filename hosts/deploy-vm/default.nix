@@ -7,6 +7,7 @@
   imports = [
     ./hardware-configuration.nix
 
+    ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
@@ -19,6 +20,20 @@
     "nix-command"
     "flakes"
   ];
+
+  # VMware UEFI supports persistent EFI variables. Prefer a normal NVRAM
+  # boot entry over relying solely on the removable-media fallback path.
+  boot.loader = {
+    efi.canTouchEfiVariables = true;
+    grub.efiInstallAsRemovable = false;
+  };
+
+  # Headless administration still needs terminal descriptions for clients
+  # such as Kitty. Keep efibootmgr available for EFI recovery/diagnostics.
+  environment = {
+    enableAllTerminfo = true;
+    systemPackages = [ pkgs.efibootmgr ];
+  };
 
   time.timeZone = "Europe/Berlin";
 
@@ -73,6 +88,18 @@
   };
 
   hakkabara = {
+    # Declarative primary account password via sops-nix.
+    accounts.primary = {
+      enable = true;
+      username = "mko";
+
+      password = {
+        sopsFile = ../../secrets/deploy-vm/users.yaml;
+        secretName = "users/mko-password-hash";
+        key = "mko-password-hash";
+      };
+    };
+
     # NetworkManager is intentional even though this is a headless VM:
     # the DeployVM will later use the same interactive corporate VPN tooling
     # and 2FA workflow as the WorkVM.

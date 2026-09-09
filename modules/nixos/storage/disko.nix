@@ -287,7 +287,9 @@ in
         boot.loader.grub = {
           enable = true;
           efiSupport = true;
-          efiInstallAsRemovable = true;
+          # Safe default for machines where EFI variables may not be writable.
+          # Hosts with persistent NVRAM can override this normally.
+          efiInstallAsRemovable = lib.mkDefault true;
           useOSProber = false;
         }
         // lib.optionalAttrs (!cfg.boot.biosCompatibility) {
