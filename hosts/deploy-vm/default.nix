@@ -16,10 +16,19 @@
 
   networking.hostName = "deploy-vm";
 
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+
+    # mko is the dedicated DeployVM administrator and is already a wheel user.
+    # Nix trusted-users are effectively root-equivalent, which is intentional
+    # here so remote deployments can populate the target Nix store.
+    trusted-users = [
+      "mko"
+    ];
+  };
 
   # VMware UEFI supports persistent EFI variables. Prefer a normal NVRAM
   # boot entry over relying solely on the removable-media fallback path.
