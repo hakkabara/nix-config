@@ -49,6 +49,14 @@
       "networkmanager"
       "wheel"
     ];
+
+    # Dedicated DeployVM administration identity.
+    #
+    # Only the public key is stored in the public Nix configuration.
+    # The corresponding private key remains outside Git.
+    openssh.authorizedKeys.keyFiles = [
+      ./keys/deploy-vm-admin.pub
+    ];
   };
 
   # SSH is part of the appliance baseline, but password authentication remains
