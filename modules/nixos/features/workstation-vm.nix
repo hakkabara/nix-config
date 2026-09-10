@@ -11,6 +11,10 @@ in
   options.hakkabara.workstationVm.enable = lib.mkEnableOption "always-on workstation VM policy";
 
   config = lib.mkIf cfg.enable {
+    # A workstation VM is powered and suspended by its host.
+    # Disable guest-side power-saving support completely.
+    powerManagement.enable = false;
+
     # -------------------------------------------------------------------------
     # Sleep states
     #

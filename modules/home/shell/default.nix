@@ -149,7 +149,7 @@ in
 
           # Kitty
           kssh = "kitten ssh";
-          icat = "kitten icat";
+          kicat = "kitten icat";
         };
       };
 

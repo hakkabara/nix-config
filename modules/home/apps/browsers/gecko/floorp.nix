@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.hakkabara.browsers.gecko;
@@ -6,10 +11,34 @@ let
   shared = import ./shared.nix {
     inherit lib cfg;
     browser = "floorp";
-    profile = "surf";
+    profile = cfg.floorp.profileName;
   };
 
   bookmarks = import ./bookmarks.nix;
+  bookmarkPolicies = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.policies;
+
+  # Floorp-only browser policies.
+  floorpPolicies = {
+    # Disable Firefox/Floorp's built-in IP Protection / VPN feature.
+    IPProtectionAvailable = false;
+  };
+
+  bookmarkProfileSettings = lib.optionalAttrs cfg.bookmarks.manager.enable bookmarks.profileSettings;
+
+  xwaylandGlxSettings = lib.optionalAttrs cfg.floorp.graphics.xwaylandGlx.enable {
+    # VMware SVGA works correctly through GLX, while Floorp's EGL path
+    # falls back to llvmpipe on the WorkVM.
+    "gfx.x11-egl.force-disabled" = true;
+  };
+
+  floorpXwaylandGlxLauncher = pkgs.writeShellScriptBin "floorp-xwayland-glx" ''
+    export GDK_BACKEND=x11
+    export MOZ_ENABLE_WAYLAND=0
+    export MOZ_WEBRENDER=1
+    export MOZ_ACCELERATED=1
+
+    exec ${config.programs.floorp.finalPackage}/bin/floorp "$@"
+  '';
 
   # ============================================================
   # Floorp-specific stable profile preferences
@@ -174,6 +203,7 @@ let
     };
 
     "floorp.keyboardshortcut.config" = builtins.toJSON {
+      schemaVersion = 2;
       enabled = true;
 
       shortcuts = {
@@ -262,6 +292,66 @@ let
             shift = true;
           };
         };
+
+        # --------------------------------------------------------
+        # Tab navigation / TailorKey
+        # --------------------------------------------------------
+        #
+        # TailorKey's Ctrl-Tab switcher keeps Ctrl held while its
+        # Cursor layer emits Left/Right. Map those directions to
+        # previous/next browser tab.
+        "gecko-show-previous-tab" = {
+          action = "gecko-show-previous-tab";
+          key = "ArrowLeft";
+
+          modifiers = {
+            alt = false;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
+
+        "gecko-show-next-tab" = {
+          action = "gecko-show-next-tab";
+          key = "ArrowRight";
+
+          modifiers = {
+            alt = false;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
+
+        # Keep Niri Super+Q for closing the complete window while
+        # Super+Shift+Q closes only the current Floorp tab.
+        "gecko-close-tab" = {
+          action = "gecko-close-tab";
+          key = "KeyQ";
+
+          modifiers = {
+            alt = false;
+            ctrl = false;
+            meta = true;
+            shift = true;
+          };
+        };
+
+        # --------------------------------------------------------
+        # Zen Mode
+        # --------------------------------------------------------
+        "floorp-toggle-zen-mode" = {
+          action = "floorp-toggle-zen-mode";
+          key = "KeyZ";
+
+          modifiers = {
+            alt = true;
+            ctrl = true;
+            meta = false;
+            shift = false;
+          };
+        };
       };
     };
 
@@ -332,16 +422,69 @@ in
     source = ../../../../../assets/floorp/newtab/tokyo-night.png;
   };
 
+  # Expose the accelerated Floorp launcher as a command as well.
+  # This lets Niri shortcuts use the same tested VMware GLX path.
+  home.packages = lib.optionals (cfg.floorp.enable && cfg.floorp.graphics.xwaylandGlx.enable) [
+    floorpXwaylandGlxLauncher
+  ];
+
+  # Override only Floorp's desktop launcher when the GLX workaround
+  # is enabled. Niri and all other applications remain native Wayland.
+  xdg.desktopEntries.floorp = lib.mkIf (cfg.floorp.enable && cfg.floorp.graphics.xwaylandGlx.enable) {
+    name = "Floorp";
+    genericName = "Web Browser";
+    comment = "Browse the Web";
+    icon = "floorp";
+
+    exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --name floorp %U";
+
+    terminal = false;
+    startupNotify = true;
+
+    categories = [
+      "Network"
+      "WebBrowser"
+    ];
+
+    mimeType = [
+      "text/html"
+      "text/xml"
+      "application/xhtml+xml"
+      "application/vnd.mozilla.xul+xml"
+      "x-scheme-handler/http"
+      "x-scheme-handler/https"
+    ];
+
+    settings.StartupWMClass = "floorp";
+
+    actions = {
+      new-window = {
+        name = "New Window";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --new-window %U";
+      };
+
+      new-private-window = {
+        name = "New Private Window";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --private-window %U";
+      };
+
+      profile-manager-window = {
+        name = "Profile Manager";
+        exec = "${floorpXwaylandGlxLauncher}/bin/floorp-xwayland-glx --ProfileManager";
+      };
+    };
+  };
+
   programs.floorp = {
     enable = cfg.floorp.enable;
 
     # Firefox-compatible baseline shared with Firefox.
-    policies = lib.recursiveUpdate shared.policies bookmarks.policies;
+    policies = lib.recursiveUpdate (lib.recursiveUpdate (lib.recursiveUpdate shared.policies bookmarkPolicies) floorpPolicies) cfg.overrides.floorp.policies;
 
     # Floorp keeps its own profile state below ~/.floorp.
-    profiles.surf = {
-      id = 0;
-      name = "Surf";
+    profiles.${cfg.floorp.profileName} = {
+      id = cfg.floorp.profileId;
+      name = cfg.floorp.profileDisplayName;
       isDefault = true;
 
       # Minimal declarative Floorp chrome cleanup.
@@ -353,12 +496,16 @@ in
         #profile-manager-button,
         #undo-closed-tab,
         #import-button,
-        #firefox-view-button {
+        #firefox-view-button,
+        #fxa-toolbar-menu-button,
+        #ipprotection-button {
           display: none !important;
         }
       '';
 
-      settings = shared.profileSettings // bookmarks.profileSettings // floorpSettings;
+      settings = lib.recursiveUpdate (
+        shared.profileSettings // bookmarkProfileSettings // floorpSettings // xwaylandGlxSettings
+      ) cfg.overrides.floorp.settings;
 
       search = import ./search.nix;
     };
@@ -368,7 +515,7 @@ in
     # Keep WhatsApp separate from the normal Surf profile so
     # session restore and ordinary browser tabs cannot become
     # part of the WhatsApp autostart window.
-    profiles.whatsapp = {
+    profiles.whatsapp = lib.mkIf cfg.floorp.whatsappProfile.enable {
       id = 1;
       name = "WhatsApp";
       isDefault = false;

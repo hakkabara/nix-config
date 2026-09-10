@@ -39,6 +39,16 @@
       url = "github:gmodena/nix-flatpak";
     };
 
+    # DankMaterialShell desktop shell.
+    #
+    # Use the official upstream DMS flake directly. DMS upstream itself
+    # targets nixos-unstable, so reuse our already pinned unstable package
+    # set instead of introducing a second independent Nixpkgs revision.
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/v1.6.0";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+
     # Zellij scratchpads and companion CLI.
     #
     # The concrete upstream revision is pinned in flake.lock.
@@ -59,6 +69,7 @@
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
+      dms,
       zellij-tools,
       ...
     }:
@@ -68,16 +79,83 @@
       # A second package set used only by modules that explicitly opt in.
       # `pkgs` remains the NixOS 26.05 stable package set.
       pkgsUnstable = nixpkgs-unstable.legacyPackages.${system};
+      # Dedicated unstable package set for explicitly selected
+      # proprietary applications such as TeamViewer.
+      pkgsUnstableUnfree = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
+
+      # Custom DFIR packages use the same pinned unstable revision they were
+      # developed against. Unfree is allowed only in this dedicated package set.
+      pkgsDfirBase = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      pkgsDfir = import ./packages { pkgsUnstable = pkgsDfirBase; };
     in
     {
       formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-tree;
 
+      # Expose custom packages for local per-package and batch builds.
+      packages.${system} = pkgsDfir;
+
       nixosConfigurations = {
+        work-vm = nixpkgs.lib.nixosSystem {
+          inherit system;
+
+          specialArgs = {
+            inherit
+              pkgsDfir
+              pkgsUnstable
+              pkgsUnstableUnfree
+              dms
+              wl-x11-clipsync
+              ;
+          };
+
+          modules = [
+            ./hosts/work-vm
+
+            nix-flatpak.nixosModules.nix-flatpak
+            disko.nixosModules.disko
+            home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
+
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                # Preserve a colliding existing user file instead of failing
+                # Home Manager activation. A later activation may replace
+                # the previous automatic backup.
+                backupFileExtension = "hm-backup";
+                overwriteBackup = true;
+
+                # Home Manager itself remains on release-26.05/stable.
+                #
+                # pkgsUnstable is exposed only for modules that explicitly
+                # opt into fast-moving applications such as Niri/Zellij.
+                extraSpecialArgs = {
+                  inherit
+                    pkgsUnstable
+                    zellij-tools
+                    ;
+                };
+              };
+            }
+          ];
+        };
+
         surf-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 
           specialArgs = {
-            inherit wl-x11-clipsync;
+            inherit
+              pkgsUnstableUnfree
+              wl-x11-clipsync
+              ;
           };
 
           modules = [
@@ -104,7 +182,11 @@
                 # Modules use stable `pkgs` unless they explicitly request
                 # and select something from `pkgsUnstable`.
                 extraSpecialArgs = {
-                  inherit plasma-manager pkgsUnstable zellij-tools;
+                  inherit
+                    plasma-manager
+                    pkgsUnstable
+                    zellij-tools
+                    ;
                 };
               };
             }

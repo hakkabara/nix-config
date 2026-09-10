@@ -1,0 +1,128 @@
+name: arkime
+
+services:
+  opensearch:
+    image: docker.io/opensearchproject/opensearch:${OPENSEARCH_VERSION}
+    restart: unless-stopped
+
+    environment:
+      discovery.type: single-node
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      DISABLE_SECURITY_PLUGIN: "true"
+      TAKE_FILE_OWNERSHIP: "1"
+
+      OPENSEARCH_JAVA_OPTS: >-
+        -Xms${OPENSEARCH_MEM_GB:-2}g
+        -Xmx${OPENSEARCH_MEM_GB:-2}g
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  arkime-init:
+    profiles:
+      - tools
+
+    image: ghcr.io/arkime/arkime/arkime:${ARKIME_VERSION}
+
+    command:
+      - /opt/arkime/db/db.pl
+      - http://opensearch:9200
+      - init
+      - --ism
+
+    environment:
+      ARKIME__elasticsearch: http://opensearch:9200
+      ARKIME__passwordSecret: ${ARKIME_PASSWORD_SECRET}
+
+    volumes:
+      - ./config.ini:/opt/arkime/etc/config.ini:ro
+      - arkime-raw:/opt/arkime/raw
+
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  arkime-user:
+    profiles:
+      - tools
+
+    image: ghcr.io/arkime/arkime/arkime:${ARKIME_VERSION}
+
+    command:
+      - /bin/bash
+      - -lc
+      - >-
+        exec /opt/arkime/bin/arkime_add_user.sh
+        admin
+        "WorkVM Admin"
+        "$$ARKIME_ADMIN_PASSWORD"
+        --admin
+
+    environment:
+      ARKIME__elasticsearch: http://opensearch:9200
+      ARKIME__passwordSecret: ${ARKIME_PASSWORD_SECRET}
+      ARKIME_ADMIN_PASSWORD: ${ARKIME_ADMIN_PASSWORD}
+
+    volumes:
+      - ./config.ini:/opt/arkime/etc/config.ini:ro
+      - arkime-raw:/opt/arkime/raw
+
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  viewer:
+    image: ghcr.io/arkime/arkime/arkime:${ARKIME_VERSION}
+    restart: unless-stopped
+
+    command:
+      - /opt/arkime/bin/docker.sh
+      - viewer
+      - --wait-for-db
+      - http://opensearch:9200
+      - --upgrade
+      - http://opensearch:9200
+
+    environment:
+      ARKIME__elasticsearch: http://opensearch:9200
+      ARKIME__passwordSecret: ${ARKIME_PASSWORD_SECRET}
+      ARKIME__authMode: basic
+      ARKIME__viewHost: 0.0.0.0
+      ARKIME__viewPort: "8005"
+
+    ports:
+      - "127.0.0.1:8005:8005"
+
+    volumes:
+      - ./config.ini:/opt/arkime/etc/config.ini:ro
+      - arkime-raw:/opt/arkime/raw
+
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+volumes:
+  opensearch-data:
+  arkime-raw:

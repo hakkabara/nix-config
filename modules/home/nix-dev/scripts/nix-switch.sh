@@ -1,3 +1,10 @@
-echo "===== NIXOS SWITCH ====="
+target="${1:-${NIX_CONFIG_HOST:-$(</etc/hostname)}}"
 
-sudo nixos-rebuild switch --flake .#surf-vm
+echo "===== TARGET ====="
+echo "$target"
+echo
+
+echo "===== NIXOS SWITCH: $target ====="
+
+sudo nixos-rebuild switch \
+    --flake ".#$target"

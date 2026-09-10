@@ -1,0 +1,53 @@
+name: bloodhound-legacy
+
+services:
+  neo4j:
+    image: docker.io/library/neo4j:4.4.20
+
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    environment:
+      NEO4J_AUTH: >-
+        ${BH_LEGACY_NEO4J_USER:-neo4j}/${BH_LEGACY_NEO4J_PASSWORD:?BH_LEGACY_NEO4J_PASSWORD is required}
+
+    ports:
+      - "127.0.0.1:${BH_LEGACY_HTTP_PORT:-7475}:7474"
+      - "127.0.0.1:${BH_LEGACY_BOLT_PORT:-7688}:7687"
+
+    volumes:
+      - neo4j-data:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -O /dev/null -q http://localhost:7474 || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  bloodhound:
+    profiles:
+      - container-gui
+
+    image: docker.io/scmanjarrez/bloodhound:4.3.1
+
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - legacy-shared:/tmp/shared
+
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+volumes:
+  neo4j-data:
+  legacy-shared:

@@ -1,42 +1,43 @@
-{ pkgs, ... }:
-
 {
-  imports = [
-    ./dfir/hashes.nix
-    ./commands.nix
-  ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-  home = {
-    packages = [
-      pkgs.copyq
-    ];
+let
+  cfg = config.hakkabara.apps.copyq;
+in
+{
+  options.hakkabara.apps.copyq = {
+    enable = lib.mkEnableOption "CopyQ clipboard manager";
 
-    file = {
-      ".local/bin/copyq-dfir-tag" = {
-        source = ./scripts/copyq-dfir-tag;
-        executable = true;
-      };
-
-      ".local/bin/copyq-install-commands" = {
-        source = ./scripts/install-commands.sh;
-        executable = true;
-      };
+    autostart.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Start CopyQ automatically with the desktop session.";
     };
   };
 
-  xdg.configFile."autostart/copyq.desktop".text = ''
-    [Desktop Entry]
-    Type=Application
-    Name=CopyQ
-    Comment=Clipboard Manager
-    Exec=${pkgs.copyq}/bin/copyq
-    Icon=copyq
-    Terminal=false
-    Categories=Utility;
-    StartupNotify=false
-  '';
+  config = lib.mkIf cfg.enable {
+    home.packages = [
+      pkgs.copyq
+    ];
 
-  home.activation.copyqDfirCommands = ''
-    $HOME/.local/bin/copyq-install-commands
-  '';
+    xdg.configFile."autostart/copyq.desktop" = lib.mkIf cfg.autostart.enable {
+      text =
+        builtins.concatStringsSep "\n" [
+          "[Desktop Entry]"
+          "Type=Application"
+          "Name=CopyQ"
+          "Comment=Clipboard Manager"
+          "Exec=${pkgs.copyq}/bin/copyq"
+          "Icon=copyq"
+          "Terminal=false"
+          "Categories=Utility;"
+          "StartupNotify=false"
+        ]
+        + "\n";
+    };
+  };
 }
