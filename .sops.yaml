@@ -1,6 +1,6 @@
 keys:
   - &surf_vm age1wzp729etmh08uz207cd247wh2ry8ppd4tzzvrkg7w7nm63rqx4hq7effv7
-  - &recovery age10hl0lhp7g9f8532te3hmw6agyytrmp9n4x4yy6xah5ka2eq9yc0qnkz6qq
+  - &recovery age1vcl26d7j8372ym028ff9p5thmyhapctsmlyvjjd7clqgm6mydevsyr7x5l
 
   - &work_vm age13g7nv0lq0x72lz8qq7jnzgm9202t5vjngyuuksdmhkq5qhyjaqvqrs8t7q
   - &deploy_vm age1v92zvsxyufu8vzedzuq5w3mhuqcg2m8f2hfkm8njax20tvh8la5qr00ehp
