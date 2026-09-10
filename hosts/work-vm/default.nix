@@ -36,6 +36,7 @@
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/networking/deployment-lan.nix
     ../../modules/nixos/networking/split-dns.nix
+    ../../modules/nixos/nix/binary-cache-client.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/security/sops.nix
@@ -186,6 +187,12 @@
           prefixLength = 24;
         };
       };
+    };
+
+    nix.binaryCache = {
+      enable = true;
+      url = "http://192.168.245.10:5000";
+      publicKeyFile = ../../keys/harmonia-cache.pub;
     };
 
     # Generic VPN client capabilities only.

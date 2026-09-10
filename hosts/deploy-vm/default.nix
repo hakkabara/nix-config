@@ -10,6 +10,7 @@
     ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/networking/deployment-lan.nix
+    ../../modules/nixos/services/harmonia-cache.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -126,6 +127,20 @@
           address = "192.168.245.10";
           prefixLength = 24;
         };
+      };
+    };
+
+    services.harmoniaCache = {
+      enable = true;
+
+      bindAddress = "192.168.245.10";
+      port = 5000;
+      interface = "ens37";
+
+      signingKey = {
+        sopsFile = ../../secrets/deploy-vm/harmonia.yaml;
+        secretName = "harmonia-cache-signing-key";
+        key = "cache-signing-key";
       };
     };
 
