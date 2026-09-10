@@ -10,6 +10,7 @@
     ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/networking/deployment-lan.nix
+    ../../modules/nixos/nix/cache-retention.nix
     ../../modules/nixos/services/harmonia-cache.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
@@ -110,6 +111,11 @@
         key = "mko-password-hash";
       };
     };
+
+    # Keep known-good client closures in the DeployVM Nix store.
+    # The actual current/previous targets remain runtime state and are not
+    # hard-coded into the repository.
+    nix.cacheRetention.enable = true;
 
     # NetworkManager is intentional even though this is a headless VM:
     # the DeployVM will later use the same interactive corporate VPN tooling
