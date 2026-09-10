@@ -27,6 +27,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoHash = "sha256-NJSz7UKhFugI1ZehpZ5fQ28whfe2mGQi/EK51kWbGbc=";
 
+  # The upstream vault tests are not reliable when the Cargo
+  # test harness runs tests concurrently. Keep the full test
+  # suite enabled, but use buildRustPackage's native serial mode.
+  dontUseCargoParallelTests = true;
+
   # ssh2-config pulls in git2/libgit2. Use nixpkgs' libgit2 instead
   # of building the vendored C copy.
   env.LIBGIT2_NO_VENDOR = "1";
