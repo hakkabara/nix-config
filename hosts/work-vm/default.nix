@@ -34,6 +34,7 @@
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/deployment-lan.nix
     ../../modules/nixos/networking/split-dns.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
@@ -173,7 +174,19 @@
     };
 
     # DHCP through NetworkManager.
-    networking.enable = true;
+    networking = {
+      enable = true;
+
+      deploymentLan = {
+        enable = true;
+        interface = "ens37";
+
+        ipv4 = {
+          address = "192.168.245.11";
+          prefixLength = 24;
+        };
+      };
+    };
 
     # Generic VPN client capabilities only.
     # No SurfVM Homelab VPN profiles are imported into the WorkVM.

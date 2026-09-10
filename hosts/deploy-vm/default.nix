@@ -9,6 +9,7 @@
 
     ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/deployment-lan.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -116,6 +117,16 @@
       enable = true;
       backend = "networkmanager";
       mode = "dhcp";
+
+      deploymentLan = {
+        enable = true;
+        interface = "ens37";
+
+        ipv4 = {
+          address = "192.168.245.10";
+          prefixLength = 24;
+        };
+      };
     };
 
     vmware = {
