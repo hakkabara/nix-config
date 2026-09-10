@@ -126,15 +126,16 @@
 
       # Import/bootstrap channel only.
       #
-      # In VMware Workstation we will create exactly one share named:
+      # VMware Workstation exposes exactly one share named:
       #
-      #   deploy-bootstrap
+      #   deployvm
       #
-      # It will initially contain the DeployVM AGE identity and corporate VPN
-      # import material. The guest sees it read-only.
+      # The guest mounts it as /mnt/deploy-bootstrap and sees it read-only.
+      # Keep only encrypted recovery material and explicitly prepared import
+      # material here; never store the plaintext DeployVM AGE identity.
       sharedFolders = {
         enable = true;
-        source = ".host:/deploy-bootstrap";
+        source = ".host:/deployvm";
         mountPoint = "/mnt/deploy-bootstrap";
         readOnly = true;
         automount.enable = true;
