@@ -11,7 +11,7 @@
     ./hardware-configuration.nix
     ./secrets.nix
     ./wireguard.nix
-    ./mounts.nix
+    ../../modules/nixos/networking/personal-smb.nix
     ../../modules/nixos/virtualization/vmware.nix
     ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
     ../../modules/nixos/features/workstation-vm.nix
@@ -107,7 +107,7 @@
     imports = [
       ../../users/hakkabara
       ../../profiles/home/workstation-base.nix
-      ../../profiles/home/surf-vm-apps.nix
+      ../../profiles/home/personal-workstation-apps.nix
       ../../modules/home/desktop/plasma
       ../../modules/home/desktop/monitor
       ../../modules/home/ssh/personal-infra.nix
@@ -275,8 +275,8 @@
 
             # Existing encrypted filename retained during this migration.
             # The manager implementation itself is browser-neutral.
-            sourceFile = "secrets/surf-vm/browser-bookmarks";
-            documentTitle = "SurfVM Bookmarks";
+            sourceFile = "secrets/shared/browser-bookmarks";
+            documentTitle = "Personal Bookmarks";
           };
 
           extensions = {

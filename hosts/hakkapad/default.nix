@@ -26,6 +26,7 @@
     ../../modules/nixos/desktop/autologin.nix
 
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/personal-smb.nix
 
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/boot/loader.nix

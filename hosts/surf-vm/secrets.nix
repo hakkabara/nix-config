@@ -87,7 +87,7 @@
       # --------------------------------------------------------
 
       "smb/homelab-main" = {
-        sopsFile = ../../secrets/surf-vm/smb.yaml;
+        sopsFile = ../../secrets/shared/smb.yaml;
         key = "homelab-main";
 
         owner = "root";
@@ -100,7 +100,7 @@
       # --------------------------------------------------------
 
       "browser/bookmarks" = {
-        sopsFile = ../../secrets/surf-vm/browser-bookmarks;
+        sopsFile = ../../secrets/shared/browser-bookmarks;
         format = "binary";
 
         owner = "hakkabara";

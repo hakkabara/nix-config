@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 {
-  # SurfVM-specific application selection.
+  # Shared application selection for personal workstations.
   #
   # Some of these modules are still unconditional legacy modules.
   # They live here temporarily so importing the shared app registry

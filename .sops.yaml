@@ -23,10 +23,11 @@ creation_rules:
           - *hakkapad
           - *recovery
 
-  - path_regex: ^secrets/shared/ssh-personal-infra$
+  - path_regex: ^secrets/shared/(ssh-personal-infra|smb\.yaml|browser-bookmarks|mail\.yaml)$
     key_groups:
       - age:
           - *surf_vm
+          - *hakkapad
           - *recovery
 
   - path_regex: ^secrets/surf-vm/github\.yaml$

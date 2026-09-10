@@ -8,7 +8,8 @@
   # rename/extract the remaining SurfVM-specific pieces cleanly.
   imports = [
     ./work-vm.nix
-    ./surf-vm-apps.nix
+    ./personal-workstation-apps.nix
+    ../../modules/home/ssh/personal-infra.nix
   ];
 
   hakkabara = {
@@ -29,6 +30,12 @@
         profileDisplayName = "Surf";
         profileId = 0;
         whatsappProfile.enable = true;
+      };
+
+      bookmarks.manager = {
+        enable = true;
+        sourceFile = "secrets/shared/browser-bookmarks";
+        documentTitle = "Personal Bookmarks";
       };
     };
 
