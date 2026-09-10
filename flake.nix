@@ -25,6 +25,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     plasma-manager = {
       url = "github:nix-community/plasma-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -66,6 +71,7 @@
       home-manager,
       sops-nix,
       disko,
+      nixos-hardware,
       plasma-manager,
       wl-x11-clipsync,
       nix-flatpak,
@@ -101,6 +107,45 @@
       packages.${system} = pkgsDfir;
 
       nixosConfigurations = {
+        hakkapad = nixpkgs.lib.nixosSystem {
+          inherit system;
+
+          specialArgs = {
+            inherit
+              dms
+              pkgsUnstable
+              ;
+          };
+
+          modules = [
+            ./hosts/hakkapad
+
+            nixos-hardware.nixosModules.lenovo-thinkpad-t14s
+
+            nix-flatpak.nixosModules.nix-flatpak
+            disko.nixosModules.disko
+            home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
+
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                backupFileExtension = "hm-backup";
+                overwriteBackup = true;
+
+                extraSpecialArgs = {
+                  inherit
+                    pkgsUnstable
+                    zellij-tools
+                    ;
+                };
+              };
+            }
+          ];
+        };
+
         work-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 

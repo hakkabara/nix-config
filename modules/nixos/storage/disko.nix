@@ -284,13 +284,6 @@ in
           };
         };
 
-        boot.loader.grub = {
-          enable = true;
-          efiSupport = true;
-          efiInstallAsRemovable = true;
-          useOSProber = false;
-        };
-
         services.fstrim.enable = cfg.trim.enable;
       }
 

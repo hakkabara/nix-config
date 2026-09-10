@@ -36,6 +36,7 @@
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/networking/split-dns.nix
     ../../modules/nixos/maintenance.nix
+    ../../modules/nixos/boot/loader.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/accounts/primary.nix
@@ -92,6 +93,12 @@
   };
 
   hakkabara = {
+    # VMware host keeps GRUB for BIOS/UEFI compatibility.
+    boot.loader = {
+      enable = true;
+      backend = "grub";
+    };
+
     # Declarative primary account password via sops-nix.
     accounts.primary = {
       enable = true;

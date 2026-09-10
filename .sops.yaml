@@ -3,6 +3,7 @@ keys:
   - &recovery age10hl0lhp7g9f8532te3hmw6agyytrmp9n4x4yy6xah5ka2eq9yc0qnkz6qq
 
   - &work_vm age13g7nv0lq0x72lz8qq7jnzgm9202t5vjngyuuksdmhkq5qhyjaqvqrs8t7q
+  - &hakkapad age1d86sw6myt3j09sd6wu6lr84j5ljphlpeduy6a33wu5k87kk2aegqxy8uq8
 creation_rules:
   - path_regex: ^secrets/surf-vm(\.yaml|/.*)$
     key_groups:
@@ -14,6 +15,12 @@ creation_rules:
     key_groups:
       - age:
           - *work_vm
+          - *recovery
+
+  - path_regex: ^secrets/hakkapad(\.yaml|/.*)$
+    key_groups:
+      - age:
+          - *hakkapad
           - *recovery
 
   - path_regex: ^secrets/shared/ssh-personal-infra$

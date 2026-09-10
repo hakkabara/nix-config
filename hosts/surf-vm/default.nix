@@ -26,6 +26,7 @@
     ../../modules/nixos/accounts/primary.nix
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/maintenance.nix
+    ../../modules/nixos/boot/loader.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/security/remote-unlock.nix
@@ -34,6 +35,12 @@
   ];
 
   hakkabara = {
+    # VMware host keeps GRUB for BIOS/UEFI compatibility.
+    boot.loader = {
+      enable = true;
+      backend = "grub";
+    };
+
     # Remote NixOS deployments from the SurfVM.
     tools.development.nixosAnywhere.enable = true;
     workstationVm.enable = true;
