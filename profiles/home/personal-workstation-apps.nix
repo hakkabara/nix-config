@@ -16,6 +16,7 @@
   ];
 
   hakkabara.apps = {
+    miniserve.enable = true;
     obsidian.enable = true;
     signal.enable = true;
   };

@@ -131,7 +131,7 @@ let
         export BROWSER_BOOKMARK_AGE_KEY_FILE=${lib.escapeShellArg managerCfg.ageKeyFile}
         export BROWSER_BOOKMARK_DOCUMENT_TITLE=${lib.escapeShellArg managerCfg.documentTitle}
 
-        exec python3 ${../scripts/browser-bookmarks.py} "$@"
+        exec python3 ${../../../helpers/bookmarks/browser-bookmarks.py} "$@"
       '';
     };
 

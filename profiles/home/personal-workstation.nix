@@ -12,6 +12,7 @@
     ./workstation-base.nix
     ./personal-workstation-apps.nix
     ../../modules/home/ssh/personal-infra.nix
+    ../../modules/home/helpers
   ];
 
   hakkabara = {

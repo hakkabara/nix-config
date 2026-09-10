@@ -12,7 +12,6 @@
     ./keepassxc.nix
     ./obsidian.nix
     ./signal.nix
-    ./pihole
     ./miniserve
   ];
 }

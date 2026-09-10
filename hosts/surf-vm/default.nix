@@ -129,13 +129,11 @@
         tokenFile = config.sops.secrets."github/gh-token".path;
       };
 
-      apps = {
-        pihole.enable = true;
+      helpers.pihole.enable = true;
 
-        miniserve = {
-          enable = true;
-          profile = "surf-vm";
-        };
+      apps = {
+
+        miniserve.profile = "surf-vm";
       };
 
       cli.yazi.extraKeymap = [

@@ -6,10 +6,10 @@
 }:
 
 let
-  cfg = config.hakkabara.apps.pihole;
+  cfg = config.hakkabara.helpers.pihole;
 in
 {
-  options.hakkabara.apps.pihole.enable = lib.mkEnableOption "Pi-hole helper tools";
+  options.hakkabara.helpers.pihole.enable = lib.mkEnableOption "Pi-hole helper tools";
 
   config = lib.mkIf cfg.enable {
 
