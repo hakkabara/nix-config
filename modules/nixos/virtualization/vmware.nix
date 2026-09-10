@@ -100,7 +100,7 @@ in
     # and headless open-vm-tools variants.
     virtualisation.vmware.guest = {
       enable = true;
-      headless = cfg.headless;
+      inherit (cfg) headless;
     };
 
     # Early VMware graphics support is only useful for graphical guests.
