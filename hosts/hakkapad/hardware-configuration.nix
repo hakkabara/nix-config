@@ -11,20 +11,22 @@
   # After the first native boot we compare this against
   # nixos-generate-config output from the actual machine.
 
-  boot.initrd.availableKernelModules = [
-    "nvme"
-    "xhci_pci"
-    "usb_storage"
-    "sd_mod"
-  ];
+  boot = {
+    initrd.availableKernelModules = [
+      "nvme"
+      "xhci_pci"
+      "usb_storage"
+      "sd_mod"
+    ];
 
-  boot.initrd.kernelModules = [ ];
+    initrd.kernelModules = [ ];
 
-  boot.kernelModules = [
-    "kvm-intel"
-  ];
+    kernelModules = [
+      "kvm-intel"
+    ];
 
-  boot.extraModulePackages = [ ];
+    extraModulePackages = [ ];
+  };
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 

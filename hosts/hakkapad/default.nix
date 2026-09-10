@@ -1,4 +1,5 @@
 {
+  config,
   dms,
   pkgs,
   pkgsUnstable,
@@ -8,6 +9,8 @@
 {
   imports = [
     ./hardware-configuration.nix
+    ./secrets.nix
+    ./wifi.nix
 
     ../../modules/nixos/tools/development.nix
     ../../modules/nixos/features/python.nix
@@ -146,53 +149,64 @@
       trim.enable = true;
     };
 
-    desktop.niri = {
-      enable = true;
-      package = pkgsUnstable.niri;
-
-      xwayland = {
+    desktop = {
+      niri = {
         enable = true;
-        package = pkgsUnstable.xwayland-satellite;
+        package = pkgsUnstable.niri;
+
+        xwayland = {
+          enable = true;
+          package = pkgsUnstable.xwayland-satellite;
+        };
       };
-    };
 
-    desktop.autologin = {
-      enable = true;
-      user = "hakkabara";
-      session = "niri";
-    };
+      autologin = {
+        enable = true;
+        user = "hakkabara";
+        session = "niri";
+      };
 
-    desktop.dms = {
-      enable = true;
-      package = dms.packages.${pkgs.stdenv.hostPlatform.system}.dms-shell;
-      quickshellPackage = pkgsUnstable.quickshell;
+      dms = {
+        enable = true;
+        package = dms.packages.${pkgs.stdenv.hostPlatform.system}.dms-shell;
+        quickshellPackage = pkgsUnstable.quickshell;
+      };
     };
   };
 
-  services.displayManager.dms-greeter = {
-    enable = true;
-    compositor.name = "niri";
+  services = {
+    displayManager.dms-greeter = {
+      enable = true;
+      compositor.name = "niri";
+    };
+
+    printing.enable = true;
+    fwupd.enable = true;
+    upower.enable = true;
+    udisks2.enable = true;
+    gvfs.enable = true;
   };
 
   # Generic physical-laptop functionality.
-  hardware.bluetooth = {
-    enable = true;
-    powerOnBoot = true;
+  hardware = {
+    bluetooth = {
+      enable = true;
+      powerOnBoot = true;
+    };
+
+    graphics.enable = true;
   };
-
-  hardware.graphics.enable = true;
-
-  services.printing.enable = true;
-  services.fwupd.enable = true;
-  services.upower.enable = true;
-  services.udisks2.enable = true;
-  services.gvfs.enable = true;
 
   home-manager.users.hakkabara = {
     imports = [
       ../../users/hakkabara
       ../../profiles/home/hakkapad.nix
     ];
+
+    hakkabara.git.githubCli = {
+      enable = true;
+      tokenFile = config.sops.secrets."github/gh-token".path;
+    };
 
     hakkabara.desktop.dms = {
       controlCenter = {

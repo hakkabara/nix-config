@@ -3,7 +3,6 @@ _:
 {
   imports = [
     ../../modules/home/ssh
-    ../../modules/home/ssh/personal-infra.nix
   ];
 
   programs.ssh.settings."*" = {

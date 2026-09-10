@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ ... }:
 
 {
   # Initial personal physical-workstation composition.
@@ -14,20 +14,22 @@
   hakkabara = {
     theme.matugen.enable = true;
 
-    # Work-specific proxy tooling is not part of the personal laptop.
-    browsers.gecko.extensions.foxyProxy.enable = false;
+    browsers.gecko = {
+      # Work-specific proxy tooling is not part of the personal laptop.
+      extensions.foxyProxy.enable = false;
 
-    browsers.gecko.firefox = {
-      profileName = "surf";
-      profileDisplayName = "Surf";
-      profileId = 0;
-    };
+      firefox = {
+        profileName = "surf";
+        profileDisplayName = "Surf";
+        profileId = 0;
+      };
 
-    browsers.gecko.floorp = {
-      profileName = "surf";
-      profileDisplayName = "Surf";
-      profileId = 0;
-      whatsappProfile.enable = true;
+      floorp = {
+        profileName = "surf";
+        profileDisplayName = "Surf";
+        profileId = 0;
+        whatsappProfile.enable = true;
+      };
     };
 
     ai = {
