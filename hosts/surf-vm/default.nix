@@ -106,11 +106,9 @@
   home-manager.users.hakkabara = {
     imports = [
       ../../users/hakkabara
-      ../../profiles/home/workstation-base.nix
-      ../../profiles/home/personal-workstation-apps.nix
+      ../../profiles/home/personal-workstation.nix
       ../../modules/home/desktop/plasma
       ../../modules/home/desktop/monitor
-      ../../modules/home/ssh/personal-infra.nix
       ../../modules/home/desktop/autostart.nix
       ../../modules/home/apps/flameshot/plasma.nix
     ];
@@ -126,8 +124,6 @@
     # SurfVM-specific Yazi navigation.
     # /data is the VMware shared-folder mount on this VM.
     hakkabara = {
-      theme.matugen.enable = true;
-
       git.githubCli = {
         enable = true;
         tokenFile = config.sops.secrets."github/gh-token".path;
@@ -139,16 +135,6 @@
         miniserve = {
           enable = true;
           profile = "surf-vm";
-        };
-      };
-
-      ai = {
-        enable = true;
-
-        claude = {
-          enable = true;
-          code.enable = true;
-          omc.enable = true;
         };
       };
 
@@ -167,169 +153,6 @@
       #
       # Extension defaults come from workstation-base.nix and can be
       # selectively overridden here.
-      browsers = {
-        gecko = {
-          firefox = {
-            enable = true;
-            profileName = "surf";
-            profileDisplayName = "Surf";
-            profileId = 0;
-          };
-
-          floorp = {
-            enable = true;
-            profileName = "surf";
-            profileDisplayName = "Surf";
-            profileId = 0;
-            whatsappProfile.enable = true;
-          };
-
-          # SurfVM Firefox selective Sync.
-          #
-          # Only dynamic browsing state is synchronized. Declarative
-          # data such as bookmarks, extensions and browser settings
-          # remains managed locally through Nix/Home Manager.
-          sync.firefox = {
-            enable = true;
-            locked = true;
-
-            history = true;
-            openTabs = true;
-
-            bookmarks = false;
-            passwords = false;
-            addons = false;
-            settings = false;
-            addresses = false;
-            paymentMethods = false;
-          };
-
-          # SurfVM-specific Gecko privacy configuration.
-          #
-          # Shared values apply to Firefox and Floorp. Individual
-          # browsers/profiles may inherit, extend, replace, or
-          # completely discard the common cookie persistence list.
-          privacy = {
-            antiClutter.enable = true;
-
-            # Disable live remote search-engine suggestions while
-            # retaining local history/bookmark/open-tab results.
-            remoteSearchSuggestions.enable = false;
-
-            cookies = {
-              common = {
-                # Cookies and site storage work during the session
-                # but are removed after the browser fully exits.
-                clearOnShutdown = true;
-
-                # Shared SurfVM persistence whitelist.
-                # Keep login/session state for selected trusted web apps.
-                persistentOrigins = [
-                  "https://web.whatsapp.com"
-
-                  "https://chatgpt.com"
-                  "https://auth.openai.com"
-
-                  "https://gemini.google.com"
-
-                  "https://claude.ai"
-                ];
-              };
-
-              # Both currently inherit the SurfVM common baseline.
-              firefox.mode = "inherit";
-              floorp.mode = "inherit";
-
-              # Future examples:
-              #
-              # firefox = {
-              #   mode = "extend";
-              #   persistentOrigins = [
-              #     "https://firefox-only.example"
-              #   ];
-              # };
-              #
-              # floorp = {
-              #   mode = "replace";
-              #   persistentOrigins = [
-              #     "https://floorp-only.example"
-              #   ];
-              # };
-              #
-              # profiles.firefox.work = {
-              #   mode = "extend";
-              #   persistentOrigins = [
-              #     "https://profile-only.example"
-              #   ];
-              # };
-              #
-              # profiles.floorp.throwaway = {
-              #   mode = "none";
-              #   clearOnShutdown = true;
-              # };
-            };
-          };
-
-          bookmarks.manager = {
-            enable = true;
-
-            # Existing encrypted filename retained during this migration.
-            # The manager implementation itself is browser-neutral.
-            sourceFile = "secrets/shared/browser-bookmarks";
-            documentTitle = "Personal Bookmarks";
-          };
-
-          extensions = {
-            # Common workstation extensions are inherited from
-            # workstation-base: uBlock Origin, Consent-O-Matic,
-            # Dark Reader and the Tokyo Night theme.
-
-            violentmonkey = {
-              enable = true;
-              firefox.runtimeBlockedHosts = [
-                "*://*"
-              ];
-            };
-
-            bitwarden.enable = true;
-            multiAccountContainers.enable = true;
-
-            sponsorBlock = {
-              enable = true;
-              firefox = {
-                runtimeBlockedHosts = [
-                  "*://*"
-                ];
-                runtimeAllowedHosts = [
-                  "https://*.youtube.com"
-                  "https://www.youtube-nocookie.com"
-                  "https://sponsor.ajay.app"
-                ];
-              };
-            };
-
-            enhancerForYouTube = {
-              enable = true;
-              firefox = {
-                runtimeBlockedHosts = [
-                  "*://*"
-                ];
-                runtimeAllowedHosts = [
-                  "https://www.youtube.com"
-                ];
-              };
-            };
-
-            twitchAdSolutions.enable = true;
-          };
-        };
-
-        chromium = {
-          chromium.enable = true;
-          vivaldi.enable = true;
-        };
-      };
-
       desktop.monitor = {
         enable = true;
         backend = "plasma";

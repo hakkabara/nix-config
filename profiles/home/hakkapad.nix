@@ -1,55 +1,21 @@
 { ... }:
 
 {
-  # Initial personal physical-workstation composition.
+  # Native private workstation:
   #
-  # Reuse the already-tested workstation/Niri stack and current
-  # SurfVM application selection. Once Hakkapad is stable we can
-  # rename/extract the remaining SurfVM-specific pieces cleanly.
+  # personal-workstation:
+  #   private apps, browsers, bookmarks, SSH, AI, theme
+  #
+  # niri-workstation:
+  #   shared Niri/DMS session, keybindings and rice
   imports = [
-    ./work-vm.nix
-    ./personal-workstation-apps.nix
-    ../../modules/home/ssh/personal-infra.nix
+    ./personal-workstation.nix
+    ./niri-workstation.nix
   ];
 
   hakkabara = {
-    theme.matugen.enable = true;
-
-    browsers.gecko = {
-      # Work-specific proxy tooling is not part of the personal laptop.
-      extensions.foxyProxy.enable = false;
-
-      firefox = {
-        profileName = "surf";
-        profileDisplayName = "Surf";
-        profileId = 0;
-      };
-
-      floorp = {
-        profileName = "surf";
-        profileDisplayName = "Surf";
-        profileId = 0;
-        whatsappProfile.enable = true;
-      };
-
-      bookmarks.manager = {
-        enable = true;
-        sourceFile = "secrets/shared/browser-bookmarks";
-        documentTitle = "Personal Bookmarks";
-      };
-    };
-
-    ai = {
-      enable = true;
-
-      claude = {
-        enable = true;
-        code.enable = true;
-        omc.enable = true;
-      };
-    };
-
-    # WorkVM disables all idle behavior. A laptop must not.
+    # Unlike the WorkVM, a physical laptop must retain normal
+    # lock/idle/power-management behavior.
     desktop.dms.alwaysOn.enable = false;
   };
 }

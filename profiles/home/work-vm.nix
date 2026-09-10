@@ -6,8 +6,7 @@
 {
   imports = [
     ./workstation-base.nix
-    ../../modules/home/desktop/dms
-    ../../modules/home/desktop/niri
+    ./niri-workstation.nix
   ];
 
   hakkabara = {
@@ -45,18 +44,6 @@
         googleChrome.enable = lib.mkDefault true;
         vivaldi.enable = lib.mkDefault true;
       };
-    };
-
-    # WorkVM Wayland compositor configuration.
-    #
-    # DMS itself is intentionally configured at the NixOS level through the
-    # native programs.dms-shell module available in NixOS 26.05.
-    desktop.dms.clipboardHistoryPersistence.enable = lib.mkDefault false;
-
-    desktop.niri = {
-      enable = lib.mkDefault true;
-      # Keep DMS IPC shortcuts in the generated Niri configuration.
-      dmsIntegration.enable = lib.mkDefault true;
     };
   };
 }
