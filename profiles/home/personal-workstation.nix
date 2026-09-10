@@ -16,6 +16,8 @@
   ];
 
   hakkabara = {
+    helpers.pihole.enable = true;
+
     theme.matugen.enable = true;
 
     ai = {

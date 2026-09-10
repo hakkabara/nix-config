@@ -129,8 +129,6 @@
         tokenFile = config.sops.secrets."github/gh-token".path;
       };
 
-      helpers.pihole.enable = true;
-
       apps = {
 
         miniserve.profile = "surf-vm";

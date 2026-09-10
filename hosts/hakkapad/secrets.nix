@@ -47,5 +47,37 @@
       owner = "hakkabara";
       mode = "0400";
     };
+    # --------------------------------------------------------
+    # Shared personal Pi-hole API
+    # --------------------------------------------------------
+
+    "pihole/deacpi01/url" = {
+      sopsFile = ../../secrets/shared/pihole.yaml;
+      key = "api/pihole/deacpi01/url";
+      owner = "hakkabara";
+      mode = "0400";
+    };
+
+    "pihole/deacpi01/token" = {
+      sopsFile = ../../secrets/shared/pihole.yaml;
+      key = "api/pihole/deacpi01/token";
+      owner = "hakkabara";
+      mode = "0400";
+    };
+
+    "pihole/derbpi01/url" = {
+      sopsFile = ../../secrets/shared/pihole.yaml;
+      key = "api/pihole/derbpi01/url";
+      owner = "hakkabara";
+      mode = "0400";
+    };
+
+    "pihole/derbpi01/token" = {
+      sopsFile = ../../secrets/shared/pihole.yaml;
+      key = "api/pihole/derbpi01/token";
+      owner = "hakkabara";
+      mode = "0400";
+    };
+
   };
 }
