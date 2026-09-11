@@ -1,0 +1,193 @@
+set -euo pipefail
+
+REPO_PATH="/persist/deployment/repos/nix-config"
+
+usage() {
+    echo "Usage: deploy-build <host>" >&2
+    echo "Example: deploy-build work-vm" >&2
+}
+
+if [ "$#" -ne 1 ]; then
+    usage
+    exit 2
+fi
+
+HOST="$1"
+
+case "$HOST" in
+    ""|*[!a-z0-9-]*)
+        echo "ERROR: invalid host name: $HOST" >&2
+        exit 1
+        ;;
+esac
+
+git_public() {
+    GIT_CONFIG_GLOBAL=/dev/null git "$@"
+}
+
+echo "============================================================"
+echo " DEPLOY BUILD"
+echo "============================================================"
+
+echo
+echo "Host:       $HOST"
+echo "Repository: $REPO_PATH"
+
+echo
+echo "===== PRECHECK ====="
+
+if [ ! -d "$REPO_PATH/.git" ]; then
+    echo "ERROR: managed repository does not exist."
+    echo "Run deploy-repo-sync first."
+    exit 1
+fi
+
+cd "$REPO_PATH"
+
+if [ -n "$(git_public status --porcelain)" ]; then
+    echo "ERROR: managed repository is dirty."
+    exit 1
+fi
+
+echo "PASS: managed repository is clean"
+
+BRANCH="$(git_public branch --show-current)"
+COMMIT="$(git_public rev-parse --short HEAD)"
+
+echo
+echo "===== SOURCE ====="
+echo "Branch: $BRANCH"
+echo "Commit: $COMMIT"
+
+echo
+echo "===== TARGET VALIDATION ====="
+
+TARGET_ATTR=".#nixosConfigurations.${HOST}.config.system.build.toplevel"
+
+if ! EVALUATED_HOST="$(
+    nix eval \
+        --raw \
+        ".#nixosConfigurations.${HOST}.config.networking.hostName"
+)"; then
+    echo
+    echo "ERROR: host '$HOST' does not exist in the flake."
+    exit 1
+fi
+
+if [ "$EVALUATED_HOST" != "$HOST" ]; then
+    echo "ERROR: requested host '$HOST' evaluates to hostname '$EVALUATED_HOST'."
+    exit 1
+fi
+
+echo "PASS: host exists in flake"
+echo "Attribute: $TARGET_ATTR"
+
+echo
+echo "===== BUILD ====="
+
+SYSTEM_PATH="$(
+    nix build \
+        "$TARGET_ATTR" \
+        --no-link \
+        --print-out-paths
+)"
+
+case "$SYSTEM_PATH" in
+    /nix/store/*)
+        ;;
+    *)
+        echo "ERROR: build returned unexpected path: $SYSTEM_PATH"
+        exit 1
+        ;;
+esac
+
+if [ ! -e "$SYSTEM_PATH" ]; then
+    echo "ERROR: resulting store path does not exist."
+    exit 1
+fi
+
+echo
+echo "===== BUILD RESULT ====="
+echo "$SYSTEM_PATH"
+
+echo
+echo "===== CLOSURE ====="
+
+CLOSURE_COUNT="$(
+    nix path-info \
+        --recursive \
+        "$SYSTEM_PATH" \
+        | wc -l \
+        | tr -d '[:space:]'
+)"
+
+if [ "$CLOSURE_COUNT" -lt 1 ]; then
+    echo "ERROR: closure is empty."
+    exit 1
+fi
+
+echo "Closure paths: $CLOSURE_COUNT"
+
+nix path-info \
+    --closure-size \
+    --human-readable \
+    "$SYSTEM_PATH"
+
+echo
+echo "PASS: closure is available"
+
+CURRENT_ROOT="/nix/var/nix/gcroots/hakkabara/${HOST}/current"
+PREVIOUS_ROOT="/nix/var/nix/gcroots/hakkabara/${HOST}/previous"
+
+echo
+echo "===== EXISTING PINS ====="
+
+if [ -L "$CURRENT_ROOT" ]; then
+    echo "Current:  $(readlink -f "$CURRENT_ROOT")"
+else
+    echo "Current:  none"
+fi
+
+if [ -L "$PREVIOUS_ROOT" ]; then
+    echo "Previous: $(readlink -f "$PREVIOUS_ROOT")"
+else
+    echo "Previous: none"
+fi
+
+echo
+echo "===== PIN ====="
+
+sudo /run/current-system/sw/bin/deploy-cache-pin \
+    "$HOST" \
+    "$SYSTEM_PATH"
+
+echo
+echo "===== VERIFY PIN ====="
+
+if [ ! -L "$CURRENT_ROOT" ]; then
+    echo "ERROR: current GC root was not created."
+    exit 1
+fi
+
+PINNED_PATH="$(readlink -f "$CURRENT_ROOT")"
+
+echo "Pinned: $PINNED_PATH"
+
+if [ "$PINNED_PATH" != "$SYSTEM_PATH" ]; then
+    echo "ERROR: pinned path does not match build result."
+    exit 1
+fi
+
+echo "PASS: build result is protected by GC root"
+
+echo
+echo "===== RESULT ====="
+echo "Host:   $HOST"
+echo "Commit: $COMMIT"
+echo "System: $SYSTEM_PATH"
+
+echo
+echo "============================================================"
+echo " BUILD AND PIN PASSED"
+echo " No target system was activated."
+echo "============================================================"

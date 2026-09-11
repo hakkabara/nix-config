@@ -32,6 +32,19 @@ let
 
     text = builtins.readFile ./scripts/deploy-repo-sync;
   };
+  deployBuild = pkgs.writeShellApplication {
+    name = "deploy-build";
+
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.git
+      pkgs.nix
+      pkgs.sudo
+    ];
+
+    text = builtins.readFile ./scripts/deploy-build;
+  };
+
 in
 {
   options.hakkabara.tools.deployment.enable = lib.mkEnableOption "deployment helper tools";
@@ -47,6 +60,7 @@ in
     environment.systemPackages = [
       deployStatus
       deployRepoSync
+      deployBuild
     ];
   };
 }
