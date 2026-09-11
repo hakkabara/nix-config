@@ -39,7 +39,6 @@ let
       pkgs.coreutils
       pkgs.git
       pkgs.nix
-      pkgs.sudo
     ];
 
     text = builtins.readFile ./scripts/deploy-build;

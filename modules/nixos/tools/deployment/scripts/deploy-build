@@ -157,7 +157,7 @@ fi
 echo
 echo "===== PIN ====="
 
-sudo /run/current-system/sw/bin/deploy-cache-pin \
+/run/wrappers/bin/sudo /run/current-system/sw/bin/deploy-cache-pin \
     "$HOST" \
     "$SYSTEM_PATH"
 
