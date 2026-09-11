@@ -15,6 +15,7 @@
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/virtualization/vmware.nix
+    ../../modules/nixos/tools/deployment/default.nix
   ];
 
   networking.hostName = "deploy-vm";
@@ -98,6 +99,8 @@
       PermitRootLogin = "no";
     };
   };
+
+  hakkabara.tools.deployment.enable = true;
 
   hakkabara = {
     # Declarative primary account password via sops-nix.
