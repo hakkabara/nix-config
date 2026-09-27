@@ -8,6 +8,35 @@
 let
   cfg = config.hakkabara.desktop.dms;
 
+  profileToDms =
+    profile:
+    builtins.getAttr profile {
+      unchanged = "";
+      "power-saver" = "0";
+      balanced = "1";
+      performance = "2";
+    };
+
+  powerPolicyFilter = lib.optionalString cfg.powerPolicy.enable ''
+    | .acMonitorTimeout = ${toString cfg.powerPolicy.ac.monitorTimeout}
+    | .acLockTimeout = ${toString cfg.powerPolicy.ac.lockTimeout}
+    | .acSuspendTimeout = ${toString cfg.powerPolicy.ac.suspendTimeout}
+    | .acSuspendBehavior = 0
+    | .acPostLockMonitorTimeout = ${toString cfg.powerPolicy.ac.postLockMonitorTimeout}
+    | .acProfileName = "${profileToDms cfg.powerPolicy.ac.profile}"
+
+    | .batteryMonitorTimeout = ${toString cfg.powerPolicy.battery.monitorTimeout}
+    | .batteryLockTimeout = ${toString cfg.powerPolicy.battery.lockTimeout}
+    | .batterySuspendTimeout = ${toString cfg.powerPolicy.battery.suspendTimeout}
+    | .batterySuspendBehavior = 0
+    | .batteryPostLockMonitorTimeout = ${toString cfg.powerPolicy.battery.postLockMonitorTimeout}
+    | .batteryProfileName = "${profileToDms cfg.powerPolicy.battery.profile}"
+
+    | .batteryAutoPowerSaver = ${lib.boolToString cfg.powerPolicy.autoPowerSaver}
+    | .lockBeforeSuspend = ${lib.boolToString cfg.powerPolicy.lockBeforeSuspend}
+    | .loginctlLockIntegration = true
+  '';
+
   controlCenterFilter = lib.optionalString cfg.controlCenter.enable ''
     | .controlCenterShowNetworkIcon = ${lib.boolToString cfg.controlCenter.icons.network}
     | .controlCenterShowBluetoothIcon = ${lib.boolToString cfg.controlCenter.icons.bluetooth}
@@ -193,6 +222,53 @@ let
     fi
   '';
 
+  applyHostPolicy = pkgs.writeShellScript "dms-apply-host-policy" ''
+    config_dir="$HOME/.config/DankMaterialShell"
+    config_file="$config_dir/settings.json"
+    tmp_file="$config_file.tmp"
+
+    mkdir -p "$config_dir"
+
+    if [ -f "$config_file" ] && ${pkgs.jq}/bin/jq empty "$config_file" >/dev/null 2>&1; then
+      ${pkgs.jq}/bin/jq \
+        --argjson showBattery '${lib.boolToString cfg.bar.battery.enable}' \
+        --argjson showBatteryPercent '${lib.boolToString cfg.bar.battery.showPercent}' \
+        '
+          .showBattery = $showBattery
+          | .showBatteryPercent = $showBatteryPercent
+
+          | if (.barConfigs | type) == "array" then
+              .barConfigs |= map(
+                if .id == "default" then
+                  .rightWidgets = (
+                    (
+                      (.rightWidgets // [])
+                      | map(select(. != "battery"))
+                    )
+                    + (
+                      if $showBattery then
+                        ["battery"]
+                      else
+                        []
+                      end
+                    )
+                  )
+                else
+                  .
+                end
+              )
+            else
+              .
+            end
+
+          ${powerPolicyFilter}
+        ' "$config_file" > "$tmp_file"
+
+      mv "$tmp_file" "$config_file"
+      chmod 600 "$config_file"
+    fi
+  '';
+
   disableClipboardPersistence = pkgs.writeShellScript "dms-disable-clipboard-persistence" (
     builtins.concatStringsSep "\n" [
       "config_dir=\"$HOME/.config/DankMaterialShell\""
@@ -277,6 +353,110 @@ in
       };
     };
 
+    bar.battery = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Show the battery widget in the DMS bar.";
+      };
+
+      showPercent = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Show battery percentage in the DMS bar.";
+      };
+    };
+
+    powerPolicy = {
+      enable = lib.mkEnableOption "declarative DMS laptop idle and power policy";
+
+      lockBeforeSuspend = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Lock the DMS session before system suspend.";
+      };
+
+      autoPowerSaver = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Let DMS switch to Power Saver at low battery.";
+      };
+
+      ac = {
+        monitorTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 600;
+          description = "AC idle timeout in seconds before monitor power-off.";
+        };
+
+        lockTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 600;
+          description = "AC idle timeout in seconds before session lock.";
+        };
+
+        suspendTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 3600;
+          description = "AC idle timeout in seconds before suspend.";
+        };
+
+        postLockMonitorTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 30;
+          description = "AC timeout in seconds before monitor power-off after lock.";
+        };
+
+        profile = lib.mkOption {
+          type = lib.types.enum [
+            "unchanged"
+            "power-saver"
+            "balanced"
+            "performance"
+          ];
+          default = "unchanged";
+          description = "DMS power profile to select while connected to AC.";
+        };
+      };
+
+      battery = {
+        monitorTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 300;
+          description = "Battery idle timeout in seconds before monitor power-off.";
+        };
+
+        lockTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 300;
+          description = "Battery idle timeout in seconds before session lock.";
+        };
+
+        suspendTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 1200;
+          description = "Battery idle timeout in seconds before suspend.";
+        };
+
+        postLockMonitorTimeout = lib.mkOption {
+          type = lib.types.int;
+          default = 30;
+          description = "Battery timeout in seconds before monitor power-off after lock.";
+        };
+
+        profile = lib.mkOption {
+          type = lib.types.enum [
+            "unchanged"
+            "power-saver"
+            "balanced"
+            "performance"
+          ];
+          default = "unchanged";
+          description = "DMS power profile to select while running on battery.";
+        };
+      };
+    };
+
     alwaysOn.enable = lib.mkEnableOption "always-on DMS desktop policy";
 
     clipboardHistoryPersistence.enable = lib.mkOption {
@@ -298,6 +478,12 @@ in
         lib.hm.dag.entryAfter [
           "dmsApplyTokyoNightTheme"
         ] "${applyAlwaysOnPolicy}"
+      );
+
+      dmsApplyHostPolicy = lib.mkIf (cfg.powerPolicy.enable || cfg.bar.battery.enable) (
+        lib.hm.dag.entryAfter [
+          "dmsApplyTokyoNightTheme"
+        ] "${applyHostPolicy}"
       );
 
       dmsDisableClipboardHistoryPersistence = lib.mkIf (!cfg.clipboardHistoryPersistence.enable) (
