@@ -44,6 +44,48 @@ let
     }
   '';
 
+  hardwareKeyBinds = lib.optionalString cfg.hardwareKeys.enable ''
+    // Physical laptop multimedia keys.
+    //
+    // Use absolute Nix store paths so these commands do not depend on the
+    // graphical session's PATH.
+    XF86AudioRaiseVolume allow-when-locked=true {
+        spawn "${pkgs.wireplumber}/bin/wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+";
+    }
+
+    XF86AudioLowerVolume allow-when-locked=true {
+        spawn "${pkgs.wireplumber}/bin/wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-";
+    }
+
+    XF86AudioMute allow-when-locked=true {
+        spawn "${pkgs.wireplumber}/bin/wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle";
+    }
+
+    XF86AudioMicMute allow-when-locked=true {
+        spawn "${pkgs.wireplumber}/bin/wpctl" "set-mute" "@DEFAULT_AUDIO_SOURCE@" "toggle";
+    }
+
+    XF86AudioPlay allow-when-locked=true {
+        spawn "${pkgs.playerctl}/bin/playerctl" "play-pause";
+    }
+
+    XF86AudioNext allow-when-locked=true {
+        spawn "${pkgs.playerctl}/bin/playerctl" "next";
+    }
+
+    XF86AudioPrev allow-when-locked=true {
+        spawn "${pkgs.playerctl}/bin/playerctl" "previous";
+    }
+
+    XF86MonBrightnessUp allow-when-locked=true {
+        spawn "${pkgs.brightnessctl}/bin/brightnessctl" "set" "+5%";
+    }
+
+    XF86MonBrightnessDown allow-when-locked=true {
+        spawn "${pkgs.brightnessctl}/bin/brightnessctl" "set" "5%-";
+    }
+  '';
+
   touchpadConfig = lib.optionalString cfg.touchpad.enable ''
     input {
         touchpad {
@@ -73,6 +115,8 @@ in
     };
 
     dmsIntegration.enable = lib.mkEnableOption "DankMaterialShell IPC key bindings";
+
+    hardwareKeys.enable = lib.mkEnableOption "laptop audio, media and display-brightness hardware keys";
 
     touchpad = {
       enable = lib.mkEnableOption "declarative Niri touchpad configuration";
@@ -118,6 +162,11 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    home.packages = lib.optionals cfg.hardwareKeys.enable [
+      pkgs.playerctl
+      pkgs.brightnessctl
+    ];
+
     # Keep the cursor consistent across Niri, GTK, XWayland and
     # applications launched through DMS/systemd.
     home.pointerCursor = {
@@ -489,6 +538,7 @@ in
           Mod+Shift+E { quit; }
 
           ${dmsBinds}
+          ${hardwareKeyBinds}
       }
 
       ${cfg.extraConfig}

@@ -13,6 +13,9 @@
     ./niri-workstation.nix
   ];
 
+  # Physical ThinkPad multimedia and display keys.
+  hakkabara.desktop.niri.hardwareKeys.enable = true;
+
   hakkabara.desktop.niri.touchpad = {
     enable = true;
 
