@@ -72,19 +72,10 @@
             common = {
               clearOnShutdown = true;
 
-              # Existing personal persistence baseline.
-              # The mechanism is shared; the concrete private whitelist
-              # can later move behind the private/SOPS configuration layer.
-              persistentOrigins = [
-                "https://web.whatsapp.com"
-
-                "https://chatgpt.com"
-                "https://auth.openai.com"
-
-                "https://gemini.google.com"
-
-                "https://claude.ai"
-              ];
+              # Concrete personal persistence origins are supplied by the
+              # private wrapper flake. The public configuration keeps only
+              # the cookie-cleanup mechanism and contains no personal allowlist.
+              persistentOrigins = [ ];
             };
 
             firefox.mode = "inherit";
