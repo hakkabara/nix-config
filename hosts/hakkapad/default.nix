@@ -111,7 +111,13 @@
 
     networking.enable = true;
 
-    laptop.enable = true;
+    laptop = {
+      enable = true;
+
+      # Prepare fprintd for native sensor testing/enrollment without enabling
+      # fingerprint authentication in the system-wide PAM stack.
+      fingerprint.prepare = true;
+    };
 
     python.python3.enable = true;
 
