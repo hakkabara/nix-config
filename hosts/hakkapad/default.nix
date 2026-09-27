@@ -127,9 +127,9 @@
     storage.disko = {
       enable = true;
 
-      # Deliberately invalid until we identify the laptop SSD.
-      # This prevents an accidental destructive install.
-      device = "/dev/disk/by-id/REPLACE-BEFORE-DEPLOY";
+      # Verified physical Samsung NVMe in the Hakkapad ThinkPad.
+      # Keep the stable EUI by-id instead of relying on /dev/nvme0n1.
+      device = "/dev/disk/by-id/nvme-eui.0025388121b7ed56";
 
       filesystem = "btrfs";
 
