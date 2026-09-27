@@ -27,6 +27,18 @@
     accelSpeed = 0.0;
   };
 
+  # Daily-driver background applications.
+  #
+  # Keep startup intentionally small. Applications that are only needed
+  # occasionally (browser, Obsidian, Thunderbird, Spotify, Element, etc.)
+  # remain manual launches.
+  hakkabara.desktop.niri.extraConfig = ''
+    spawn-at-startup "bitwarden"
+    spawn-at-startup "equibop"
+    spawn-at-startup "signal-desktop" "--use-tray-icon"
+    spawn-at-startup "Telegram"
+  '';
+
   hakkabara.desktop.dms = {
     # Unlike the WorkVM, a physical laptop must retain normal
     # lock/idle/power-management behavior.
