@@ -43,6 +43,18 @@ let
         spawn "dms" "ipc" "call" "lock" "lock";
     }
   '';
+
+  touchpadConfig = lib.optionalString cfg.touchpad.enable ''
+    input {
+        touchpad {
+            ${lib.optionalString cfg.touchpad.tap "tap"}
+            ${lib.optionalString cfg.touchpad.disableWhileTyping "dwt"}
+            ${lib.optionalString cfg.touchpad.disableWhileTrackpointing "dwtp"}
+            ${lib.optionalString cfg.touchpad.naturalScroll "natural-scroll"}
+            accel-speed ${toString cfg.touchpad.accelSpeed}
+        }
+    }
+  '';
 in
 {
   options.hakkabara.desktop.niri = {
@@ -61,6 +73,40 @@ in
     };
 
     dmsIntegration.enable = lib.mkEnableOption "DankMaterialShell IPC key bindings";
+
+    touchpad = {
+      enable = lib.mkEnableOption "declarative Niri touchpad configuration";
+
+      tap = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable tap-to-click.";
+      };
+
+      naturalScroll = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Enable natural scrolling.";
+      };
+
+      disableWhileTyping = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Disable touchpad input while typing.";
+      };
+
+      disableWhileTrackpointing = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Disable touchpad input while the TrackPoint is in use.";
+      };
+
+      accelSpeed = lib.mkOption {
+        type = lib.types.float;
+        default = 0.0;
+        description = "Niri/libinput touchpad acceleration speed from -1.0 to 1.0.";
+      };
+    };
 
     extraConfig = lib.mkOption {
       type = lib.types.lines;
@@ -102,6 +148,8 @@ in
       hotkey-overlay {
           skip-at-startup
       }
+
+      ${touchpadConfig}
 
       // NIRI RICE: Tokyo Night
       layout {

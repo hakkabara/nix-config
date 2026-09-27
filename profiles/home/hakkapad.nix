@@ -13,6 +13,20 @@
     ./niri-workstation.nix
   ];
 
+  hakkabara.desktop.niri.touchpad = {
+    enable = true;
+
+    tap = true;
+    naturalScroll = true;
+
+    # Avoid accidental palm movement while typing or using the TrackPoint.
+    disableWhileTyping = true;
+    disableWhileTrackpointing = true;
+
+    # Keep libinput neutral until the physical touchpad has been tested.
+    accelSpeed = 0.0;
+  };
+
   hakkabara.desktop.dms = {
     # Unlike the WorkVM, a physical laptop must retain normal
     # lock/idle/power-management behavior.
