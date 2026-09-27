@@ -33,6 +33,12 @@ let
     | .batteryProfileName = "${profileToDms cfg.powerPolicy.battery.profile}"
 
     | .batteryAutoPowerSaver = ${lib.boolToString cfg.powerPolicy.autoPowerSaver}
+
+    | .batteryLowThreshold = ${toString cfg.powerPolicy.alerts.lowThreshold}
+    | .batteryCriticalThreshold = ${toString cfg.powerPolicy.alerts.criticalThreshold}
+    | .batteryNotifyLow = ${lib.boolToString cfg.powerPolicy.alerts.notifyLow}
+    | .batteryNotifyCritical = ${lib.boolToString cfg.powerPolicy.alerts.notifyCritical}
+
     | .lockBeforeSuspend = ${lib.boolToString cfg.powerPolicy.lockBeforeSuspend}
     | .loginctlLockIntegration = true
   '';
@@ -382,6 +388,32 @@ in
         description = "Let DMS switch to Power Saver at low battery.";
       };
 
+      alerts = {
+        lowThreshold = lib.mkOption {
+          type = lib.types.int;
+          default = 20;
+          description = "Battery percentage that triggers the low-battery state.";
+        };
+
+        criticalThreshold = lib.mkOption {
+          type = lib.types.int;
+          default = 10;
+          description = "Battery percentage that triggers the critical-battery state.";
+        };
+
+        notifyLow = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show a DMS low-battery notification.";
+        };
+
+        notifyCritical = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Show a DMS critical-battery notification.";
+        };
+      };
+
       ac = {
         monitorTimeout = lib.mkOption {
           type = lib.types.int;
@@ -467,6 +499,20 @@ in
   };
 
   config = {
+    assertions = lib.optionals cfg.powerPolicy.enable [
+      {
+        assertion =
+          cfg.powerPolicy.alerts.criticalThreshold > 0
+          && cfg.powerPolicy.alerts.lowThreshold <= 100
+          && cfg.powerPolicy.alerts.criticalThreshold < cfg.powerPolicy.alerts.lowThreshold;
+
+        message = ''
+          DMS battery thresholds must satisfy:
+          0 < criticalThreshold < lowThreshold <= 100.
+        '';
+      }
+    ];
+
     xdg.configFile."DankMaterialShell/themes/tokyo-night.json".source = dmsTokyoNightTheme;
 
     home.activation = {

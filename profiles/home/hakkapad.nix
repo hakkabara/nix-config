@@ -48,6 +48,13 @@
       # switch to Power Saver when the battery reaches DMS' low threshold.
       autoPowerSaver = true;
 
+      alerts = {
+        lowThreshold = 20;
+        criticalThreshold = 10;
+        notifyLow = true;
+        notifyCritical = true;
+      };
+
       ac = {
         monitorTimeout = 600;
         lockTimeout = 600;
