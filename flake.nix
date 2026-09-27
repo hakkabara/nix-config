@@ -120,7 +120,7 @@
           modules = [
             ./hosts/hakkapad
 
-            nixos-hardware.nixosModules.lenovo-thinkpad-t14s
+            nixos-hardware.nixosModules.lenovo-thinkpad-l14-intel
 
             nix-flatpak.nixosModules.nix-flatpak
             disko.nixosModules.disko

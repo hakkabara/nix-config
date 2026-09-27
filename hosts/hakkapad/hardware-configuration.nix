@@ -5,7 +5,7 @@
 }:
 
 {
-  # Minimal bootstrap configuration for the ThinkPad T14s Gen 2.
+  # Minimal bootstrap configuration for the ThinkPad L14 Gen 2 Intel.
   # Disk/filesystem layout is managed by Disko.
   #
   # After the first native boot we compare this against
