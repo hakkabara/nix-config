@@ -14,6 +14,7 @@
 
     ../../modules/nixos/tools/development.nix
     ../../modules/nixos/features/python.nix
+    ../../modules/nixos/features/laptop.nix
 
     ../../modules/nixos/audio/pipewire.nix
     ../../modules/nixos/input/eurkey.nix
@@ -109,6 +110,8 @@
     };
 
     networking.enable = true;
+
+    laptop.enable = true;
 
     python.python3.enable = true;
 
