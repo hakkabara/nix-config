@@ -164,6 +164,12 @@
       interface = "ens37";
 
       admin.password.sopsFile = ../../secrets/deploy-vm/forgejo.yaml;
+
+      # Names, upstream URLs and credentials stay encrypted.
+      repositories = {
+        enable = true;
+        sopsFile = ../../secrets/deploy-vm/forgejo-repositories.yaml;
+      };
     };
 
     vmware = {

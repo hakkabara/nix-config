@@ -13,6 +13,8 @@ let
 
   bindAddress = if cfg.bindAddress == null then "127.0.0.1" else cfg.bindAddress;
 
+  apiUrl = "http://${bindAddress}:${toString cfg.port}/api/v1";
+
   # The forgejo CLI needs the same work/custom directories as the service to
   # find the generated app.ini.
   cliEnvironment = {
@@ -111,6 +113,46 @@ in
         };
       };
     };
+
+    repositories = {
+      enable = lib.mkEnableOption ''
+        declarative repositories and pull mirrors. The whole list, including
+        names, upstream URLs and credentials, lives in an encrypted SOPS
+        document so none of it appears in the public configuration
+      '';
+
+      sopsFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = ''
+          SOPS YAML document describing the repositories:
+
+              repositories:
+                - name: <name>          # becomes <admin>/<name>
+                  enable: true          # optional, default true
+                  description: "..."    # optional
+                  mirror:               # optional, omit for a plain repository
+                    url: https://...
+                    interval: 1h        # optional, Go duration, minimum 10m
+                    username: ...       # optional
+                    password: ...       # optional, password or access token
+
+          A list is used on purpose: SOPS encrypts only values, so mapping
+          keys such as repository names would stay readable.
+
+          Missing repositories are created private. Existing ones get
+          description and mirror interval reconciled; a changed mirror URL
+          has no effect on them. Entries removed from the document are never
+          deleted.
+        '';
+      };
+
+      secretName = lib.mkOption {
+        type = lib.types.str;
+        default = "forgejo-repositories";
+        description = "Runtime sops-nix secret name.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -137,6 +179,13 @@ in
       }
 
       {
+        assertion = !cfg.repositories.enable || cfg.repositories.sopsFile != null;
+        message = ''
+          hakkabara.services.forgejo.repositories.sopsFile must be set.
+        '';
+      }
+
+      {
         assertion = config.services.openssh.enable;
         message = ''
           hakkabara.services.forgejo serves Git over the system OpenSSH daemon,
@@ -145,12 +194,24 @@ in
       }
     ];
 
-    sops.secrets.${cfg.admin.password.secretName} = {
-      inherit (cfg.admin.password) sopsFile key;
+    sops.secrets = {
+      ${cfg.admin.password.secretName} = {
+        inherit (cfg.admin.password) sopsFile key;
 
-      owner = forgejoCfg.user;
-      inherit (forgejoCfg) group;
-      mode = "0400";
+        owner = forgejoCfg.user;
+        inherit (forgejoCfg) group;
+        mode = "0400";
+      };
+
+      # The complete decrypted document (key = ""). Only root can read it;
+      # the provisioning unit receives it as a systemd credential.
+      ${cfg.repositories.secretName} = lib.mkIf cfg.repositories.enable {
+        inherit (cfg.repositories) sopsFile;
+        format = "yaml";
+        key = "";
+        mode = "0400";
+        restartUnits = [ "forgejo-repositories.service" ];
+      };
     };
 
     services.forgejo = {
@@ -211,65 +272,109 @@ in
       };
     };
 
-    # The deployment-LAN address is configured by NetworkManager and may not
-    # exist yet when Forgejo starts. Restart=always in the upstream unit
-    # retries the bind; do not let a slow link exhaust the start limit.
-    systemd.services.forgejo = {
-      wants = [ "network-online.target" ];
-      after = [ "network-online.target" ];
+    systemd.services = {
+      # The deployment-LAN address is configured by NetworkManager and may not
+      # exist yet when Forgejo starts. Restart=always in the upstream unit
+      # retries the bind; do not let a slow link exhaust the start limit.
+      forgejo = {
+        wants = [ "network-online.target" ];
+        after = [ "network-online.target" ];
 
-      unitConfig.StartLimitIntervalSec = 0;
-      serviceConfig.RestartSec = 5;
-    };
-
-    # Create the administrator once. An existing account is left untouched, so
-    # a password changed in the web interface is never reset from the secret.
-    systemd.services.forgejo-admin-bootstrap = {
-      description = "Create the initial Forgejo administrator";
-
-      wantedBy = [ "multi-user.target" ];
-      after = [ "forgejo.service" ];
-      requires = [ "forgejo.service" ];
-
-      path = [
-        forgejoCfg.package
-        pkgs.gawk
-        pkgs.gnugrep
-      ];
-
-      environment = cliEnvironment;
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-
-        User = forgejoCfg.user;
-        Group = forgejoCfg.group;
-        WorkingDirectory = forgejoCfg.stateDir;
-
-        LoadCredential = [
-          "admin-password:${config.sops.secrets.${cfg.admin.password.secretName}.path}"
-        ];
+        unitConfig.StartLimitIntervalSec = 0;
+        serviceConfig.RestartSec = 5;
       };
 
-      script = ''
-        username=${lib.escapeShellArg cfg.admin.username}
+      # Create the administrator once. An existing account is left untouched, so
+      # a password changed in the web interface is never reset from the secret.
+      forgejo-admin-bootstrap = {
+        description = "Create the initial Forgejo administrator";
 
-        if forgejo admin user list | awk 'NR > 1 { print $2 }' | grep -Fqx -- "$username"; then
-          echo "Forgejo administrator already exists: $username"
-          exit 0
-        fi
+        wantedBy = [ "multi-user.target" ];
+        after = [ "forgejo.service" ];
+        requires = [ "forgejo.service" ];
 
-        # The forgejo CLI accepts the password only as an argument.
-        forgejo admin user create \
-          --admin \
-          --username "$username" \
-          --email ${lib.escapeShellArg cfg.admin.email} \
-          --password "$(cat "$CREDENTIALS_DIRECTORY/admin-password")" \
-          --must-change-password=false
+        path = [
+          forgejoCfg.package
+          pkgs.gawk
+          pkgs.gnugrep
+        ];
 
-        echo "Forgejo administrator created: $username"
-      '';
+        environment = cliEnvironment;
+
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+
+          User = forgejoCfg.user;
+          Group = forgejoCfg.group;
+          WorkingDirectory = forgejoCfg.stateDir;
+
+          LoadCredential = [
+            "admin-password:${config.sops.secrets.${cfg.admin.password.secretName}.path}"
+          ];
+        };
+
+        script = ''
+          username=${lib.escapeShellArg cfg.admin.username}
+
+          if forgejo admin user list | awk 'NR > 1 { print $2 }' | grep -Fqx -- "$username"; then
+            echo "Forgejo administrator already exists: $username"
+            exit 0
+          fi
+
+          # The forgejo CLI accepts the password only as an argument.
+          forgejo admin user create \
+            --admin \
+            --username "$username" \
+            --email ${lib.escapeShellArg cfg.admin.email} \
+            --password "$(cat "$CREDENTIALS_DIRECTORY/admin-password")" \
+            --must-change-password=false
+
+          echo "Forgejo administrator created: $username"
+        '';
+      };
+
+      # Reconcile the repositories from the SOPS document through the HTTP API.
+      # A dedicated access token for this service is created with the forgejo
+      # CLI and kept in the state directory; it is regenerated when it stops
+      # working. The secret's restartUnits re-runs it when the document changes.
+      forgejo-repositories = lib.mkIf cfg.repositories.enable {
+        description = "Provision declared Forgejo repositories";
+
+        wantedBy = [ "multi-user.target" ];
+        after = [ "forgejo-admin-bootstrap.service" ];
+        requires = [ "forgejo-admin-bootstrap.service" ];
+
+        path = [
+          forgejoCfg.package
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+          pkgs.yq-go
+        ];
+
+        environment = cliEnvironment // {
+          FORGEJO_API = apiUrl;
+          ADMIN_USER = cfg.admin.username;
+          TOKEN_FILE = "${cfg.stateDir}/provisioning/token";
+        };
+
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+
+          User = forgejoCfg.user;
+          Group = forgejoCfg.group;
+          WorkingDirectory = forgejoCfg.stateDir;
+          UMask = "0077";
+
+          LoadCredential = [
+            "repositories:${config.sops.secrets.${cfg.repositories.secretName}.path}"
+          ];
+        };
+
+        script = builtins.readFile ./forgejo-repositories.sh;
+      };
     };
 
     # Never expose the web interface globally. Only the dedicated deployment
