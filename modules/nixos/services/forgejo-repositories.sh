@@ -91,3 +91,26 @@ yq --output-format=json '.repositories // []' "$CREDENTIALS_DIRECTORY/repositori
             echo "Repository created: $ADMIN_USER/$name"
         fi
     done
+
+# SSH keys of the administrator. Keys created here carry the title prefix
+# "nixos:"; such keys missing from the document are removed again, so
+# revoking a key is a matter of deleting it from the document. Keys added
+# through the web interface are never touched.
+desired=$(yq --output-format=json '.sshKeys // []' "$CREDENTIALS_DIRECTORY/repositories" |
+    jq --compact-output 'map({title: ("nixos:" + .title), key: (.key | split(" ") | .[0:2] | join(" "))})')
+existing=$(api GET "/user/keys?limit=50")
+
+jq --compact-output --argjson existing "$existing" '
+    .[] | select(.key as $k | $existing | map(.key | split(" ") | .[0:2] | join(" ")) | index($k) | not)
+' <<<"$desired" | while read -r key; do
+    api POST /user/keys --data @- --output /dev/null <<<"$key"
+    echo "SSH key added: $(jq --raw-output .title <<<"$key")"
+done
+
+jq --compact-output --argjson desired "$desired" '
+    .[] | select(.title | startswith("nixos:"))
+        | select((.key | split(" ") | .[0:2] | join(" ")) as $k | $desired | map(.key) | index($k) | not)
+' <<<"$existing" | while read -r key; do
+    api DELETE "/user/keys/$(jq --raw-output .id <<<"$key")" --output /dev/null
+    echo "SSH key removed: $(jq --raw-output .title <<<"$key")"
+done

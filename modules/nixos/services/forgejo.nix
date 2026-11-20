@@ -128,9 +128,10 @@ in
 
     repositories = {
       enable = lib.mkEnableOption ''
-        declarative repositories and pull mirrors. The whole list, including
-        names, upstream URLs and credentials, lives in an encrypted SOPS
-        document so none of it appears in the public configuration
+        declarative repositories, pull mirrors and administrator SSH keys.
+        Everything, including names, upstream URLs and credentials, lives in
+        an encrypted SOPS document so none of it appears in the public
+        configuration
       '';
 
       sopsFile = lib.mkOption {
@@ -149,8 +150,17 @@ in
                     username: ...       # optional
                     password: ...       # optional, password or access token
 
-          A list is used on purpose: SOPS encrypts only values, so mapping
+              sshKeys:
+                - title: <title>        # stored as "nixos:<title>"
+                  key: ssh-ed25519 AAAA...
+
+          Lists are used on purpose: SOPS encrypts only values, so mapping
           keys such as repository names would stay readable.
+
+          SSH keys are added to the administrator account. Keys titled
+          "nixos:*" that are missing from the document are removed, so a
+          key is revoked by deleting it here. Keys added through the web
+          interface stay untouched.
 
           Missing repositories are created private. Existing ones get
           description and mirror interval reconciled; a changed mirror URL
@@ -350,7 +360,7 @@ in
       # CLI and kept in the state directory; it is regenerated when it stops
       # working.
       forgejo-repositories = lib.mkIf cfg.repositories.enable {
-        description = "Provision declared Forgejo repositories";
+        description = "Provision declared Forgejo repositories and SSH keys";
 
         wantedBy = [ "multi-user.target" ];
         after = [ "forgejo-admin-bootstrap.service" ];
