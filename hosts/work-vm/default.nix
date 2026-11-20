@@ -363,6 +363,32 @@
     };
   };
 
+  # DSH LLM workspace share exported by the REMnux analysis VM over the
+  # VMware host-only lab network (192.168.36.0/24, NFSv4.2).
+  #
+  # Mounted lazily on first access so the WorkVM boots normally while the
+  # REMnux VM is powered off, and "soft" so a vanished server returns an I/O
+  # error instead of hanging processes forever. The share is a drop zone for
+  # samples to analyse: nothing on it may execute or gain privileges here.
+  fileSystems."/mnt/nfs/llm-workspace" = {
+    device = "192.168.36.5:/opt/dsh/workspace/share";
+    fsType = "nfs";
+
+    options = [
+      "nfsvers=4.2"
+      "nosuid"
+      "nodev"
+      "noexec"
+      "soft"
+      "_netdev"
+      "nofail"
+      "noauto"
+      "x-systemd.automount"
+      "x-systemd.idle-timeout=600"
+      "x-systemd.mount-timeout=15"
+    ];
+  };
+
   # Do not change this on normal updates.
   system.stateVersion = "26.05";
   boot.kernel.sysctl."vm.max_map_count" = 262144;
