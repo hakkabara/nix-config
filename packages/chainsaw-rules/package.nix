@@ -9,13 +9,13 @@
 # wrapper (overlay.nix) wires up the paths.
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "chainsaw-rules";
-  version = "2.16.5";
+  version = "2.18.0";
 
   src = fetchFromGitHub {
     owner = "WithSecureLabs";
     repo = "chainsaw";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-BTN+yDeiP47UEPNEYoWMRbaKPZY+dvyeUUw3M/4Lr3I=";
+    hash = "sha256-JHKpA4KssnU2MDGDmQ+r4vIFzMAxKRyYbSr81MWI1YE=";
   };
 
   dontConfigure = true;

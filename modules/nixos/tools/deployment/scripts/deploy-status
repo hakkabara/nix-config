@@ -1,0 +1,77 @@
+set -euo pipefail
+
+echo "============================================================"
+echo " DEPLOYMENT STATUS"
+echo "============================================================"
+
+echo
+echo "===== HOST ====="
+hostname
+
+echo
+echo "===== NIX ====="
+nix --version
+
+echo
+echo "===== SYSTEM GENERATION ====="
+readlink -f /run/current-system
+
+echo
+echo "===== NIX STORE ====="
+df -h /nix
+
+echo
+echo "===== DEPLOYMENT LAN ====="
+
+if ip addr show ens37 >/dev/null 2>&1; then
+    echo "PASS: deployment interface exists"
+    ip -4 addr show dev ens37
+else
+    echo "FAIL: deployment interface missing"
+fi
+
+echo
+echo "===== HARMONIA ====="
+
+if systemctl is-active --quiet harmonia.socket; then
+    echo "PASS: Harmonia active"
+else
+    echo "FAIL: Harmonia inactive"
+fi
+
+echo
+echo "===== MANAGED REPOSITORY ====="
+
+repo="/persist/deployment/repos/nix-config"
+
+if [ -d "$repo/.git" ]; then
+    echo "PASS: repository exists"
+    echo "Path:   $repo"
+
+    printf 'Branch: '
+    git -C "$repo" branch --show-current
+
+    printf 'Commit: '
+    git -C "$repo" rev-parse --short HEAD
+else
+    echo "INFO: repository not initialized yet"
+fi
+
+echo
+echo "===== CACHE ROOTS ====="
+
+if [ -d /nix/var/nix/gcroots/hakkabara ]; then
+    find \
+        /nix/var/nix/gcroots/hakkabara \
+        -type l \
+        -printf "%p -> %l\n" \
+        2>/dev/null \
+        | sort
+else
+    echo "No DeployVM roots found"
+fi
+
+echo
+echo "===== FAILED UNITS ====="
+
+systemctl --failed --no-pager || true

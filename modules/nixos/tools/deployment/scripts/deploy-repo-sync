@@ -1,0 +1,101 @@
+set -euo pipefail
+
+readonly REPO_PATH="/persist/deployment/repos/nix-config"
+readonly REPO_URL="https://github.com/hakkabara/nix-config.git"
+readonly REPO_BRANCH="deploy-vm"
+
+# DeployVM currently has a global Git insteadOf rule that rewrites this
+# public HTTPS URL to SSH. This managed checkout deliberately ignores the
+# user's global Git config so the public repository needs no GitHub secret.
+git_public() {
+    GIT_CONFIG_GLOBAL=/dev/null git "$@"
+}
+
+echo "============================================================"
+echo " DEPLOY REPOSITORY SYNC"
+echo "============================================================"
+
+echo
+echo "Repository: $REPO_URL"
+echo "Branch:     $REPO_BRANCH"
+echo "Path:       $REPO_PATH"
+
+echo
+echo "===== PRECHECK ====="
+
+if [ -e "$REPO_PATH" ] && [ ! -d "$REPO_PATH/.git" ]; then
+    if [ -n "$(ls -A "$REPO_PATH" 2>/dev/null)" ]; then
+        echo "ERROR: repository path exists and is not an empty Git repository:"
+        echo "$REPO_PATH"
+        exit 1
+    fi
+fi
+
+if [ -d "$REPO_PATH/.git" ]; then
+    if ! git_public -C "$REPO_PATH" diff --quiet; then
+        echo "ERROR: managed repository has unstaged changes."
+        exit 1
+    fi
+
+    if ! git_public -C "$REPO_PATH" diff --cached --quiet; then
+        echo "ERROR: managed repository has staged changes."
+        exit 1
+    fi
+
+    expected="$REPO_URL"
+    actual="$(git_public -C "$REPO_PATH" config --get remote.origin.url)"
+
+    if [ "$actual" != "$expected" ]; then
+        echo "ERROR: unexpected origin."
+        echo "Expected: $expected"
+        echo "Actual:   $actual"
+        exit 1
+    fi
+
+    echo "PASS: existing managed repository is clean"
+else
+    echo "PASS: repository will be initialized"
+fi
+
+echo
+echo "===== SYNC ====="
+
+if [ ! -d "$REPO_PATH/.git" ]; then
+    git_public clone \
+        --branch "$REPO_BRANCH" \
+        --single-branch \
+        "$REPO_URL" \
+        "$REPO_PATH"
+else
+    git_public -C "$REPO_PATH" fetch \
+        --prune \
+        origin \
+        "$REPO_BRANCH"
+
+    git_public -C "$REPO_PATH" checkout \
+        "$REPO_BRANCH"
+
+    git_public -C "$REPO_PATH" reset \
+        --hard \
+        "origin/$REPO_BRANCH"
+fi
+
+echo
+echo "===== RESULT ====="
+
+printf 'Branch: '
+git_public -C "$REPO_PATH" branch --show-current
+
+printf 'Commit: '
+git_public -C "$REPO_PATH" rev-parse --short HEAD
+
+printf 'Origin: '
+git_public -C "$REPO_PATH" config --get remote.origin.url
+
+if [ -n "$(git_public -C "$REPO_PATH" status --porcelain)" ]; then
+    echo "ERROR: repository is dirty after sync."
+    exit 1
+fi
+
+echo
+echo "PASS: managed repository synchronized."

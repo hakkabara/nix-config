@@ -166,7 +166,6 @@
           "adidnsdump"
           "amass"
           "arjun"
-          "bloodhound"
           "bloodyad"
           "burpsuite"
           "certipyAd"

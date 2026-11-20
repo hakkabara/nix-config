@@ -16,13 +16,16 @@
 #
 # It is a dynamically linked glibc ELF with interpreter /lib64/ld-linux..., so
 # autoPatchelfHook is mandatory on NixOS which has no FHS loader (CLAUDE.md §7).
+#
+# Since 0.77.3 upstream publishes the glibc binary only gzip-compressed, so it
+# is decompressed in installPhase.
 stdenv.mkDerivation (finalAttrs: {
   pname = "velociraptor";
-  version = "0.77.2";
+  version = "0.77.3";
 
   src = fetchurl {
-    url = "https://github.com/Velocidex/velociraptor/releases/download/v${finalAttrs.version}/velociraptor-v${finalAttrs.version}-linux-amd64";
-    hash = "sha256-bEwjxGbYkniP9W3c06MfhE5MDXl63kVMXiYl655CcHc=";
+    url = "https://github.com/Velocidex/velociraptor/releases/download/v${finalAttrs.version}/velociraptor-v${finalAttrs.version}-linux-amd64.gz";
+    hash = "sha256-wsTrWF8WtiLNV94EmVp6E8B27kVbwqgo/ZJDzsLM/tg=";
   };
 
   dontUnpack = true;
@@ -33,7 +36,9 @@ stdenv.mkDerivation (finalAttrs: {
 
   installPhase = ''
     runHook preInstall
-    install -Dm755 $src $out/bin/velociraptor
+    mkdir -p $out/bin
+    gzip -dc $src > $out/bin/velociraptor
+    chmod 755 $out/bin/velociraptor
     runHook postInstall
   '';
 

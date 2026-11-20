@@ -76,10 +76,12 @@ let
 
     build-system = [ python3Packages.setuptools ];
 
-    # Upstream pins zstd==1.5.7.2 and points ccl_simplesnappy at a git URL;
-    # nixpkgs ships zstd 1.5.7.x (API-compatible: only decompress/Error are used)
-    # and simplesnappy is provided as a dependency, so relax both.
+    # Upstream pins zstd==1.5.7.2, caps brotli<=1.2.0 and points ccl_simplesnappy
+    # at a git URL; nixpkgs ships zstd 1.5.7.x (API-compatible: only
+    # decompress/Error are used) and brotli 1.2.1 (patch release), and
+    # simplesnappy is provided as a dependency, so relax all three.
     pythonRelaxDeps = [
+      "brotli"
       "zstd"
       "ccl_simplesnappy"
     ];

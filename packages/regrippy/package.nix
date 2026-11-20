@@ -4,7 +4,6 @@
   fetchPypi,
   makeWrapper,
   python3,
-  python3Packages,
   nix-update-script,
 }:
 
@@ -16,13 +15,10 @@
 # on the pinned nixos-unstable the nixpkgs build is broken at *runtime* for two
 # independent reasons, so `nix run nixpkgs#regrippy` never does useful work:
 #
-#   1. python-registry mismatch: nixpkgs pins python-registry to tag 1.4, but
-#      that project's setup.py still hardcodes '1.3.1', so the buildPython
-#      version-check aborts with "The 'python-registry' derivation has version
-#      '1.4' but .dist-info/METADATA specifies version '1.3.1'." -> regrippy
-#      never even imports. Fixed here by overriding python-registry's declared
-#      version to 1.3.1 (same tarball), the fix already proven in this repo for
-#      srum-dump (see pkgs/srum-dump/package.nix).
+#   1. python-registry mismatch (historical): nixpkgs python-registry 1.4 used
+#      to fail its metadata version check ("derivation has version 1.4 but
+#      METADATA specifies 1.3.1"). This no longer occurs on the pinned
+#      nixos-unstable (2026-11-17), so the former version override was dropped.
 #
 #   2. argv[0] plugin dispatch: upstream's regrip.py selects the plugin from a
 #      positional argument ONLY when argv[0] is literally "regrip.py"; under any
@@ -49,20 +45,10 @@
 # hivexregedit) before running regrippy, otherwise recent writes may be missing.
 
 let
-  # nixpkgs pins python-registry to tag 1.4, but its setup.py still hardcodes
-  # '1.3.1', so the version-check hook fails on the mismatch and regrippy never
-  # imports. Align the declared version with the actual metadata value. Same
-  # source tarball, only the version expectation is adjusted. (Same fix as
-  # pkgs/srum-dump/package.nix; upstream python-registry fix candidate.)
-  pythonRegistry = python3Packages.python-registry.overrideAttrs (_: {
-    version = "1.3.1";
-    __intentionallyOverridingVersion = true;
-  });
-
   pythonEnv = python3.withPackages (
     ps: with ps; [
       importlib-resources
-      pythonRegistry
+      python-registry
     ]
   );
 in

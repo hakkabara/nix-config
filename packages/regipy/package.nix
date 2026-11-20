@@ -11,14 +11,14 @@
 # every console script work without them (TASKS.md).
 python3Packages.buildPythonApplication (finalAttrs: {
   pname = "regipy";
-  version = "6.3.0";
+  version = "6.5.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "mkorman90";
     repo = "regipy";
     tag = finalAttrs.version;
-    hash = "sha256-m/7OKJEl3QHfOcJQNqYSlcsGLo9awgzdSMuJjq57r/o=";
+    hash = "sha256-Ms9G1wOr1tyzBFvU7/fw9grjCVQwVBvw5ggh/0e18Jk=";
   };
 
   build-system = [ python3Packages.setuptools ];

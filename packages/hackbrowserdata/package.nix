@@ -6,16 +6,16 @@
 
 buildGoModule (finalAttrs: {
   pname = "hackbrowserdata";
-  version = "1.1.0";
+  version = "1.2.0";
 
   src = fetchFromGitHub {
     owner = "moonD4rk";
     repo = "HackBrowserData";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-EJb3w0HwORXDxEFRu+9n398cQWG4RLgzcrfjfbiHKFg=";
+    hash = "sha256-nX5aDCD8lbiil9jxphWOzQ5Dqe7I5IoGXCLKHd6KK3Q=";
   };
 
-  vendorHash = "sha256-Ydv8S4X8MWEbbFrj8pMNFFlVcV+1SO1k9TS24p5BSms=";
+  vendorHash = "sha256-1PfbE8MXWf9lKQUqQR7ev/n+ci9jbFCDGmzw3MiO5UA=";
 
   # Upstream uses modernc.org/sqlite (pure Go), so no CGO or sqlite buildInput
   # is needed. Deviates from dfir-nixos-plan §4; TASKS.md governs here.

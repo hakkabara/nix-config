@@ -22,13 +22,13 @@ let
 in
 stdenvNoCC.mkDerivation (_finalAttrs: {
   pname = "regripper4";
-  version = "0-unstable-2025-12-10";
+  version = "0-unstable-2026-11-03";
 
   src = fetchFromGitHub {
     owner = "keydet89";
     repo = "RegRipper4.0";
-    rev = "f925c0965db202eed46071b3e68f6d3a49b41a31";
-    hash = "sha256-HOdsNcvh8CDi7quIE9uWvk1si6xIod9SMHmyOrDOILo=";
+    rev = "8ecac104e783e6cdc06071f10b6d64ec37d51a31";
+    hash = "sha256-HY0iV0dLFSi6pHGRO/1YLnLvB9Ew08RpLuGQwORwp+c=";
   };
 
   nativeBuildInputs = [ makeWrapper ];

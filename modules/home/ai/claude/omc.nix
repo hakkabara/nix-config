@@ -10,14 +10,14 @@ let
 
   omc = pkgs.buildNpmPackage {
     pname = "oh-my-claudecode";
-    version = "4.15.10";
+    version = "5.8.6";
 
     src = pkgs.fetchzip {
-      url = "https://github.com/Yeachan-Heo/oh-my-claudecode/archive/refs/tags/v4.15.10.tar.gz";
-      hash = "sha256-Ev3YOGr/wt5eRFxEvnxTinC1oXh3S+fstQ8Rlmv9Qzg=";
+      url = "https://github.com/Yeachan-Heo/oh-my-claudecode/archive/refs/tags/v5.8.6.tar.gz";
+      hash = "sha256-OhKIlTH5gl+qXGI1K+5jSIvHUcawel5xwoKTum+g9f4=";
     };
 
-    npmDepsHash = "sha256-W1MM2f7hwdqsWAWDseC66QSmaK88H5IcIQkClD1bydM=";
+    npmDepsHash = "sha256-bK4yldreVBtKxLpWGHdBW6ZeyAfSCNYlDQnyKrzUOtw=";
 
     nodejs = pkgs.nodejs_22;
 
