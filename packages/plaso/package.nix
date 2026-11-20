@@ -22,7 +22,7 @@ let
   # Official upstream image, pinned by digest for reproducibility.
   # Digest corresponds to tag 20261027 (plaso uses calendar versioning).
   imageTag = "20261027";
-  imageDigest = "sha256:3de91dfa0dd6885bf76f8a0c14ba4ce48e174e2acab97157aa0bbabe5a2d108
+  imageDigest = "sha256:3de91dfa0dd6885bf76f8a0c14ba4ce48e174e2acab97157aa0bbabe5a2d108e";
   image = "log2timeline/plaso@${imageDigest}";
 
   # Upstream CLI tools (the .py suffix is the real program name inside the
