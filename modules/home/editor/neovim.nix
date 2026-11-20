@@ -9,6 +9,22 @@
 let
   cfg = config.hakkabara.editor;
   terminalCfg = config.hakkabara.terminal;
+
+  # smart-splits v3 ships no multiplexer backends in core. The Zellij backend
+  # is a separate plugin that nixpkgs does not package yet.
+  smartSplitsBackendZellij = pkgsUnstable.vimUtils.buildVimPlugin {
+    pname = "smart-splits-backend-zellij-lua";
+    version = "1.0.0";
+
+    src = pkgsUnstable.fetchFromGitHub {
+      owner = "smart-splits-nvim";
+      repo = "backend-zellij-lua";
+      tag = "v1.0.0";
+      hash = "sha256-QAKX3jHYd2xHjhs8uf44OB04Q+Gl+wXVZOqS09IcRSk=";
+    };
+
+    dependencies = [ pkgsUnstable.vimPlugins.smart-splits-nvim ];
+  };
 in
 {
   config = lib.mkIf (cfg.enable && cfg.neovim.enable) {
@@ -51,15 +67,23 @@ in
             -- Nix owns the smart-splits source. Load it directly from the
             -- immutable store instead of relying on Lazy.nvim discovery.
             vim.opt.runtimepath:prepend("${pkgsUnstable.vimPlugins.smart-splits-nvim}")
+            vim.opt.runtimepath:prepend("${smartSplitsBackendZellij}")
 
-            -- Explicitly select Zellij instead of relying on auto-detection.
-            vim.g.smart_splits_multiplexer_integration = "zellij"
+            -- Stay inside the current tab when navigating past an edge pane.
+            require("smart-splits-backend-zellij-lua").setup({
+              move_cursor = { pane_or_tab = false },
+            })
 
             local splits = require("smart-splits")
 
+            -- v3 has no auto-detection; the backend is named explicitly.
+            -- Neovim also runs outside Zellij (plain Kitty, SSH), where plain
+            -- window movement is the intended fallback, not a problem.
             splits.setup({
-              multiplexer_integration = "zellij",
-              zellij_move_focus_or_tab = false,
+              mux = {
+                backend = "smart-splits-backend-zellij-lua",
+                warn_if_unusable = false,
+              },
             })
 
             local function set_navigation_keymaps()
