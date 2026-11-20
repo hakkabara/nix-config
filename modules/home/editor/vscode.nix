@@ -1,7 +1,7 @@
 {
   config,
   lib,
-  pkgs,
+  pkgsUnstable,
   ...
 }:
 
@@ -20,7 +20,9 @@ in
         enableUpdateCheck = false;
         enableExtensionUpdateCheck = false;
 
-        extensions = with pkgs.vscode-extensions; [
+        # Extensions come from the pinned nixos-unstable package set so they
+        # track upstream releases; VS Code itself stays on stable.
+        extensions = with pkgsUnstable.vscode-extensions; [
           jnoortheen.nix-ide
         ];
 

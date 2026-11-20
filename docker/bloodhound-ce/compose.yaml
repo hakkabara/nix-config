@@ -50,7 +50,7 @@ services:
       start_period: 30s
 
   bloodhound:
-    image: docker.io/specterops/bloodhound:${BLOODHOUND_TAG:-9.5.1}
+    image: docker.io/specterops/bloodhound:${BLOODHOUND_TAG:-9.10.1}
 
     environment:
       bhe_database_connection: >-

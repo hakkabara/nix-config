@@ -34,7 +34,9 @@
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/deployment-lan.nix
     ../../modules/nixos/networking/split-dns.nix
+    ../../modules/nixos/nix/binary-cache-client.nix
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/security/sops.nix
@@ -149,16 +151,16 @@
       users = [ "mko" ];
 
       preloadImages = [
-        "docker.io/specterops/bloodhound:9.5.1"
+        "docker.io/specterops/bloodhound:9.10.1"
         "docker.io/library/postgres:18"
         "docker.io/library/neo4j:4.4.42"
         "docker.io/library/neo4j:4.4.20"
         "docker.io/scmanjarrez/bloodhound:4.3.1"
-        "docker.io/log2timeline/plaso:20260720"
-        "ghcr.io/velocidex/velociraptor-server:0.77.2"
+        "docker.io/log2timeline/plaso:20261027"
+        "ghcr.io/velocidex/velociraptor-server:0.77.3"
 
         # Network forensics / timeline analysis.
-        "docker.io/zeek/zeek:8.2.1"
+        "docker.io/zeek/zeek:9.0.1"
 
         # Timesketch release stack.
         "us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:20260630"
@@ -168,12 +170,30 @@
         "docker.io/library/nginx:1.25.5-alpine-slim"
 
         # Arkime packet analysis.
-        "ghcr.io/arkime/arkime/arkime:v6.6.0"
+        "ghcr.io/arkime/arkime/arkime:v6.9.2"
       ];
     };
 
     # DHCP through NetworkManager.
-    networking.enable = true;
+    networking = {
+      enable = true;
+
+      deploymentLan = {
+        enable = true;
+        interface = "ens37";
+
+        ipv4 = {
+          address = "192.168.245.11";
+          prefixLength = 24;
+        };
+      };
+    };
+
+    nix.binaryCache = {
+      enable = true;
+      url = "http://192.168.245.10:5000";
+      publicKeyFile = ../../keys/harmonia-cache.pub;
+    };
 
     # Generic VPN client capabilities only.
     # No SurfVM Homelab VPN profiles are imported into the WorkVM.
@@ -189,7 +209,7 @@
 
       fortinet = {
         enable = true;
-        networkManager.enable = true;
+        networkManager.enable = false;
       };
     };
 
@@ -269,39 +289,50 @@
       ../../profiles/home/work-vm.nix
     ];
 
-    hakkabara.desktop.dms = {
-      alwaysOn.enable = true;
-
-      controlCenter = {
+    hakkabara = {
+      ai = {
         enable = true;
 
-        icons = {
-          network = true;
-          bluetooth = false;
-          audio = true;
-          vpn = true;
-          brightness = false;
-          mic = false;
-          battery = false;
-          screenSharing = true;
-        };
-
-        widgets = {
-          volumeSlider = true;
-          brightnessSlider = false;
-          wifi = false;
-          bluetooth = false;
-          audioOutput = true;
-          audioInput = false;
-          nightMode = true;
-          darkMode = false;
+        claude = {
+          enable = true;
+          code.enable = true;
         };
       };
-    };
 
-    hakkabara.git.githubCli = {
-      enable = true;
-      tokenFile = config.sops.secrets."github/gh-token".path;
+      desktop.dms = {
+        alwaysOn.enable = true;
+
+        controlCenter = {
+          enable = true;
+
+          icons = {
+            network = true;
+            bluetooth = false;
+            audio = true;
+            vpn = true;
+            brightness = false;
+            mic = false;
+            battery = false;
+            screenSharing = true;
+          };
+
+          widgets = {
+            volumeSlider = true;
+            brightnessSlider = false;
+            wifi = false;
+            bluetooth = false;
+            audioOutput = true;
+            audioInput = false;
+            nightMode = true;
+            darkMode = false;
+          };
+        };
+      };
+
+      git.githubCli = {
+        enable = true;
+        tokenFile = config.sops.secrets."github/gh-token".path;
+      };
     };
 
     programs.ssh.includes = lib.mkAfter [
@@ -330,6 +361,32 @@
       IdentityFile = config.sops.secrets."github/ssh-key".path;
       IdentitiesOnly = true;
     };
+  };
+
+  # DSH LLM workspace share exported by the REMnux analysis VM over the
+  # VMware host-only lab network (192.168.36.0/24, NFSv4.2).
+  #
+  # Mounted lazily on first access so the WorkVM boots normally while the
+  # REMnux VM is powered off, and "soft" so a vanished server returns an I/O
+  # error instead of hanging processes forever. The share is a drop zone for
+  # samples to analyse: nothing on it may execute or gain privileges here.
+  fileSystems."/mnt/nfs/llm-workspace" = {
+    device = "192.168.36.5:/opt/dsh/workspace";
+    fsType = "nfs";
+
+    options = [
+      "nfsvers=4.2"
+      "nosuid"
+      "nodev"
+      "noexec"
+      "soft"
+      "_netdev"
+      "nofail"
+      "noauto"
+      "x-systemd.automount"
+      "x-systemd.idle-timeout=600"
+      "x-systemd.mount-timeout=15"
+    ];
   };
 
   # Do not change this on normal updates.

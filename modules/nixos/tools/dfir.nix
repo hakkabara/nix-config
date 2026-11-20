@@ -93,7 +93,7 @@ let
           --volume "$input_dir:/pcap:ro" \
           --volume "$output:/output" \
           --workdir /output \
-          docker.io/zeek/zeek:8.2.1 \
+          docker.io/zeek/zeek:9.0.1 \
           zeek -r "/pcap/$input_name"
 
         echo

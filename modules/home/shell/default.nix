@@ -11,7 +11,15 @@ in
 {
   imports = [ ./network-tools.nix ];
 
-  options.hakkabara.shell.enable = lib.mkEnableOption "shared interactive shell environment";
+  options.hakkabara.shell = {
+    enable = lib.mkEnableOption "shared interactive shell environment";
+
+    aliasTips.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable the alias-tips Zsh plugin.";
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     programs = {
@@ -45,11 +53,13 @@ in
             src = pkgs.fetchFromGitHub {
               owner = "Aloxaf";
               repo = "fzf-tab";
-              rev = "v1.2.0";
-              hash = "sha256-q26XVS/LcyZPRqDNwKKA9exgBByE0muyuNb0Bbar2lY=";
+              rev = "v1.3.0";
+              hash = "sha256-8atbysoOyCBW2OYKmdc91x9V/Mk3eyg3hvzvhJpQ32w=";
             };
           }
 
+        ]
+        ++ lib.optionals cfg.aliasTips.enable [
           {
             name = "alias-tips";
             src = pkgs.fetchFromGitHub {
@@ -60,6 +70,8 @@ in
             };
           }
 
+        ]
+        ++ [
           {
             name = "zsh-you-should-use";
             src = pkgs.fetchFromGitHub {

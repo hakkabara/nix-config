@@ -25,11 +25,11 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "sharphound";
-  version = "2.14.0";
+  version = "2.18.0";
 
   src = fetchurl {
     url = "https://github.com/SpecterOps/SharpHound/releases/download/v${finalAttrs.version}/SharpHound_v${finalAttrs.version}_windows_x86.zip";
-    hash = "sha256-GxgSrl/KDJoqIOLU5P/LazhbgxKSSMiUwFqrDCSyBxU=";
+    hash = "sha256-4jOHCe6dSxHBeull3+wSGpeSfEUQsKMvekjlsKCCwWk=";
   };
 
   nativeBuildInputs = [ unzip ];

@@ -4,19 +4,9 @@
   fetchFromGitHub,
   makeWrapper,
   python3,
-  python3Packages,
 }:
 
 let
-  # nixpkgs pins python-registry to tag 1.4, but its setup.py still hardcodes
-  # '1.3.1', so the version-check hook fails on the mismatch. Until fixed
-  # upstream, align the declared version with the actual value. Same source
-  # tarball, only the metadata expectation is adjusted.
-  pythonRegistry = python3Packages.python-registry.overrideAttrs (_: {
-    version = "1.3.1";
-    __intentionallyOverridingVersion = true;
-  });
-
   # srum-dump defaults to the pure-Python dissect.esedb engine; the optional
   # pyesedb engine (--ESE_ENGINE pyesedb) is imported lazily and not needed for
   # default operation, so pyesedb is left out here.
@@ -26,7 +16,7 @@ let
       dissect-util
       openpyxl
       pyyaml
-      pythonRegistry
+      python-registry
       tkinter
     ]
   );

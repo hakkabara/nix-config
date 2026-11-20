@@ -45,7 +45,7 @@
     # targets nixos-unstable, so reuse our already pinned unstable package
     # set instead of introducing a second independent Nixpkgs revision.
     dms = {
-      url = "github:AvengeMedia/DankMaterialShell/v1.6.0";
+      url = "github:AvengeMedia/DankMaterialShell/v2.1.2";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
@@ -101,6 +101,37 @@
       packages.${system} = pkgsDfir;
 
       nixosConfigurations = {
+        deploy-vm = nixpkgs.lib.nixosSystem {
+          inherit system;
+
+          modules = [
+            ./hosts/deploy-vm
+
+            disko.nixosModules.disko
+            home-manager.nixosModules.home-manager
+            sops-nix.nixosModules.sops
+
+            {
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+
+                backupFileExtension = "hm-backup";
+                overwriteBackup = true;
+
+                # The shared Home Manager module tree imports these modules
+                # declaratively even on hosts where only a subset is enabled.
+                extraSpecialArgs = {
+                  inherit
+                    pkgsUnstable
+                    zellij-tools
+                    ;
+                };
+              };
+            }
+          ];
+        };
+
         work-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 

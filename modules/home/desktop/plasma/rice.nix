@@ -16,11 +16,11 @@ let
   # intentionally uses Papirus-Dark and the existing Plasma widget style.
   tokyoNight = pkgs.stdenvNoCC.mkDerivation {
     pname = "plasma-tokyo-night";
-    version = "git-a3e6c64";
+    version = "git-aed7e9f";
 
     src = pkgs.fetchzip {
-      url = "https://github.com/Jayy-Dev/Plasma-Tokyo-Night/archive/a3e6c64a171dc226d03272a7f6cc97d0c916f3dd.tar.gz";
-      hash = "sha256-9BvoDnHwlDo3qe2bhW4tQU858HRXxCL7Rk38IMCRtbA=";
+      url = "https://github.com/Jayy-Dev/Plasma-Tokyo-Night/archive/aed7e9faf9bc7ea6b6bbc8e21b5475bdda2412c7.tar.gz";
+      hash = "sha256-lt7hjym2Pg5xGf9ecDpU11hMmWTtmXBwbiwou93nA3A=";
     };
 
     dontUnpack = true;

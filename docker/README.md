@@ -58,7 +58,7 @@ Local offline-PCAP analysis stack.
 
 Components:
 
-- Arkime 6.6.0
+- Arkime 6.9.2
 - OpenSearch 2.19.5
 - Arkime Viewer
 - UI PCAP upload

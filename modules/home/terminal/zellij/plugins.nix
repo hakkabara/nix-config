@@ -31,7 +31,7 @@ let
     };
 
   # Harpoon does not publish a pre-built WASM release. Build the pinned
-  # upstream v0.3.0 source reproducibly for wasm32-wasip1.
+  # upstream v0.3.1 source reproducibly for wasm32-wasip1.
   harpoonPlugin = pkgsUnstable.pkgsCross.wasm32-wasip1.callPackage (
     {
       fetchFromGitHub,
@@ -40,16 +40,16 @@ let
     }:
     rustPlatform.buildRustPackage {
       pname = "zellij-harpoon";
-      version = "0.3.0";
+      version = "0.3.1";
 
       src = fetchFromGitHub {
         owner = "Nacho114";
         repo = "harpoon";
-        tag = "v0.3.0";
-        hash = "sha256-JmYcbzxIF6qZs2/RKuspHqNpyDibGp9CVQJj47y/BOQ=";
+        tag = "v0.3.1";
+        hash = "sha256-IEZqo6wHkL/7KUaX6rFuXyy6PwW/Dgywam/bgTQEZ0Q=";
       };
 
-      cargoHash = "sha256-lsv5Wssakni18jif++fPo3Z5WyBtvPsGpWwG3abR7jQ=";
+      cargoHash = "sha256-hVDnMDuWDvXJvpW6jml9sX3k5ryWkX5iQ52G3VYxxDU=";
 
       env.RUSTFLAGS = "-C linker=wasm-ld";
 
