@@ -53,8 +53,8 @@ in
             src = pkgs.fetchFromGitHub {
               owner = "Aloxaf";
               repo = "fzf-tab";
-              rev = "v1.2.0";
-              hash = "sha256-q26XVS/LcyZPRqDNwKKA9exgBByE0muyuNb0Bbar2lY=";
+              rev = "v1.3.0";
+              hash = "sha256-8atbysoOyCBW2OYKmdc91x9V/Mk3eyg3hvzvhJpQ32w=";
             };
           }
 
