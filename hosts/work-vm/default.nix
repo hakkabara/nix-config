@@ -151,16 +151,16 @@
       users = [ "mko" ];
 
       preloadImages = [
-        "docker.io/specterops/bloodhound:9.5.1"
+        "docker.io/specterops/bloodhound:9.10.1"
         "docker.io/library/postgres:18"
         "docker.io/library/neo4j:4.4.42"
         "docker.io/library/neo4j:4.4.20"
         "docker.io/scmanjarrez/bloodhound:4.3.1"
-        "docker.io/log2timeline/plaso:20260720"
-        "ghcr.io/velocidex/velociraptor-server:0.77.2"
+        "docker.io/log2timeline/plaso:20261027"
+        "ghcr.io/velocidex/velociraptor-server:0.77.3"
 
         # Network forensics / timeline analysis.
-        "docker.io/zeek/zeek:8.2.1"
+        "docker.io/zeek/zeek:9.0.1"
 
         # Timesketch release stack.
         "us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:20260630"

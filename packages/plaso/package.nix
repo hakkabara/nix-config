@@ -20,9 +20,9 @@
 # happens at build time -- the image is fetched by docker on first run.
 let
   # Official upstream image, pinned by digest for reproducibility.
-  # Digest corresponds to tag 20260720 (plaso uses calendar versioning).
-  imageTag = "20260720";
-  imageDigest = "sha256:a8d42e64dcd3af2dffed8ddb25d34f34def69b672eec97ea9af62885c9332950";
+  # Digest corresponds to tag 20261027 (plaso uses calendar versioning).
+  imageTag = "20261027";
+  imageDigest = "sha256:3de91dfa0dd6885bf76f8a0c14ba4ce48e174e2acab97157aa0bbabe5a2d108
   image = "log2timeline/plaso@${imageDigest}";
 
   # Upstream CLI tools (the .py suffix is the real program name inside the
