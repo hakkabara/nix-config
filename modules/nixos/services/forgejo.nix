@@ -17,6 +17,26 @@ let
 
   apiUrl = "http://${bindAddress}:${toString cfg.port}/api/v1";
 
+  tokenFile = "${cfg.stateDir}/provisioning/token";
+
+  mirrorSync = pkgs.writeShellApplication {
+    name = "forgejo-mirror-sync";
+
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.curl
+      pkgs.jq
+    ];
+
+    runtimeEnv = {
+      FORGEJO_API = apiUrl;
+      ADMIN_USER = cfg.admin.username;
+      TOKEN_FILE = tokenFile;
+    };
+
+    text = builtins.readFile ./forgejo-mirror-sync.sh;
+  };
+
   # The forgejo CLI needs the same work/custom directories as the service to
   # find the generated app.ini.
   cliEnvironment = {
@@ -383,7 +403,7 @@ in
         environment = cliEnvironment // {
           FORGEJO_API = apiUrl;
           ADMIN_USER = cfg.admin.username;
-          TOKEN_FILE = "${cfg.stateDir}/provisioning/token";
+          TOKEN_FILE = tokenFile;
         };
 
         serviceConfig = {
@@ -403,6 +423,9 @@ in
         script = builtins.readFile ./forgejo-repositories.sh;
       };
     };
+
+    # On-demand mirror update before builds, using the provisioning token.
+    environment.systemPackages = lib.mkIf cfg.repositories.enable [ mirrorSync ];
 
     # Never expose the web interface globally. Only the dedicated deployment
     # LAN may connect to Forgejo.
