@@ -170,7 +170,7 @@
         "docker.io/library/nginx:1.25.5-alpine-slim"
 
         # Arkime packet analysis.
-        "ghcr.io/arkime/arkime/arkime:v6.6.0"
+        "ghcr.io/arkime/arkime/arkime:v6.9.2"
       ];
     };
 
