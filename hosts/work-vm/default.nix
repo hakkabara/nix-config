@@ -181,17 +181,12 @@
       deploymentLan = {
         enable = true;
         interface = "ens37";
-
-        ipv4 = {
-          address = "192.168.245.11";
-          prefixLength = 24;
-        };
       };
     };
 
     nix.binaryCache = {
       enable = true;
-      url = "http://192.168.245.10:5000";
+      url = "http://cache.${config.hakkabara.networking.deploymentLan.domain}:5000";
       publicKeyFile = ../../keys/harmonia-cache.pub;
     };
 

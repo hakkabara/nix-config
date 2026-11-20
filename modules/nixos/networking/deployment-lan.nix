@@ -11,6 +11,25 @@ let
     if cfg.interface == null then "__deployment_lan_interface_not_configured__" else cfg.interface;
 
   address = if cfg.ipv4.address == null then "0.0.0.0" else cfg.ipv4.address;
+
+  fqdn = name: "${name}.${cfg.domain}";
+
+  hostModule = {
+    options = {
+      address = lib.mkOption {
+        type = lib.types.str;
+        example = "192.168.245.10";
+        description = "IPv4 address of the host on the deployment LAN.";
+      };
+
+      aliases = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "git" ];
+        description = "Additional service names below the deployment domain.";
+      };
+    };
+  };
 in
 {
   options.hakkabara.networking.deploymentLan = {
@@ -23,12 +42,36 @@ in
       description = "Network interface connected to the deployment LAN.";
     };
 
+    domain = lib.mkOption {
+      type = lib.types.str;
+      default = "deploy.internal";
+      description = ''
+        Name suffix for hosts and services on the deployment LAN. The
+        .internal TLD is reserved for private use and never resolves
+        publicly.
+      '';
+    };
+
+    hosts = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.submodule hostModule);
+      default = import ./deployment-lan-hosts.nix;
+      defaultText = lib.literalExpression "import ./deployment-lan-hosts.nix";
+      description = ''
+        Hosts on the deployment LAN. Each becomes <name>.<domain> plus
+        <alias>.<domain> for every alias in /etc/hosts.
+      '';
+    };
+
     ipv4 = {
       address = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
-        default = null;
+        default = cfg.hosts.${config.networking.hostName}.address or null;
+        defaultText = lib.literalExpression "hosts.\${config.networking.hostName}.address";
         example = "192.168.245.10";
-        description = "Static IPv4 address on the deployment LAN.";
+        description = ''
+          Static IPv4 address on the deployment LAN. Taken from the host
+          table by default.
+        '';
       };
 
       prefixLength = lib.mkOption {
@@ -62,6 +105,10 @@ in
         '';
       }
     ];
+
+    networking.hosts = lib.mapAttrs' (
+      name: host: lib.nameValuePair host.address (map fqdn ([ name ] ++ host.aliases))
+    ) cfg.hosts;
 
     networking.networkmanager.ensureProfiles.profiles."hakkabara-deployment-lan" = {
       connection = {

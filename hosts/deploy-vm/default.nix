@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   ...
 }:
@@ -132,18 +133,13 @@
       deploymentLan = {
         enable = true;
         interface = "ens37";
-
-        ipv4 = {
-          address = "192.168.245.10";
-          prefixLength = 24;
-        };
       };
     };
 
     services.harmoniaCache = {
       enable = true;
 
-      bindAddress = "192.168.245.10";
+      bindAddress = config.hakkabara.networking.deploymentLan.ipv4.address;
       port = 5000;
       interface = "ens37";
 
@@ -159,7 +155,8 @@
     services.forgejo = {
       enable = true;
 
-      bindAddress = "192.168.245.10";
+      bindAddress = config.hakkabara.networking.deploymentLan.ipv4.address;
+      domain = "git.${config.hakkabara.networking.deploymentLan.domain}";
       port = 3000;
       interface = "ens37";
 

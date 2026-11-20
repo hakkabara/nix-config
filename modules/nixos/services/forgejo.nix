@@ -13,6 +13,8 @@ let
 
   bindAddress = if cfg.bindAddress == null then "127.0.0.1" else cfg.bindAddress;
 
+  domain = if cfg.domain == null then bindAddress else cfg.domain;
+
   apiUrl = "http://${bindAddress}:${toString cfg.port}/api/v1";
 
   # The forgejo CLI needs the same work/custom directories as the service to
@@ -33,6 +35,16 @@ in
       default = null;
       example = "192.168.245.10";
       description = "IPv4 address on which the Forgejo web interface listens.";
+    };
+
+    domain = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "git.deploy.internal";
+      description = ''
+        Host name clients use for web and Git over SSH URLs. Defaults to
+        the bind address.
+      '';
     };
 
     port = lib.mkOption {
@@ -230,16 +242,16 @@ in
         DEFAULT.APP_NAME = "DeployVM Git";
 
         server = {
-          DOMAIN = bindAddress;
+          DOMAIN = domain;
           HTTP_ADDR = bindAddress;
           HTTP_PORT = cfg.port;
-          ROOT_URL = "http://${bindAddress}:${toString cfg.port}/";
+          ROOT_URL = "http://${domain}:${toString cfg.port}/";
 
           # Git over SSH goes through the system OpenSSH daemon as the
           # forgejo user: ssh://forgejo@<address>/<owner>/<repo>.git
           DISABLE_SSH = false;
           START_SSH_SERVER = false;
-          SSH_DOMAIN = bindAddress;
+          SSH_DOMAIN = domain;
           SSH_PORT = 22;
         };
 
