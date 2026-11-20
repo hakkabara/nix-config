@@ -210,7 +210,6 @@ in
         format = "yaml";
         key = "";
         mode = "0400";
-        restartUnits = [ "forgejo-repositories.service" ];
       };
     };
 
@@ -337,13 +336,19 @@ in
       # Reconcile the repositories from the SOPS document through the HTTP API.
       # A dedicated access token for this service is created with the forgejo
       # CLI and kept in the state directory; it is regenerated when it stops
-      # working. The secret's restartUnits re-runs it when the document changes.
+      # working.
       forgejo-repositories = lib.mkIf cfg.repositories.enable {
         description = "Provision declared Forgejo repositories";
 
         wantedBy = [ "multi-user.target" ];
         after = [ "forgejo-admin-bootstrap.service" ];
         requires = [ "forgejo-admin-bootstrap.service" ];
+
+        # Re-run on every switch that changes the encrypted document. This
+        # replaces sops-nix restartUnits, which restarts units from the
+        # activation script (deprecated, removed in NixOS 26.11).
+        # Hash the file itself: the path alone would change with every commit.
+        restartTriggers = [ (builtins.hashFile "sha256" cfg.repositories.sopsFile) ];
 
         path = [
           forgejoCfg.package
