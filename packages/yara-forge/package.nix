@@ -25,11 +25,11 @@
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "yara-forge";
   # Release tags are datestamps (YYYYMMDD); pin an exact tag, never a rolling one.
-  version = "20260823";
+  version = "20261115";
 
   src = fetchurl {
     url = "https://github.com/YARAHQ/yara-forge/releases/download/${finalAttrs.version}/yara-forge-rules-full.zip";
-    hash = "sha256-GobdaWpiBIt924sizPsolGsmknaNGDZDY65K+3UZKgY=";
+    hash = "sha256-/dA5FidRAPMEuaP/NRanLpBdm33rsZOj3bB6GLTXLSY=";
   };
 
   nativeBuildInputs = [ unzip ];

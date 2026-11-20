@@ -16,16 +16,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "sshelf";
-  version = "0.13.1";
+  version = "0.16.3";
 
   src = fetchFromGitHub {
     owner = "max-rh";
     repo = "sshelf";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-Q5IMxul7qVZ35pjub0kRA1+xqzfwugViti9ffXJqUkM=";
+    hash = "sha256-MqeYYcWn2DScqGScZz4hkcN1fQl4EDC+KsyViLD3b38=";
   };
 
-  cargoHash = "sha256-NJSz7UKhFugI1ZehpZ5fQ28whfe2mGQi/EK51kWbGbc=";
+  cargoHash = "sha256-hYXN16sFdLGtBrOSTVNwjnl0sZhLpptMFLxJ94w8SDQ=";
 
   # ssh2-config pulls in git2/libgit2. Use nixpkgs' libgit2 instead
   # of building the vendored C copy.

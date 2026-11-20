@@ -21,12 +21,12 @@
 # switch to build-from-source (Python) and escalate.
 stdenv.mkDerivation (finalAttrs: {
   pname = "hindsight";
-  version = "2026.06";
+  version = "2026.11";
 
   src = fetchurl {
     # Pinned to a concrete release tag, not the moving latest alias (CLAUDE.md §3.4).
     url = "https://github.com/RyanDFIR/hindsight/releases/download/v${finalAttrs.version}/hindsight-linux-x86_64";
-    hash = "sha256-s/ifNN1ca9Zoc/IY7SbDxs6ECK5LMbZXcpNwPShQQ4Y=";
+    hash = "sha256-5mUyKqPicMdZSragmQvMxNT2QpBkqOrQx1C0j23nS98=";
   };
 
   dontUnpack = true;

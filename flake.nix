@@ -45,7 +45,7 @@
     # targets nixos-unstable, so reuse our already pinned unstable package
     # set instead of introducing a second independent Nixpkgs revision.
     dms = {
-      url = "github:AvengeMedia/DankMaterialShell/v1.6.0";
+      url = "github:AvengeMedia/DankMaterialShell/v2.1.2";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
