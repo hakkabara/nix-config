@@ -11,6 +11,7 @@
     ../../modules/nixos/networking/profile.nix
     ../../modules/nixos/networking/deployment-lan.nix
     ../../modules/nixos/nix/cache-retention.nix
+    ../../modules/nixos/services/forgejo.nix
     ../../modules/nixos/services/harmonia-cache.nix
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/storage/disko.nix
@@ -150,6 +151,24 @@
         sopsFile = ../../secrets/deploy-vm/harmonia.yaml;
         secretName = "harmonia-cache-signing-key";
         key = "cache-signing-key";
+      };
+    };
+
+    # Internal Git server for repositories and secrets that must never leave
+    # the deployment LAN, plus pull mirrors for offline deployments.
+    services.forgejo = {
+      enable = true;
+
+      bindAddress = "192.168.245.10";
+      port = 3000;
+      interface = "ens37";
+
+      admin.password.sopsFile = ../../secrets/deploy-vm/forgejo.yaml;
+
+      # Names, upstream URLs and credentials stay encrypted.
+      repositories = {
+        enable = true;
+        sopsFile = ../../secrets/deploy-vm/forgejo-repositories.yaml;
       };
     };
 

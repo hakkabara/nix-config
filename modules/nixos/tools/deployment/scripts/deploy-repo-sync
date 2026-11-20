@@ -2,7 +2,7 @@ set -euo pipefail
 
 readonly REPO_PATH="/persist/deployment/repos/nix-config"
 readonly REPO_URL="https://github.com/hakkabara/nix-config.git"
-readonly REPO_BRANCH="deploy-vm"
+readonly REPO_BRANCH="main"
 
 # DeployVM currently has a global Git insteadOf rule that rewrites this
 # public HTTPS URL to SSH. This managed checkout deliberately ignores the
@@ -67,16 +67,16 @@ if [ ! -d "$REPO_PATH/.git" ]; then
         "$REPO_URL" \
         "$REPO_PATH"
 else
+    # The checkout may have been cloned with --single-branch for a different
+    # branch. Fetch with an explicit refspec so the remote-tracking ref exists
+    # even when the managed branch changes.
     git_public -C "$REPO_PATH" fetch \
         --prune \
         origin \
-        "$REPO_BRANCH"
+        "+refs/heads/$REPO_BRANCH:refs/remotes/origin/$REPO_BRANCH"
 
     git_public -C "$REPO_PATH" checkout \
-        "$REPO_BRANCH"
-
-    git_public -C "$REPO_PATH" reset \
-        --hard \
+        -B "$REPO_BRANCH" \
         "origin/$REPO_BRANCH"
 fi
 
