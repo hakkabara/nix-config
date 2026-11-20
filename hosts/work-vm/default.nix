@@ -1,232 +1,230 @@
-  {
-    config,
-    dms,
-    lib,
-    pkgs,
-    pkgsUnstable,
-    ...
-  }:
+{
+  config,
+  dms,
+  lib,
+  pkgs,
+  pkgsUnstable,
+  ...
+}:
 
-  {
-    imports = [
-      ./hardware-configuration.nix
-      ./secrets.nix
+{
+  imports = [
+    ./hardware-configuration.nix
+    ./secrets.nix
 
-      # Shared workstation/VM integration.
-      ../../modules/nixos/features/workstation-vm.nix
-      ../../modules/nixos/features/python.nix
-      ../../modules/nixos/features/wireshark.nix
-      ../../modules/nixos/apps/remote-desktop
-      ../../modules/nixos/apps/teams.nix
-      ../../modules/nixos/flatpak
-      ../../profiles/nixos/work-vm-tools.nix
-      ../../modules/nixos/virtualization/vmware.nix
-      ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
-      ../../modules/nixos/virtualization/docker.nix
+    # Shared workstation/VM integration.
+    ../../modules/nixos/features/workstation-vm.nix
+    ../../modules/nixos/features/python.nix
+    ../../modules/nixos/features/wireshark.nix
+    ../../modules/nixos/apps/remote-desktop
+    ../../modules/nixos/apps/teams.nix
+    ../../modules/nixos/flatpak
+    ../../profiles/nixos/work-vm-tools.nix
+    ../../modules/nixos/virtualization/vmware.nix
+    ../../modules/nixos/virtualization/vmware-wayland-clipboard.nix
+    ../../modules/nixos/virtualization/docker.nix
 
-      # Desktop foundation.
-      ../../modules/nixos/audio/pipewire.nix
-      ../../modules/nixos/input/eurkey.nix
-      ../../modules/nixos/desktop/niri.nix
-      ../../modules/nixos/desktop/dms.nix
-      ../../modules/nixos/desktop/autologin.nix
+    # Desktop foundation.
+    ../../modules/nixos/audio/pipewire.nix
+    ../../modules/nixos/input/eurkey.nix
+    ../../modules/nixos/desktop/niri.nix
+    ../../modules/nixos/desktop/dms.nix
+    ../../modules/nixos/desktop/autologin.nix
 
-      # Shared system policies.
-      ../../modules/nixos/network/vpn-clients.nix
-      ../../modules/nixos/networking/profile.nix
-      ../../modules/nixos/networking/deployment-lan.nix
-      ../../modules/nixos/networking/split-dns.nix
-      ../../modules/nixos/nix/binary-cache-client.nix
-      ../../modules/nixos/maintenance.nix
-      ../../modules/nixos/storage/disko.nix
-      ../../modules/nixos/security/sops.nix
-      ../../modules/nixos/accounts/primary.nix
+    # Shared system policies.
+    ../../modules/nixos/network/vpn-clients.nix
+    ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/deployment-lan.nix
+    ../../modules/nixos/networking/split-dns.nix
+    ../../modules/nixos/nix/binary-cache-client.nix
+    ../../modules/nixos/maintenance.nix
+    ../../modules/nixos/storage/disko.nix
+    ../../modules/nixos/security/sops.nix
+    ../../modules/nixos/accounts/primary.nix
+  ];
+
+  networking.hostName = "work-vm";
+
+  # Keep the normal NixOS system/package set on 26.05 stable.
+  # Only explicitly selected fast-moving packages come from pkgsUnstable.
+  nixpkgs.config.allowUnfree = true;
+
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
+
+  time.timeZone = "Europe/Berlin";
+
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+
+    extraLocaleSettings = {
+      LC_ADDRESS = "de_DE.UTF-8";
+      LC_IDENTIFICATION = "de_DE.UTF-8";
+      LC_MEASUREMENT = "de_DE.UTF-8";
+      LC_MONETARY = "de_DE.UTF-8";
+      LC_NAME = "de_DE.UTF-8";
+      LC_NUMERIC = "de_DE.UTF-8";
+      LC_PAPER = "de_DE.UTF-8";
+      LC_TELEPHONE = "de_DE.UTF-8";
+      LC_TIME = "de_DE.UTF-8";
+    };
+  };
+
+  programs.zsh.enable = true;
+
+  # WorkVM intentionally runs without a desktop keyring/Secret Service.
+  # KeePassXC is only used to open local KDBX vaults and does not replace it.
+  # Autologin would otherwise cause interactive keyring creation/unlock prompts.
+  services.gnome.gnome-keyring.enable = lib.mkForce false;
+
+  security.pam.services.login.enableGnomeKeyring = lib.mkForce false;
+  security.pam.services.greetd.enableGnomeKeyring = lib.mkForce false;
+
+  users.users.mko = {
+    isNormalUser = true;
+    description = "mko";
+    shell = pkgs.zsh;
+
+    extraGroups = [
+      "networkmanager"
+      "wheel"
     ];
+  };
 
-    networking.hostName = "work-vm";
+  hakkabara = {
+    # Declarative primary account password via sops-nix.
+    accounts.primary = {
+      enable = true;
+      username = "mko";
 
-    # Keep the normal NixOS system/package set on 26.05 stable.
-    # Only explicitly selected fast-moving packages come from pkgsUnstable.
-    nixpkgs.config.allowUnfree = true;
-
-    nix.settings.experimental-features = [
-      "nix-command"
-      "flakes"
-    ];
-
-    time.timeZone = "Europe/Berlin";
-
-    i18n = {
-      defaultLocale = "en_US.UTF-8";
-
-      extraLocaleSettings = {
-        LC_ADDRESS = "de_DE.UTF-8";
-        LC_IDENTIFICATION = "de_DE.UTF-8";
-        LC_MEASUREMENT = "de_DE.UTF-8";
-        LC_MONETARY = "de_DE.UTF-8";
-        LC_NAME = "de_DE.UTF-8";
-        LC_NUMERIC = "de_DE.UTF-8";
-        LC_PAPER = "de_DE.UTF-8";
-        LC_TELEPHONE = "de_DE.UTF-8";
-        LC_TIME = "de_DE.UTF-8";
+      password = {
+        sopsFile = ../../secrets/work-vm/users.yaml;
+        secretName = "users/mko-password-hash";
+        key = "mko-password-hash";
       };
     };
 
-    programs.zsh.enable = true;
+    # Workstation VM policy: never suspend/hibernate independently.
+    workstationVm.enable = true;
 
-    # WorkVM intentionally runs without a desktop keyring/Secret Service.
-    # KeePassXC is only used to open local KDBX vaults and does not replace it.
-    # Autologin would otherwise cause interactive keyring creation/unlock prompts.
-    services.gnome.gnome-keyring.enable = lib.mkForce false;
+    vmware = {
+      enable = true;
+      sharedFolders.enable = true;
+    };
 
-    security.pam.services.login.enableGnomeKeyring = lib.mkForce false;
-    security.pam.services.greetd.enableGnomeKeyring = lib.mkForce false;
+    # Python runtimes used by WorkVM tooling.
+    # Python 2 is intentionally limited to this legacy/security-tool use case.
+    python = {
+      python3.enable = true;
+      python2.enable = true;
+    };
 
-    users.users.mko = {
-      isNormalUser = true;
-      description = "mko";
-      shell = pkgs.zsh;
+    # Teams inside the VM is intentionally limited to chat/downloads.
+    # Calls and meetings are handled on the Windows host.
+    apps.teams = {
+      enable = true;
+      user = "mko";
+      chatOnly = true;
+    };
 
-      extraGroups = [
-        "networkmanager"
-        "wheel"
+    # Remote support clients. All are started manually when needed;
+    # no permanent RMM daemon is enabled.
+    apps.remoteDesktop = {
+      rustdesk.enable = true;
+      anydesk.enable = true;
+      teamviewer.enable = true;
+    };
+
+    # Wireshark GUI with privileged dumpcap wrapper for non-root captures.
+    wireshark = {
+      enable = true;
+      users = [ "mko" ];
+      usbCapture = false;
+    };
+
+    # Rootful Docker for containerized DFIR/security tooling.
+    # Members of the docker group effectively have root-equivalent access.
+    virtualization.docker = {
+      enable = true;
+      users = [ "mko" ];
+
+      preloadImages = [
+        "docker.io/specterops/bloodhound:9.5.1"
+        "docker.io/library/postgres:18"
+        "docker.io/library/neo4j:4.4.42"
+        "docker.io/library/neo4j:4.4.20"
+        "docker.io/scmanjarrez/bloodhound:4.3.1"
+        "docker.io/log2timeline/plaso:20260720"
+        "ghcr.io/velocidex/velociraptor-server:0.77.2"
+
+        # Network forensics / timeline analysis.
+        "docker.io/zeek/zeek:8.2.1"
+
+        # Timesketch release stack.
+        "us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:20260630"
+        "docker.io/opensearchproject/opensearch:2.19.5"
+        "docker.io/library/postgres:13.0-alpine"
+        "docker.io/library/redis:7.2.11-alpine"
+        "docker.io/library/nginx:1.25.5-alpine-slim"
+
+        # Arkime packet analysis.
+        "ghcr.io/arkime/arkime/arkime:v6.6.0"
       ];
     };
 
-    hakkabara = {
-      # Declarative primary account password via sops-nix.
-      accounts.primary = {
-        enable = true;
-        username = "mko";
+    # DHCP through NetworkManager.
+    networking = {
+      enable = true;
 
-        password = {
-          sopsFile = ../../secrets/work-vm/users.yaml;
-          secretName = "users/mko-password-hash";
-          key = "mko-password-hash";
+      deploymentLan = {
+        enable = true;
+        interface = "ens37";
+
+        ipv4 = {
+          address = "192.168.245.11";
+          prefixLength = 24;
         };
       };
+    };
 
-      # Workstation VM policy: never suspend/hibernate independently.
-      workstationVm.enable = true;
+    nix.binaryCache = {
+      enable = true;
+      url = "http://192.168.245.10:5000";
+      publicKeyFile = ../../keys/harmonia-cache.pub;
+    };
 
-      vmware = {
+    # Generic VPN client capabilities only.
+    # No SurfVM Homelab VPN profiles are imported into the WorkVM.
+    network.vpnClients = {
+      enable = true;
+
+      openvpn = {
         enable = true;
-        sharedFolders.enable = true;
+        networkManager.enable = true;
       };
 
-      # Python runtimes used by WorkVM tooling.
-      # Python 2 is intentionally limited to this legacy/security-tool use case.
-      python = {
-        python3.enable = true;
-        python2.enable = true;
-      };
+      wireguard.enable = true;
 
-      # Teams inside the VM is intentionally limited to chat/downloads.
-      # Calls and meetings are handled on the Windows host.
-      apps.teams = {
+      fortinet = {
         enable = true;
-        user = "mko";
-        chatOnly = true;
+        networkManager.enable = false;
       };
+    };
 
-      # Remote support clients. All are started manually when needed;
-      # no permanent RMM daemon is enabled.
-      apps.remoteDesktop = {
-        rustdesk.enable = true;
-        anydesk.enable = true;
-        teamviewer.enable = true;
-      };
+    # VMware host <-> Wayland clipboard bridge.
+    vmware.waylandClipboard.enable = true;
 
-      # Wireshark GUI with privileged dumpcap wrapper for non-root captures.
-      wireshark = {
-        enable = true;
-        users = [ "mko" ];
-        usbCapture = false;
-      };
-
-      # Rootful Docker for containerized DFIR/security tooling.
-      # Members of the docker group effectively have root-equivalent access.
-      virtualization.docker = {
-        enable = true;
-        users = [ "mko" ];
-
-        preloadImages = [
-          "docker.io/specterops/bloodhound:9.5.1"
-          "docker.io/library/postgres:18"
-          "docker.io/library/neo4j:4.4.42"
-          "docker.io/library/neo4j:4.4.20"
-          "docker.io/scmanjarrez/bloodhound:4.3.1"
-          "docker.io/log2timeline/plaso:20260720"
-          "ghcr.io/velocidex/velociraptor-server:0.77.2"
-
-          # Network forensics / timeline analysis.
-          "docker.io/zeek/zeek:8.2.1"
-
-          # Timesketch release stack.
-          "us-docker.pkg.dev/osdfir-registry/timesketch/timesketch:20260630"
-          "docker.io/opensearchproject/opensearch:2.19.5"
-          "docker.io/library/postgres:13.0-alpine"
-          "docker.io/library/redis:7.2.11-alpine"
-          "docker.io/library/nginx:1.25.5-alpine-slim"
-
-          # Arkime packet analysis.
-          "ghcr.io/arkime/arkime/arkime:v6.6.0"
-        ];
-      };
-
-      # DHCP through NetworkManager.
-      networking = {
-        enable = true;
-
-        deploymentLan = {
-          enable = true;
-          interface = "ens37";
-
-          ipv4 = {
-            address = "192.168.245.11";
-            prefixLength = 24;
-          };
-        };
-      };
-
-      nix.binaryCache = {
-        enable = true;
-        url = "http://192.168.245.10:5000";
-        publicKeyFile = ../../keys/harmonia-cache.pub;
-      };
-
-      # Generic VPN client capabilities only.
-      # No SurfVM Homelab VPN profiles are imported into the WorkVM.
-      network.vpnClients = {
-        enable = true;
-
-        openvpn = {
-          enable = true;
-          networkManager.enable = true;
-        };
-
-        wireguard.enable = true;
-
-        fortinet = {
-          enable = true;
-          networkManager.enable = true;
-        };
-      };
-
-      # VMware host <-> Wayland clipboard bridge.
-      vmware.waylandClipboard.enable = true;
-
-      # Permanent WorkVM storage layout.
-      #
-      # WorkVM intentionally does not use full-disk encryption:
-      #   /dev/sda
-      #   GPT + EFI/BIOS compatibility
-      #   Btrfs + zstd
-      #   Btrfs swapfile
-      #   prepared /persist subvolume
-      storage.disko = {
-        enable = true;
-        device = "/dev/sda";
+    # Permanent WorkVM storage layout.
+    #
+    # WorkVM intentionally does not use full-disk encryption:
+    #   /dev/sda
+    #   GPT + EFI/BIOS compatibility
+    #   Btrfs + zstd
+    #   Btrfs swapfile
+    #   prepared /persist subvolume
+    storage.disko = {
       enable = true;
       device = "/dev/sda";
       filesystem = "btrfs";
