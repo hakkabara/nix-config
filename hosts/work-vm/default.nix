@@ -371,7 +371,7 @@
   # error instead of hanging processes forever. The share is a drop zone for
   # samples to analyse: nothing on it may execute or gain privileges here.
   fileSystems."/mnt/nfs/llm-workspace" = {
-    device = "192.168.36.5:/opt/dsh/workspace/share";
+    device = "192.168.36.5:/opt/dsh/workspace";
     fsType = "nfs";
 
     options = [
