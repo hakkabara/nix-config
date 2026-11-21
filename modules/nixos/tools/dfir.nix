@@ -161,14 +161,29 @@ let
     });
   }
   // customTools;
+
+  enabledTools = lib.filterAttrs (name: _: cfg.${name}.enable) tools;
 in
 {
-  options.hakkabara.tools.dfir = lib.mapAttrs (name: _: {
-    enable = lib.mkEnableOption "Install ${name}";
-  }) tools;
+  options.hakkabara.tools.dfir =
+    lib.mapAttrs (name: _: {
+      enable = lib.mkEnableOption "Install ${name}";
+    }) tools
+    // {
+      enabled = lib.mkOption {
+        type = lib.types.attrsOf lib.types.package;
+        readOnly = true;
+        description = ''
+          The enabled DFIR tools by name, as installed into the system PATH.
+          Read-only, for consumers such as a tool link farm.
+        '';
+      };
+    };
 
   config = {
-    environment.systemPackages = lib.attrValues (lib.filterAttrs (name: _: cfg.${name}.enable) tools);
+    hakkabara.tools.dfir.enabled = enabledTools;
+
+    environment.systemPackages = lib.attrValues enabledTools;
 
     environment.pathsToLink =
       lib.optionals cfg.chainsawRules.enable [ "/share/chainsaw" ]
