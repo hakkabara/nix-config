@@ -62,6 +62,17 @@ in
       '';
     };
 
+    caCertificate = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = lib.literalExpression "../../keys/deploy-lan-ca.crt";
+      description = ''
+        PEM certificate of the internal CA that signs the HTTPS certificates
+        of services on the deployment LAN. Added to the system trust store.
+        The CA is name-constrained to the deployment domain and LAN.
+      '';
+    };
+
     ipv4 = {
       address = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
@@ -105,6 +116,8 @@ in
         '';
       }
     ];
+
+    security.pki.certificateFiles = lib.optional (cfg.caCertificate != null) cfg.caCertificate;
 
     networking.hosts = lib.mapAttrs' (
       name: host: lib.nameValuePair host.address (map fqdn ([ name ] ++ host.aliases))

@@ -185,6 +185,7 @@
       deploymentLan = {
         enable = true;
         interface = "ens37";
+        caCertificate = ../../keys/deploy-lan-ca.crt;
       };
     };
 

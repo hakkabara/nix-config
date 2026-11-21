@@ -15,7 +15,10 @@ let
 
   domain = if cfg.domain == null then bindAddress else cfg.domain;
 
-  apiUrl = "http://${bindAddress}:${toString cfg.port}/api/v1";
+  # With TLS, nginx owns the public address and Forgejo moves to loopback.
+  httpAddress = if cfg.tls.enable then "127.0.0.1" else bindAddress;
+
+  apiUrl = "http://${httpAddress}:${toString cfg.port}/api/v1";
 
   tokenFile = "${cfg.stateDir}/provisioning/token";
 
@@ -70,7 +73,38 @@ in
     port = lib.mkOption {
       type = lib.types.port;
       default = 3000;
-      description = "TCP port used by the Forgejo web interface.";
+      description = ''
+        TCP port used by the Forgejo web interface. With TLS enabled it is
+        bound to 127.0.0.1 only and reached through nginx.
+      '';
+    };
+
+    tls = {
+      enable = lib.mkEnableOption ''
+        HTTPS on port 443 through an nginx reverse proxy. Forgejo itself then
+        listens on 127.0.0.1 only and its plain HTTP port is closed
+      '';
+
+      sopsFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = ''
+          SOPS YAML document holding the PEM server certificate (including
+          intermediates) and its private key.
+        '';
+      };
+
+      certificateKey = lib.mkOption {
+        type = lib.types.str;
+        default = "certificate";
+        description = "Key of the PEM certificate chain inside the SOPS document.";
+      };
+
+      privateKeyKey = lib.mkOption {
+        type = lib.types.str;
+        default = "private-key";
+        description = "Key of the PEM private key inside the SOPS document.";
+      };
     };
 
     interface = lib.mkOption {
@@ -228,6 +262,13 @@ in
       }
 
       {
+        assertion = !cfg.tls.enable || cfg.tls.sopsFile != null;
+        message = ''
+          hakkabara.services.forgejo.tls.sopsFile must be set.
+        '';
+      }
+
+      {
         assertion = config.services.openssh.enable;
         message = ''
           hakkabara.services.forgejo serves Git over the system OpenSSH daemon,
@@ -237,6 +278,24 @@ in
     ];
 
     sops.secrets = {
+      forgejo-tls-certificate = lib.mkIf cfg.tls.enable {
+        inherit (cfg.tls) sopsFile;
+        key = cfg.tls.certificateKey;
+
+        owner = config.services.nginx.user;
+        inherit (config.services.nginx) group;
+        mode = "0400";
+      };
+
+      forgejo-tls-private-key = lib.mkIf cfg.tls.enable {
+        inherit (cfg.tls) sopsFile;
+        key = cfg.tls.privateKeyKey;
+
+        owner = config.services.nginx.user;
+        inherit (config.services.nginx) group;
+        mode = "0400";
+      };
+
       ${cfg.admin.password.secretName} = {
         inherit (cfg.admin.password) sopsFile key;
 
@@ -273,9 +332,10 @@ in
 
         server = {
           DOMAIN = domain;
-          HTTP_ADDR = bindAddress;
+          HTTP_ADDR = httpAddress;
           HTTP_PORT = cfg.port;
-          ROOT_URL = "http://${domain}:${toString cfg.port}/";
+          ROOT_URL =
+            if cfg.tls.enable then "https://${domain}/" else "http://${domain}:${toString cfg.port}/";
 
           # Git over SSH goes through the system OpenSSH daemon as the
           # forgejo user: ssh://forgejo@<address>/<owner>/<repo>.git
@@ -285,8 +345,8 @@ in
           SSH_PORT = 22;
         };
 
-        # Plain HTTP on the isolated deployment LAN only.
-        session.COOKIE_SECURE = false;
+        # Without TLS: plain HTTP on the isolated deployment LAN only.
+        session.COOKIE_SECURE = cfg.tls.enable;
 
         service = {
           DISABLE_REGISTRATION = true;
@@ -323,6 +383,18 @@ in
 
         unitConfig.StartLimitIntervalSec = 0;
         serviceConfig.RestartSec = 5;
+      };
+
+      # Same deployment-LAN address race as Forgejo. Reload the certificate
+      # when the encrypted document changes (replaces sops-nix restartUnits).
+      nginx = lib.mkIf cfg.tls.enable {
+        wants = [ "network-online.target" ];
+        after = [ "network-online.target" ];
+
+        restartTriggers = [ (builtins.hashFile "sha256" cfg.tls.sopsFile) ];
+
+        # The nginx module limits restarts to a 60 s window.
+        startLimitIntervalSec = lib.mkForce 0;
       };
 
       # Create the administrator once. An existing account is left untouched, so
@@ -430,7 +502,40 @@ in
     # Never expose the web interface globally. Only the dedicated deployment
     # LAN may connect to Forgejo.
     networking.firewall.interfaces.${interface}.allowedTCPPorts = [
-      cfg.port
+      (if cfg.tls.enable then 443 else cfg.port)
     ];
+
+    services.nginx = lib.mkIf cfg.tls.enable {
+      enable = true;
+
+      recommendedTlsSettings = true;
+      recommendedProxySettings = true;
+      recommendedOptimisation = true;
+
+      virtualHosts.${domain} = {
+        default = true;
+        onlySSL = true;
+
+        listen = [
+          {
+            addr = bindAddress;
+            port = 443;
+            ssl = true;
+          }
+        ];
+
+        sslCertificate = config.sops.secrets.forgejo-tls-certificate.path;
+        sslCertificateKey = config.sops.secrets.forgejo-tls-private-key.path;
+
+        locations."/" = {
+          proxyPass = "http://${httpAddress}:${toString cfg.port}";
+
+          # Large pushes and LFS uploads.
+          extraConfig = ''
+            client_max_body_size 512M;
+          '';
+        };
+      };
+    };
   };
 }

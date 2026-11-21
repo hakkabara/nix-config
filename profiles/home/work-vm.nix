@@ -22,6 +22,12 @@
       gecko = {
         extensions.foxyProxy.enable = lib.mkDefault true;
 
+        # Gecko ignores the system trust store on Linux; trust the internal
+        # deployment-LAN CA (HTTPS for git.deploy.internal) explicitly.
+        overrides.common.policies.Certificates.Install = [
+          "${../../keys/deploy-lan-ca.crt}"
+        ];
+
         firefox = {
           enable = lib.mkDefault true;
           profileName = lib.mkDefault "work";

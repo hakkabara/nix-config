@@ -140,6 +140,7 @@
       deploymentLan = {
         enable = true;
         interface = "ens37";
+        caCertificate = ../../keys/deploy-lan-ca.crt;
       };
     };
 
@@ -166,6 +167,9 @@
       domain = "git.${config.hakkabara.networking.deploymentLan.domain}";
       port = 3000;
       interface = "ens37";
+
+      # Certificate and key are set from nix-internal:
+      #   hakkabara.services.forgejo.tls = { enable = true; sopsFile = ...; };
 
       admin.password.sopsFile = ../../secrets/deploy-vm/forgejo.yaml;
 
