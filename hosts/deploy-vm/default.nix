@@ -1,6 +1,8 @@
 {
   config,
+  lib,
   pkgs,
+  pkgsUnstableUnfree,
   ...
 }:
 
@@ -254,7 +256,33 @@
       ../../users/mko
       ../../profiles/home/deploy-vm.nix
     ];
+
+    hakkabara.ai = {
+      enable = true;
+
+      claude = {
+        enable = true;
+
+        code = {
+          enable = true;
+
+          # The API rejects outdated clients; stable lags behind.
+          package = pkgsUnstableUnfree.claude-code;
+
+          # Allowlist sandbox in chat mode: Claude starts only below
+          # ~/claude-code, sees only that project and runs nothing.
+          isolation = {
+            enable = true;
+            projectRoots = [ "~/claude-code" ];
+          };
+        };
+      };
+    };
   };
+
+  # The appliance allows no unfree packages except the Claude Code launcher,
+  # which inherits the license of the package it wraps.
+  nixpkgs.config.allowUnfreePredicate = pkg: lib.getName pkg == "claude-code-launcher";
 
   # Do not change during normal updates.
   system.stateVersion = "26.05";

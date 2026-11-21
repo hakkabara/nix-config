@@ -8,7 +8,7 @@
 #    the rest of $HOME and runtime sockets simply do not exist inside.
 #
 # Configuration arrives as environment variables set by the Nix wrapper:
-#   CLAUDE_REAL TOKEN_FILE EXPIRES_FILE ISOLATE BWRAP POLICY_FILE
+#   CLAUDE_REAL TOKEN_FILE EXPIRES_FILE ISOLATE TRUST_PROJECT BWRAP POLICY_FILE
 #   PROJECT_ROOTS_FILE RO_PATHS_FILE RW_PATHS_FILE PASS_ENV_FILE
 #   (files with one entry per line)
 set -euo pipefail
@@ -63,6 +63,7 @@ sandbox_tool="$BWRAP"
 policy="$POLICY_FILE"
 ro_list="$RO_PATHS_FILE"
 rw_list="$RW_PATHS_FILE"
+auto_trust="$TRUST_PROJECT"
 
 # Drop every environment variable that is not explicitly passed through,
 # e.g. SOPS_AGE_KEY, SSH_AUTH_SOCK or cloud credentials. Unsetting here keeps
@@ -111,7 +112,15 @@ args+=(--remount-ro /etc)
 
 # A blank home with only Claude's state, then the project itself.
 mkdir -p "$HOME/.claude"
-[ -e "$HOME/.claude.json" ] || install -m 600 /dev/null "$HOME/.claude.json"
+[ -s "$HOME/.claude.json" ] || printf '{}\n' >"$HOME/.claude.json"
+chmod 600 "$HOME/.claude.json"
+
+# Skip the trust dialog for this project. Rewrite in place: running
+# sessions keep ~/.claude.json bind-mounted and must see the same file.
+if [ "$auto_trust" = 1 ]; then
+    trusted="$(jq --arg p "$project" '.projects[$p].hasTrustDialogAccepted = true' "$HOME/.claude.json")" &&
+        printf '%s\n' "$trusted" >"$HOME/.claude.json"
+fi
 args+=(
     --tmpfs "$HOME"
     --bind "$HOME/.claude" "$HOME/.claude"

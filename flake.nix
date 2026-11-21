@@ -104,6 +104,10 @@
         deploy-vm = nixpkgs.lib.nixosSystem {
           inherit system;
 
+          specialArgs = {
+            inherit pkgsUnstableUnfree;
+          };
+
           modules = [
             ./hosts/deploy-vm
 

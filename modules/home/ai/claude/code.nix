@@ -22,14 +22,22 @@ let
 
   # Without command execution Claude can still read, answer and write files
   # into the project, but no tool runs anything.
-  executionDeny = lib.optionals (!isoCfg.allowCommands) [
+  executionDeny = lib.optionals (isoCfg.chatOnly || !isoCfg.allowCommands) [
     "Bash"
     "Monitor"
   ];
 
+  # Hooks and MCP servers are programs Claude Code starts by itself, from
+  # user, plugin or project settings. Chat mode allows none of them.
+  chatPolicy = lib.optionalAttrs isoCfg.chatOnly {
+    disableAllHooks = true;
+    allowManagedHooksOnly = true;
+    allowManagedMcpServersOnly = true;
+  };
+
   policyFile = pkgs.writeText "claude-code-managed-settings.json" (
     builtins.toJSON (
-      lib.recursiveUpdate basePolicy {
+      lib.recursiveUpdate (lib.recursiveUpdate basePolicy chatPolicy) {
         permissions.deny = (basePolicy.permissions.deny or [ ]) ++ executionDeny;
       }
     )
@@ -40,6 +48,7 @@ let
 
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.jq
     ];
 
     runtimeEnv = {
@@ -47,6 +56,7 @@ let
       TOKEN_FILE = orEmpty tokenCfg.file;
       EXPIRES_FILE = orEmpty tokenCfg.expiresFile;
       ISOLATE = if isoCfg.enable then "1" else "0";
+      TRUST_PROJECT = if isoCfg.trustProjects then "1" else "0";
       BWRAP = lib.getExe pkgs.bubblewrap;
       POLICY_FILE = policyFile;
       PROJECT_ROOTS_FILE = listFile "project-roots" isoCfg.projectRoots;
@@ -156,6 +166,29 @@ in
           Whether Claude may run shell commands (Bash and Monitor tools).
           When false, it can still read the project, answer questions and
           write files such as scripts, which you review and run yourself.
+        '';
+      };
+
+      chatOnly = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Run Claude Code like the chat in the browser: no shell commands
+          (overrides allowCommands), no hooks and no MCP servers, whether they
+          come from user, plugin or project settings. Claude reads the
+          project, answers and writes files; you run anything yourself.
+        '';
+      };
+
+      trustProjects = lib.mkOption {
+        type = lib.types.bool;
+        default = isoCfg.chatOnly;
+        defaultText = lib.literalExpression "isolation.chatOnly";
+        description = ''
+          Mark each start directory as trusted in ~/.claude.json, so Claude
+          Code skips the trust dialog. The dialog guards against hooks and
+          MCP servers shipped in a project; only skip it when chatOnly
+          already blocks those.
         '';
       };
 
