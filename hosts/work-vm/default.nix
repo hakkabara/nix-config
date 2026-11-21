@@ -431,6 +431,54 @@
     };
   };
 
+  # Fixed NetworkManager profiles per interface. The automatic
+  # "Wired connection N" profiles attach to whichever interface comes up
+  # first, which can leave the uplink without any profile after a reboot
+  # (no default route, VPNs fail with "Could not find source connection").
+  networking.networkmanager = {
+    settings.main.no-auto-default = "*";
+
+    ensureProfiles.profiles = {
+      # VMware NAT: internet uplink and default route.
+      hakkabara-uplink = {
+        connection = {
+          id = "hakkabara-uplink";
+          type = "ethernet";
+          interface-name = "ens33";
+          autoconnect = true;
+          autoconnect-priority = 100;
+        };
+        ipv4.method = "auto";
+        ipv6.method = "auto";
+        # The emulated e1000 NIC can wedge its TX queue with segmentation
+        # offload on ("e1000 ... Detected Tx Unit Hang": link up, RX works,
+        # nothing is sent). Segment in software instead.
+        ethtool = {
+          feature-tso = false;
+          feature-gso = false;
+          feature-gro = false;
+        };
+      };
+
+      # VMware host-only lab network to the REMnux VM; never the default route.
+      hakkabara-lab-hostonly = {
+        connection = {
+          id = "hakkabara-lab-hostonly";
+          type = "ethernet";
+          interface-name = "ens38";
+          autoconnect = true;
+          autoconnect-priority = 100;
+        };
+        ipv4 = {
+          method = "auto";
+          never-default = true;
+          ignore-auto-dns = true;
+        };
+        ipv6.method = "disabled";
+      };
+    };
+  };
+
   # DSH LLM workspace share exported by the REMnux analysis VM over the
   # VMware host-only lab network (192.168.36.0/24, NFSv4.2).
   #
