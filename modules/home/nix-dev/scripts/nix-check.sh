@@ -48,6 +48,15 @@ deadnix --fail \
   -- .
 
 echo
+echo "===== NIXFMT ====="
+
+# Check only; nix-format (nix fmt) rewrites the files.
+if ! git ls-files -z -- '*.nix' | xargs -0 --no-run-if-empty nixfmt --check; then
+  fail "Unformatted Nix files; run nix-format."
+fi
+echo "OK: all tracked Nix files are formatted"
+
+echo
 echo "===== SOPS ENCRYPTION STATUS ====="
 
 while IFS= read -r -d "" file; do

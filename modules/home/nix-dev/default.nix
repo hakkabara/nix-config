@@ -45,6 +45,7 @@ let
     runtimeInputs = [
       pkgs.git
       pkgs.nix
+      pkgs.nixfmt
       pkgs.statix
       pkgs.deadnix
       pkgs.sops
