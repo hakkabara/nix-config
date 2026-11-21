@@ -385,6 +385,11 @@
       config.sops.secrets."ssh/work-config".path
     ];
 
+    # Interim until the customer SSH data moves to nix-internal on the
+    # DeployVM: open the encrypted SSH config with the host age key.
+    # Changes take effect after the next nix-switch.
+    home.shellAliases.ssh-secrets = ''(cd ~/nix-config && SOPS_AGE_KEY="$(sudo cat /var/lib/sops-nix/key.txt)" sops edit secrets/work-vm/ssh.yaml)'';
+
     home.activation.installCustomerSshTemplate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ssh_dir="$HOME/.ssh/config.d"
       template="$ssh_dir/90-customers.conf.example"
