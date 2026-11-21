@@ -32,22 +32,32 @@ let
   # Same package, but bin/claude loads the token for its own process only.
   # Shells, IDEs and other programs never see it in their environment.
   claudeWithToken = pkgs.symlinkJoin {
-    name = "claude-code-with-token-${pkgs.claude-code.version}";
-    paths = [ pkgs.claude-code ];
+    name = "claude-code-with-token-${cfg.claude.code.package.version}";
+    paths = [ cfg.claude.code.package ];
     nativeBuildInputs = [ pkgs.makeWrapper ];
 
     postBuild = ''
       rm "$out/bin/claude"
-      makeWrapper ${lib.getExe pkgs.claude-code} "$out/bin/claude" \
+      makeWrapper ${lib.getExe cfg.claude.code.package} "$out/bin/claude" \
         --run ${lib.escapeShellArg (readToken + warnExpiry)}
     '';
 
-    inherit (pkgs.claude-code) meta;
+    inherit (cfg.claude.code.package) meta;
   };
 in
 {
   options.hakkabara.ai.claude.code = {
     enable = lib.mkEnableOption "Claude Code CLI";
+
+    package = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.claude-code;
+      defaultText = lib.literalExpression "pkgs.claude-code";
+      description = ''
+        Claude Code package. The API rejects clients that are too old, so
+        hosts on a stable channel may need a newer one from unstable.
+      '';
+    };
 
     oauthToken = {
       file = lib.mkOption {
@@ -77,7 +87,7 @@ in
 
   config = lib.mkIf (cfg.enable && cfg.claude.enable && cfg.claude.code.enable) {
     home.packages = [
-      (if tokenCfg.file == null then pkgs.claude-code else claudeWithToken)
+      (if tokenCfg.file == null then cfg.claude.code.package else claudeWithToken)
     ];
   };
 }
