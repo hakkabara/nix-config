@@ -140,12 +140,15 @@ check_secret \
 echo
 echo "VMware"
 
-mount_info="$(findmnt -rn -M /data -o SOURCE,FSTYPE 2>/dev/null || true)"
+vmware_mount="/data"
+findmnt -rn -M /data/share >/dev/null 2>&1 && vmware_mount="/data/share"
+
+mount_info="$(findmnt -rn -M "$vmware_mount" -o SOURCE,FSTYPE 2>/dev/null || true)"
 
 if [[ -n "$mount_info" ]]; then
-  print_value "/data" "OK ($mount_info)"
+  print_value "$vmware_mount" "OK ($mount_info)"
 else
-  print_value "/data" "WARN (not mounted)"
+  print_value "$vmware_mount" "WARN (not mounted)"
 fi
 
 #
