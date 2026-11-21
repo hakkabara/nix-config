@@ -5,6 +5,7 @@
   libsForQt5,
   makeDesktopItem,
   copyDesktopItems,
+  icoutils,
 }:
 
 # RdpCacheStitcher (BSI) reassembles RDP bitmap cache tiles into reconstructed
@@ -28,6 +29,7 @@ stdenv.mkDerivation (finalAttrs: {
     libsForQt5.qmake
     libsForQt5.wrapQtAppsHook
     copyDesktopItems
+    icoutils # icotool: application icon from the upstream .ico
   ];
   buildInputs = [ libsForQt5.qtbase ];
 
@@ -58,6 +60,9 @@ stdenv.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
     install -Dm755 RdpCacheStitcher "$out/bin/RdpCacheStitcher"
+    # src/data/icon.ico holds one 256x256 PNG; the Windows build embeds it.
+    icotool -x -o rdpcachestitcher.png "$src/src/data/icon.ico"
+    install -Dm644 rdpcachestitcher.png "$out/share/icons/hicolor/256x256/apps/rdpcachestitcher.png"
     runHook postInstall
   '';
 
@@ -66,6 +71,7 @@ stdenv.mkDerivation (finalAttrs: {
       name = "rdpcachestitcher";
       desktopName = "RdpCacheStitcher";
       exec = "RdpCacheStitcher";
+      icon = "rdpcachestitcher";
       comment = "Reconstruct screen images from RDP bitmap cache tiles";
       categories = [
         "Utility"

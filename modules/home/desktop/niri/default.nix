@@ -84,6 +84,12 @@ in
       x11.enable = true;
     };
 
+    # Icon theme: without one only hicolor exists, so generic freedesktop names
+    # (utilities-terminal, x-office-calendar, *-symbolic) render as blanks.
+    # Papirus-Dark as in the Plasma rice; GTK and DMS read the gsettings key.
+    home.packages = [ pkgs.papirus-icon-theme ];
+    dconf.settings."org/gnome/desktop/interface".icon-theme = "Papirus-Dark";
+
     # Home Manager 26.05 does not yet contain the newer typed Niri module.
     # Managing config.kdl with xdg.configFile remains fully declarative and
     # keeps the configuration in the Nix repository.
