@@ -285,6 +285,7 @@
     imports = [
       ../../users/mko
       ../../profiles/home/work-vm.nix
+      ../../modules/home/desktop/monitor
     ];
 
     hakkabara = {
@@ -297,32 +298,79 @@
         };
       };
 
-      desktop.dms = {
-        alwaysOn.enable = true;
-
-        controlCenter = {
+      desktop = {
+        monitor = {
           enable = true;
+          backend = "niri";
+          # Follow VMware's monitor arrangement.
+          followHostLayout = true;
+          safeOutput = "Virtual-1";
 
-          icons = {
-            network = true;
-            bluetooth = false;
-            audio = true;
-            vpn = true;
-            brightness = false;
-            mic = false;
-            battery = false;
-            screenSharing = true;
+          watcher.enable = true;
+
+          # Same VMware host monitors as the SurfVM, so the calibration is shared.
+          # Niri has no primary output; primaryOutput is ignored by that backend.
+          profiles = {
+            homeoffice = {
+              # The 1920x1080 monitor is physically left. Matching by size
+              # keeps the layout right wherever the VM window was started.
+              leftSize = {
+                width = 1920;
+                height = 1080;
+              };
+              leftOutput = "Virtual-2";
+              rightOutput = "Virtual-1";
+              verticalAlignment = "top";
+            };
+
+            office = {
+              leftOutput = "Virtual-1";
+              rightOutput = "Virtual-2";
+              verticalAlignment = "top";
+            };
           };
+        };
 
-          widgets = {
-            volumeSlider = true;
-            brightnessSlider = false;
-            wifi = false;
-            bluetooth = false;
-            audioOutput = true;
-            audioInput = false;
-            nightMode = true;
-            darkMode = false;
+        # The hotplug selector is a small Kitty window; without this rule Niri
+        # would tile it as a full-height column.
+        niri.extraConfig = ''
+          window-rule {
+              match app-id=r#"^hakkabara-monitor-selector$"#
+
+              open-floating true
+              open-focused true
+              default-column-width { fixed 680; }
+              default-window-height { fixed 520; }
+          }
+        '';
+
+        dms = {
+          alwaysOn.enable = true;
+
+          controlCenter = {
+            enable = true;
+
+            icons = {
+              network = true;
+              bluetooth = false;
+              audio = true;
+              vpn = true;
+              brightness = false;
+              mic = false;
+              battery = false;
+              screenSharing = true;
+            };
+
+            widgets = {
+              volumeSlider = true;
+              brightnessSlider = false;
+              wifi = false;
+              bluetooth = false;
+              audioOutput = true;
+              audioInput = false;
+              nightMode = true;
+              darkMode = false;
+            };
           };
         };
       };

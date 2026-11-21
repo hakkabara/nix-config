@@ -40,6 +40,15 @@ let
         default = null;
         description = "Preferred left output name; falls back to deterministic name order.";
       };
+      leftSize = lib.mkOption {
+        type = lib.types.nullOr sizeType;
+        default = null;
+        description = ''
+          Physical size of the left monitor. When exactly one output matches,
+          it is placed left regardless of its name; VMware renames outputs
+          depending on which monitor hosts the VM window.
+        '';
+      };
       rightOutput = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -64,7 +73,7 @@ let
 
   configFile = pkgs.writeText "hakkabara-monitor.json" (
     builtins.toJSON {
-      inherit (cfg) backend safeOutput;
+      inherit (cfg) backend safeOutput followHostLayout;
       watcher = {
         inherit (cfg.watcher)
           debounceSeconds
@@ -86,6 +95,14 @@ let
           size.width
           size.height
         ]) profile.matchSizes;
+        leftSize =
+          if profile.leftSize == null then
+            null
+          else
+            [
+              profile.leftSize.width
+              profile.leftSize.height
+            ];
       }) cfg.profiles;
     }
   );
@@ -114,6 +131,7 @@ let
     name = "monitor";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.drm_info
       pkgs.kitty
       pkgs.python3
       pkgs.systemd
@@ -142,6 +160,16 @@ in
       ];
       default = "auto";
       description = "Monitor-control backend. Prefer an explicit value on production hosts.";
+    };
+
+    followHostLayout = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Place outputs exactly where VMware suggests (DRM "suggested X/Y").
+        VMware derives these from the host monitor holding the VM window;
+        any other arrangement shows the screens overlapped on the host.
+      '';
     };
 
     safeOutput = lib.mkOption {

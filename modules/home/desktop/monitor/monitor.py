@@ -12,7 +12,7 @@ import tty
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-VERSION = "4.5.1"
+VERSION = "4.9.0"
 WATCHER_UNIT = "hakkabara-monitor-watcher.service"
 
 
@@ -76,8 +76,7 @@ def kscreen_outputs():
     return outs
 
 
-def niri_outputs():
-    data = json.loads(run(["niri", "msg", "--json", "outputs"]).stdout)
+def parse_niri_outputs(data):
     items = list(data.items()) if isinstance(data, dict) else [(str(o.get("name", "")), o) for o in data]
     outs = []
     for key, raw in items:
@@ -85,11 +84,18 @@ def niri_outputs():
         cur = raw.get("current_mode")
         modes = raw.get("modes") or []
         mode = modes[cur] if isinstance(cur, int) and 0 <= cur < len(modes) else None
+        logical = raw.get("logical")
+        enabled = logical is not None and mode is not None
+        if mode is None:
+            # Niri reports neither a current mode nor a logical rectangle for an
+            # output that is switched off.  Fall back to the preferred mode so a
+            # connected-but-disabled VMware output still yields usable sizes for
+            # profile detection and layout, exactly like the KScreen backend.
+            mode = next((m for m in modes if m.get("is_preferred")), modes[0] if modes else None)
         pw = int((mode or {}).get("width", 0))
         ph = int((mode or {}).get("height", 0))
-        logical = raw.get("logical")
-        enabled = logical is not None and cur is not None
         logical = logical or {}
+        scale = float(logical.get("scale") or 1.0)
         outs.append(
             Output(
                 name,
@@ -97,15 +103,19 @@ def niri_outputs():
                 enabled,
                 pw,
                 ph,
-                int(logical.get("width", 0)),
-                int(logical.get("height", 0)),
+                int(logical.get("width") or round(pw / scale)),
+                int(logical.get("height") or round(ph / scale)),
                 int(logical.get("x", 0)),
                 int(logical.get("y", 0)),
-                float(logical.get("scale") or 1.0),
+                scale,
                 0,
             )
         )
     return outs
+
+
+def niri_outputs():
+    return parse_niri_outputs(json.loads(run(["niri", "msg", "--json", "outputs"]).stdout))
 
 
 def backend_name(cfg):
@@ -172,7 +182,16 @@ def choose_pair(cfg, outs, profile=None, swap=False):
     left_name = profile_cfg.get("leftOutput")
     right_name = profile_cfg.get("rightOutput")
     by_name = {o.name: o for o in candidates}
-    if left_name in by_name and right_name in by_name and left_name != right_name:
+    # VMware names the output that hosts the VM window Virtual-1, so names
+    # swap with window placement.  When the two monitors differ in size, the
+    # size identifies the physical left monitor regardless of its name.
+    left_size = profile_cfg.get("leftSize")
+    tolerance = int(profile_cfg.get("tolerance", 96))
+    by_size = [o for o in candidates if left_size and size_match(o, left_size, tolerance)]
+    if len(by_size) == 1:
+        left = by_size[0]
+        right = next(o for o in candidates if o is not left)
+    elif left_name in by_name and right_name in by_name and left_name != right_name:
         left, right = by_name[left_name], by_name[right_name]
     else:
         candidates = sorted(candidates, key=lambda o: o.name)
@@ -198,6 +217,66 @@ def layout_positions(left, right, alignment="center"):
     else:
         raise RuntimeError(f"unknown vertical alignment '{alignment}'")
     return {left.name: (0, left_y), right.name: (left.log_w, right_y)}
+
+
+def parse_drm_suggestions(drm, id_to_name):
+    """Map output name -> (x, y) from VMware's "suggested X/Y" properties.
+
+    `drm` is `drm_info -j` output, `id_to_name` maps DRM connector ids to
+    names such as Virtual-1 (from /sys/class/drm/*/connector_id).  Only
+    connected connectors count.  An all-zero result carries no layout
+    information (VMware reports 0,0 everywhere while single-screen).
+    """
+    hints = {}
+    for device in (drm or {}).values():
+        for conn in device.get("connectors", []):
+            name = id_to_name.get(conn.get("id"))
+            if not name or conn.get("status") != 1:
+                continue
+            props = conn.get("properties") or {}
+            x = (props.get("suggested X") or {}).get("value")
+            y = (props.get("suggested Y") or {}).get("value")
+            if isinstance(x, int) and isinstance(y, int):
+                hints[name] = (x, y)
+    if len(set(hints.values())) < len(hints):
+        return {}
+    return hints
+
+
+def vmware_suggested_positions():
+    if not shutil.which("drm_info"):
+        return {}
+    id_to_name = {}
+    for path in Path("/sys/class/drm").glob("card*-*"):
+        try:
+            conn_id = int((path / "connector_id").read_text().strip())
+        except (OSError, ValueError):
+            continue
+        id_to_name[conn_id] = path.name.split("-", 1)[1]
+    proc = run(["drm_info", "-j"], check=False)
+    if proc.returncode != 0:
+        return {}
+    try:
+        return parse_drm_suggestions(json.loads(proc.stdout), id_to_name)
+    except (ValueError, AttributeError):
+        return {}
+
+
+def host_layout(cfg, left, right):
+    """Return VMware's requested positions for the pair, or None.
+
+    The guest must use exactly the host arrangement; otherwise VMware shows
+    the screens overlapping or scaled.  The suggestion depends on which host
+    monitor holds the VM window, so it beats any static profile.
+    """
+    if not cfg.get("followHostLayout"):
+        return None
+    hints = vmware_suggested_positions()
+    if left.name not in hints or right.name not in hints:
+        return None
+    if hints[left.name][0] > hints[right.name][0]:
+        left, right = right, left
+    return left, right, {left.name: hints[left.name], right.name: hints[right.name]}
 
 
 def runtime_file(runtime_dir, name):
@@ -287,7 +366,7 @@ def niri_single(cfg, outs, dry=False):
     safe = safe_output(cfg, outs)
     commands = [
         ["niri", "msg", "output", safe, "on"],
-        ["niri", "msg", "output", safe, "position", "0", "0"],
+        ["niri", "msg", "output", safe, "position", "set", "0", "0"],
     ]
     for out in connected(outs):
         if out.name != safe:
@@ -350,7 +429,7 @@ def niri_layout(cfg, left, right, positions, dry=False):
         x, y = positions[out.name]
         commands += [
             ["niri", "msg", "output", out.name, "on"],
-            ["niri", "msg", "output", out.name, "position", str(x), str(y)],
+            ["niri", "msg", "output", out.name, "position", "set", str(x), str(y)],
         ]
     if dry:
         for command in commands:
@@ -428,7 +507,14 @@ def apply_layout(cfg, profile=None, swap=False, snapshot=None, dry=False, runtim
         outs = latest_usable_snapshot(runtime_dir, current) or current
     left, right = choose_pair(cfg, outs, profile, swap)
     align = profile_alignment(cfg, profile, alignment)
-    positions = layout_positions(left, right, align)
+    host = host_layout(cfg, left, right)
+    if host:
+        left, right, positions = host
+        align = "vmware-host"
+        if swap:
+            print("NOTE: --swap ignored; VMware host layout is authoritative")
+    else:
+        positions = layout_positions(left, right, align)
     primary_name = resolve_primary(cfg, left, right, profile)
     print(
         f"Layout ({align}): {left.name} {left.log_w}x{left.log_h} @ {positions[left.name][0]},{positions[left.name][1]}"
@@ -454,6 +540,10 @@ def apply_layout(cfg, profile=None, swap=False, snapshot=None, dry=False, runtim
 def status(cfg):
     print(f"Version: {VERSION}")
     print(f"Backend: {backend_name(cfg)}")
+    if cfg.get("followHostLayout"):
+        hints = vmware_suggested_positions()
+        shown = ", ".join(f"{n}@{x},{y}" for n, (x, y) in sorted(hints.items()))
+        print(f"VMware host layout: {shown or 'none'}")
     for out in get_outputs(cfg):
         state = "ON" if out.enabled else "off"
         print(
@@ -659,6 +749,28 @@ def wait_for_active_count(cfg, wanted, timeout, stable_samples=2):
         previous = fingerprint
         time.sleep(0.08)
     return last
+
+
+def hints_cover(hints, outs):
+    """True when VMware suggests a position for every connected output."""
+    names = {o.name for o in connected(outs)}
+    return len(names) == 2 and names <= set(hints)
+
+
+def wait_for_host_hints(cfg, timeout):
+    """Wait briefly for VMware's suggested positions of both outputs.
+
+    The connector hotplug and the suggested X/Y update may arrive a moment
+    apart; returns the live outputs once both are covered, else None.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        outs = get_outputs(cfg)
+        if hints_cover(vmware_suggested_positions(), outs):
+            return outs
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.1)
 
 
 def wait_for_connected_pair(cfg, timeout):
@@ -976,6 +1088,23 @@ def watcher(cfg, runtime_dir):
                     current_connected = len(connected(candidate))
                     reason = hotplug_transition(previous_active, previous_connected, outs)
 
+            # Under VMware the host decides the monitor arrangement.  Disabling
+            # an output here (safe single) makes VMware drop it entirely, so
+            # with a host layout available apply it directly: no prompt.
+            if reason is not None and cfg.get("followHostLayout"):
+                live = wait_for_host_hints(cfg, min(settle, 1.0))
+                if live is not None:
+                    try:
+                        apply_layout(cfg, None, False, snapshot=live, runtime_dir=runtime_dir)
+                        print(f"WATCHER: dual {reason} edge; applied VMware host layout", flush=True)
+                    except Exception as exc:
+                        print(f"WATCHER: ERROR host layout failed: {exc}", flush=True)
+                    after = get_outputs(cfg)
+                    previous_active = len(active(after))
+                    previous_connected = len(connected(after))
+                    continue
+                print("WATCHER: no VMware host layout; falling back to selector", flush=True)
+
             if reason is not None:
                 snapshot = outs
                 if reason == "connected":
@@ -1125,6 +1254,70 @@ def self_test():
     assert hotplug_transition(1, 2, home) == "active"
     assert hotplug_transition(2, 2, home) is None
     assert hotplug_transition(1, 1, [home[0]]) is None
+    # Niri: an output that is switched off has no current mode and no logical
+    # rectangle; its preferred mode must still provide sizes.
+    niri_safe_single = parse_niri_outputs(
+        {
+            "Virtual-1": {
+                "name": "Virtual-1",
+                "modes": [{"width": 2560, "height": 1440, "is_preferred": True}],
+                "current_mode": 0,
+                "logical": {"x": 0, "y": 0, "width": 2560, "height": 1440, "scale": 1.0},
+            },
+            "Virtual-2": {
+                "name": "Virtual-2",
+                "modes": [
+                    {"width": 1024, "height": 768, "is_preferred": False},
+                    {"width": 1920, "height": 1080, "is_preferred": True},
+                ],
+                "current_mode": None,
+                "logical": None,
+            },
+        }
+    )
+    assert [o.enabled for o in niri_safe_single] == [True, False]
+    assert (niri_safe_single[1].phys_w, niri_safe_single[1].log_h) == (1920, 1080)
+    assert detect_profile(cfg, niri_safe_single) == "single"
+    assert detect_profile(cfg, niri_safe_single, include_disabled=True) == "homeoffice"
+    assert hotplug_transition(1, 1, niri_safe_single) == "connected"
+    # leftSize wins over output names: VMware swaps Virtual-1/Virtual-2 when
+    # the VM window starts on the other monitor.
+    cfg["profiles"]["homeoffice"]["leftSize"] = [1920, 1080]
+    swapped_names = [
+        Output("Virtual-1", True, True, 1920, 1080, 1920, 1080),
+        Output("Virtual-2", True, True, 2560, 1440, 2560, 1440),
+    ]
+    left, right = choose_pair(cfg, swapped_names, "homeoffice", False)
+    assert (left.name, right.name) == ("Virtual-1", "Virtual-2")
+    left, right = choose_pair(cfg, home, "homeoffice", False)
+    assert (left.name, right.name) == ("Virtual-2", "Virtual-1")
+    left, right = choose_pair(cfg, swapped_names, "homeoffice", True)
+    assert (left.name, right.name) == ("Virtual-2", "Virtual-1")
+    # Equal sizes cannot be told apart: fall back to the configured names.
+    cfg["profiles"]["office"]["leftSize"] = [2560, 1440]
+    left, right = choose_pair(cfg, office, "office", False)
+    assert (left.name, right.name) == ("Virtual-1", "Virtual-2")
+    # VMware suggested positions: Virtual-1 is connector 44 here.
+    drm = {
+        "/dev/dri/card0": {
+            "connectors": [
+                {"id": 44, "status": 1, "properties": {"suggested X": {"value": 1920}, "suggested Y": {"value": 0}}},
+                {"id": 53, "status": 1, "properties": {"suggested X": {"value": 0}, "suggested Y": {"value": 0}}},
+                {"id": 62, "status": 2, "properties": {"suggested X": {"value": 0}, "suggested Y": {"value": 0}}},
+            ]
+        }
+    }
+    names = {44: "Virtual-1", 53: "Virtual-2", 62: "Virtual-3"}
+    assert parse_drm_suggestions(drm, names) == {"Virtual-1": (1920, 0), "Virtual-2": (0, 0)}
+    single = {"/dev/dri/card0": {"connectors": [dict(drm["/dev/dri/card0"]["connectors"][1], status=1),
+                                                 dict(drm["/dev/dri/card0"]["connectors"][2], status=1)]}}
+    assert parse_drm_suggestions(single, names) == {}
+    assert parse_drm_suggestions({}, names) == {}
+    pair = [Output("Virtual-1", True, True, 2560, 1440, 2560, 1440),
+            Output("Virtual-2", True, False, 1920, 1080, 1920, 1080)]
+    assert hints_cover({"Virtual-1": (1920, 0), "Virtual-2": (0, 0)}, pair)
+    assert not hints_cover({"Virtual-1": (0, 0)}, pair)
+    assert not hints_cover({"Virtual-1": (0, 0)}, pair[:1])
     event_env = event_source_environment(cfg)
     assert event_env.get("QT_FORCE_STDERR_LOGGING") == "1"
     print("SELF-TEST: PASS")
@@ -1237,6 +1430,7 @@ def main():
             print(
                 f"{name:12} {profile.get('label', name)}  {profile.get('matchSizes')}  "
                 f"left={profile.get('leftOutput')} right={profile.get('rightOutput')} "
+                f"leftSize={profile.get('leftSize')} "
                 f"primary={profile.get('primaryOutput')} align={profile.get('verticalAlignment', 'center')}"
             )
         return
