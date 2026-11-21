@@ -96,6 +96,9 @@
   # step before we install the VM.
   services.openssh = {
     enable = true;
+    # SSH only from the deployment LAN, like Forgejo and the cache. The
+    # VMware NAT uplink must not expose any service.
+    openFirewall = false;
 
     settings = {
       PasswordAuthentication = false;
@@ -103,6 +106,8 @@
       PermitRootLogin = "no";
     };
   };
+
+  networking.firewall.interfaces.ens37.allowedTCPPorts = [ 22 ];
 
   hakkabara.tools.deployment.enable = true;
 
