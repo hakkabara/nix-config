@@ -283,7 +283,7 @@
     compositor.name = "niri";
   };
 
-  home-manager.users.mko = { lib, ... }: {
+  home-manager.users.mko = _: {
     imports = [
       ../../users/mko
       ../../profiles/home/work-vm.nix
@@ -399,30 +399,8 @@
       };
     };
 
-    programs.ssh.includes = lib.mkAfter [
-      config.sops.secrets."ssh/work-config".path
-    ];
-
-    # Interim until the customer SSH data moves to nix-internal on the
-    # DeployVM: open the encrypted SSH config with the host age key.
-    # Changes take effect after the next nix-switch.
-    home.shellAliases.ssh-secrets = ''(cd ~/nix-config && SOPS_AGE_KEY="$(sudo cat /var/lib/sops-nix/key.txt)" sops edit secrets/work-vm/ssh.yaml)'';
-
-    home.activation.installCustomerSshTemplate = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      ssh_dir="$HOME/.ssh/config.d"
-      template="$ssh_dir/90-customers.conf.example"
-      local_config="$ssh_dir/90-customers.conf"
-
-      mkdir -p "$ssh_dir"
-      chmod 700 "$HOME/.ssh"
-      chmod 700 "$ssh_dir"
-
-      install -m 600           "${config.sops.secrets."ssh/customer-template".path}"           "$template"
-
-      if [ ! -e "$local_config" ]; then
-        install -m 600 "$template" "$local_config"
-      fi
-    '';
+    # Internal SSH hosts and the customer template come from nix-internal
+    # (modules/ssh-config there).
 
     programs.ssh.settings."github.com" = {
       HostName = "github.com";
