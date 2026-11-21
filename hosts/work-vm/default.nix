@@ -361,6 +361,9 @@
         dms = {
           alwaysOn.enable = true;
 
+          # VPN status and connect menu in the bar.
+          bar.vpnWidget.enable = true;
+
           controlCenter = {
             enable = true;
 

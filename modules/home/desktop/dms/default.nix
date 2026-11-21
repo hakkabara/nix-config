@@ -93,6 +93,7 @@ let
       ${pkgs.jq}/bin/jq \
         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
         --argjson ccWidgetOverrides '${builtins.toJSON cfg.controlCenter.widgets}' \
+        --argjson vpnWidget ${lib.boolToString cfg.bar.vpnWidget.enable} \
         '
           .currentThemeName = "custom"
           | .customThemeFile = $theme
@@ -115,7 +116,8 @@ let
           ${controlCenterFilter}
 
           # Keep weather in the center and remove battery and DMS clipboard
-          # widgets from existing DMS 1.6 WorkVM bar configurations.
+          # widgets from existing DMS 1.6 WorkVM bar configurations. The VPN
+          # widget (status and connect menu) sits first on the right.
           | if (.barConfigs | type) == "array" then
               .barConfigs |= map(
                 if .id == "default" then
@@ -126,7 +128,11 @@ let
                   )
                   | .rightWidgets = (
                     (.rightWidgets // [])
-                    | map(select(. != "battery" and . != "clipboard"))
+                    | map(select(
+                        (if type == "string" then . else .id end) as $id
+                        | $id != "battery" and $id != "clipboard" and $id != "vpn"
+                      ))
+                    | (if $vpnWidget then ["vpn"] + . else . end)
                   )
                 else
                   .
@@ -214,6 +220,15 @@ let
 in
 {
   options.hakkabara.desktop.dms = {
+    bar.vpnWidget.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Show the DMS VPN widget in the bar: current VPN state and a menu to
+        connect or disconnect NetworkManager VPN profiles.
+      '';
+    };
+
     controlCenter = {
       enable = lib.mkEnableOption "declarative DMS control-center configuration";
 
