@@ -10,32 +10,48 @@ let
 
   appId = "com.github.IsmaelMartinez.teams_for_linux";
 
+  # Nested option names (teams-for-linux 2.x); the old flat names are
+  # deprecated upstream and scheduled for removal.
   baseSettings = {
-    closeAppOnCross = false;
-    followSystemTheme = true;
-    trayIconEnabled = true;
+    window.closeOnCross = false;
+    appearance.followSystemTheme = true;
+    tray.enabled = true;
 
     cacheManagement.enabled = false;
+
+    # Off by default upstream; pinned so an update cannot turn them on.
+    # They open downloads automatically, expose remote control (D-Bus,
+    # MQTT), enable web debugging or submit the login form by themselves.
+    download.openWhenDone = false;
+    dbusControl.enabled = false;
+    mqtt.enabled = false;
+    development.webDebug = false;
+    auth.webLogin.autoSubmit = false;
   };
 
   chatOnlySettings = lib.optionalAttrs cfg.chatOnly {
-    disableNotifications = false;
-    disableNotificationSound = true;
-    enableIncomingCallToast = false;
+    notifications = {
+      enabled = true;
+      sound.enabled = false;
+      method = "electron";
+      electron.clickAction = "restore";
+    };
 
-    notificationMethod = "electron";
+    incomingCalls.toast = false;
 
-    notifications.electron.clickAction = "restore";
+    idleDetection.setAwayOnIdle = false;
 
-    awayOnSystemIdle = false;
+    # Start in the tray; ask for the target of every download.
+    window.minimized = true;
 
     download = {
       enabled = true;
+      alwaysAskWhereToSave = true;
       notifyOnDownloadComplete = true;
       showTitlePrefix = false;
     };
 
-    spellCheckerLanguages = [
+    platform.spellCheckerLanguages = [
       "de-DE"
       "en-US"
     ];
