@@ -143,8 +143,9 @@
         chatOnly = true;
       };
 
-      # Graphical file manager next to Yazi: no thumbnails, no automount,
-      # scripts open instead of running (modules/nixos/apps/thunar.nix).
+      # Graphical file manager next to Yazi (Mod+Ctrl+E): no thumbnails, no
+      # automount, scripts open instead of running, SFTP via gvfs, archives
+      # via xarchiver (modules/nixos/apps/thunar.nix).
       thunar = {
         enable = true;
         user = "mko";

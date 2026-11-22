@@ -87,8 +87,18 @@ in
     # Icon theme: without one only hicolor exists, so generic freedesktop names
     # (utilities-terminal, x-office-calendar, *-symbolic) render as blanks.
     # Papirus-Dark as in the Plasma rice; GTK and DMS read the gsettings key.
-    home.packages = [ pkgs.papirus-icon-theme ];
-    dconf.settings."org/gnome/desktop/interface".icon-theme = "Papirus-Dark";
+    # Dark GTK: adw-gtk3-dark for GTK 3 apps (Thunar, xarchiver, file chooser),
+    # color-scheme for libadwaita/GTK 4. GTK on Wayland reads both from
+    # gsettings.
+    home.packages = [
+      pkgs.papirus-icon-theme
+      pkgs.adw-gtk3
+    ];
+    dconf.settings."org/gnome/desktop/interface" = {
+      icon-theme = "Papirus-Dark";
+      gtk-theme = "adw-gtk3-dark";
+      color-scheme = "prefer-dark";
+    };
 
     # Home Manager 26.05 does not yet contain the newer typed Niri module.
     # Managing config.kdl with xdg.configFile remains fully declarative and
@@ -249,13 +259,13 @@ in
               spawn "floorp-xwayland-glx" "--name" "floorp";
           }
 
-          Mod+E hotkey-overlay-title="File Manager (Thunar)" {
-              spawn "thunar";
+          Mod+E hotkey-overlay-title="File Manager (Yazi)" {
+              spawn "kitty" "-e" "yazi";
           }
 
-          // Mod+Shift+E is quit, so the terminal file manager moves to Ctrl.
-          Mod+Ctrl+E hotkey-overlay-title="File Manager (Yazi)" {
-              spawn "kitty" "-e" "yazi";
+          // Graphical file manager; Mod+Shift+E stays quit.
+          Mod+Ctrl+E hotkey-overlay-title="File Manager (Thunar)" {
+              spawn "thunar";
           }
 
           // Overview and basic window lifecycle.

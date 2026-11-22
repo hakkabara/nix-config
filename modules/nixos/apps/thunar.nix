@@ -34,7 +34,13 @@ in
       plugins = [ pkgs.thunar-archive-plugin ];
     };
 
-    # Trash, sftp:// and other remote locations. gvfs keeps its metadata in
+    # Backend of the archive plugin (extract here / create archive). It
+    # prefers 7zz (already on the WorkVM) and uses unrar for RAR; handles
+    # password-protected sample archives.
+    environment.systemPackages = [ pkgs.xarchiver ];
+
+    # Trash and sftp:// (Thunar address bar: sftp://user@host/path, uses the
+    # OpenSSH client and ~/.ssh/config). gvfs keeps its metadata in
     # ~/.local/share/gvfs-metadata, not in the browsed directories.
     services.gvfs.enable = true;
 
