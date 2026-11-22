@@ -190,7 +190,9 @@
         sopsFile = ../../secrets/deploy-vm/forgejo-repositories.yaml;
 
         # Read-only access for deploy-repo-sync / deploy-build; attached to
-        # every repository unless marked "deployKey: false" in the document.
+        # every repository of the administrator unless the document marks it
+        # "deployKey: false". Re-run after tool-repos-sync pushed a new repo:
+        #   sudo systemctl restart forgejo-repositories
         deployKey.publicKeyFile = "/persist/deployment/ssh/id_ed25519.pub";
       };
     };

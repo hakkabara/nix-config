@@ -237,8 +237,10 @@ in
           example = "/persist/deployment/ssh/id_ed25519.pub";
           description = ''
             Runtime path of a public SSH key that is added as read-only
-            deploy key to every enabled repository, except those marked
-            `deployKey: false` in the SOPS document. Used by the DeployVM build tooling
+            deploy key to every repository of the administrator, including
+            ones that are only pushed and not declared in the SOPS document.
+            Entries marked `deployKey: false` or `enable: false` there are
+            skipped. Used by the DeployVM build tooling
             (hakkabara.tools.deployment.sshKey).
           '';
         };

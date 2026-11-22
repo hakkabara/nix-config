@@ -116,21 +116,36 @@ jq --compact-output --argjson desired "$desired" '
 done
 
 # Read-only deploy key of the DeployVM build tooling (systemd credential
-# "deploy-key.pub", see repositories.deployKey). It is attached to every
-# enabled repository unless it is marked "deployKey: false": deploy-build
-# fetches nix-internal and all of its inputs from here. A deploy key with the same
-# title but different key material is replaced, so a regenerated key takes
-# over on the next run.
+# "deploy-key.pub", see repositories.deployKey). deploy-build fetches
+# nix-internal and every input from here, including repositories that are
+# only pushed (tool-repos-sync) and therefore not in the document. So the key
+# goes to every repository of $ADMIN_USER on this Forgejo, except those the
+# document marks "deployKey: false" or "enable: false". A deploy key with the
+# same title but different key material is replaced, so a regenerated key
+# takes over on the next run.
 deploy_key_file="${CREDENTIALS_DIRECTORY}/deploy-key.pub"
 
 if [ -s "$deploy_key_file" ]; then
     deploy_key=$(cut -d " " -f 1,2 "$deploy_key_file")
 
-    yq --output-format=json '.repositories // []' "$CREDENTIALS_DIRECTORY/repositories" |
-        jq --raw-output '.[] | select(.enable != false) | select(.deployKey != false) | .name' |
+    excluded=$(yq --output-format=json '.repositories // []' "$CREDENTIALS_DIRECTORY/repositories" |
+        jq --compact-output 'map(select(.deployKey == false or .enable == false) | .name)')
+
+    owned="[]"
+    page=1
+    while :; do
+        batch=$(api GET "/user/repos?limit=50&page=$page")
+        owned=$(jq --compact-output --argjson batch "$batch" --arg owner "$ADMIN_USER" \
+            '. + ($batch | map(select(.owner.login == $owner) | .name))' <<<"$owned")
+        [ "$(jq 'length' <<<"$batch")" -eq 50 ] || break
+        page=$((page + 1))
+    done
+
+    jq --raw-output --argjson excluded "$excluded" \
+        'unique | map(select(. as $n | $excluded | index($n) | not)) | .[]' <<<"$owned" |
         while read -r name; do
             if [[ ! $name =~ ^[A-Za-z0-9._-]+$ ]]; then
-                echo "Invalid repository name in the SOPS document: $name" >&2
+                echo "Unexpected repository name from the API: $name" >&2
                 exit 1
             fi
             path="/repos/$ADMIN_USER/$name/keys"
