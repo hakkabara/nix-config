@@ -15,4 +15,6 @@
   };
 
   work-vm.address = "192.168.245.11";
+
+  surf-vm.address = "192.168.245.12";
 }

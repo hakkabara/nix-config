@@ -140,7 +140,7 @@ in
         # The deployment LAN must never replace the normal uplink.
         "never-default" = true;
 
-        # VMnet3 does not provide DNS.
+        # The "deployment" VMware network does not provide DNS.
         "ignore-auto-dns" = true;
 
         # A configured deployment interface is expected to come up cleanly.

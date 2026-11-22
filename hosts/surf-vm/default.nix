@@ -34,6 +34,9 @@
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/networking/profile.nix
+    ../../modules/nixos/networking/deployment-lan.nix
+    ../../modules/nixos/nix/binary-cache-client.nix
+    ./obsidian-nfs.nix
     ../../modules/nixos/security/remote-unlock.nix
     ../../modules/nixos/flatpak
     ../../modules/nixos/flatpak/surf-vm.nix
@@ -56,7 +59,24 @@
     };
 
     # DHCP is the default. Hosts can override this with a static profile.
-    networking.enable = true;
+    networking = {
+      enable = true;
+
+      # "deployment" VMware network: static 192.168.245.12 from
+      # deployment-lan-hosts.nix, /etc/hosts for git/cache, internal CA.
+      deploymentLan = {
+        enable = true;
+        interface = "ens33";
+        caCertificate = ../../keys/deploy-lan-ca.crt;
+      };
+    };
+
+    # Harmonia cache on the DeployVM; cache.nixos.org stays the fallback.
+    nix.binaryCache = {
+      enable = true;
+      url = "http://cache.${config.hakkabara.networking.deploymentLan.domain}:5000";
+      publicKeyFile = ../../keys/harmonia-cache.pub;
+    };
 
     apps.steam.enable = true;
     apps.remoteDesktop.rustdesk.enable = true;
@@ -135,11 +155,13 @@
       apps = {
         pihole.enable = true;
 
-        # `immich` wrapper with server URL and API key from sops.
-        immich = {
-          urlFile = config.sops.secrets."immich/url".path;
-          apiKeyFile = config.sops.secrets."immich/api-key".path;
-        };
+        # `immich` wrapper with URL + API key from sops: re-enable together
+        # with the immich/* secrets once secrets/surf-vm/immich.yaml holds
+        # quoted string values (sops-nix rejects non-string values).
+        # immich = {
+        #   urlFile = config.sops.secrets."immich/url".path;
+        #   apiKeyFile = config.sops.secrets."immich/api-key".path;
+        # };
 
         miniserve = {
           enable = true;
@@ -439,11 +461,66 @@
   networking = {
     hostName = "surf-vm"; # Define your hostname.
 
-    # Enable networking
-    networkmanager.enable = true;
-
     # Inbound stays closed. The `share` command (miniserve) opens its port
-    # only while it runs, see hakkabara.apps.miniserveFirewall.
+    # only while it runs, see hakkabara.apps.miniserveFirewall. NFS for the
+    # Obsidian vault is opened on the deployment LAN only (obsidian-nfs.nix).
+
+    # Fixed NetworkManager profile per interface instead of the automatic
+    # "Wired connection N" profiles, which attach to whichever NIC comes up
+    # first. The deployment LAN profile comes from deploymentLan (ens33).
+    networkmanager = {
+      enable = true;
+      settings.main.no-auto-default = "*";
+
+      ensureProfiles.profiles = {
+        # VMware NAT: internet uplink and default route.
+        hakkabara-uplink = {
+          connection = {
+            id = "hakkabara-uplink";
+            type = "ethernet";
+            interface-name = "ens34";
+            autoconnect = true;
+            autoconnect-priority = 100;
+          };
+          ipv4.method = "auto";
+          ipv6.method = "auto";
+        };
+
+        # VMnet1 (REMnux/LLM host-only); never the default route.
+        hakkabara-vmnet1 = {
+          connection = {
+            id = "hakkabara-vmnet1";
+            type = "ethernet";
+            interface-name = "ens38";
+            autoconnect = true;
+            autoconnect-priority = 100;
+          };
+          ipv4 = {
+            method = "auto";
+            never-default = true;
+            ignore-auto-dns = true;
+          };
+          ipv6.method = "disabled";
+        };
+
+        # VMnet4 (planned NFS network WorkVM <-> SurfVM); unused for now.
+        hakkabara-vmnet4 = {
+          connection = {
+            id = "hakkabara-vmnet4";
+            type = "ethernet";
+            interface-name = "ens39";
+            autoconnect = true;
+            autoconnect-priority = 100;
+          };
+          ipv4 = {
+            method = "auto";
+            never-default = true;
+            ignore-auto-dns = true;
+          };
+          ipv6.method = "disabled";
+        };
+      };
+    };
   };
 
   # Set your time zone.
@@ -477,6 +554,8 @@
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users."hakkabara" = {
     isNormalUser = true;
+    # Pinned to the existing value: the NFS export squashes to this uid.
+    uid = 1000;
     description = "hakkabara";
     shell = pkgs.zsh;
     extraGroups = [

@@ -492,6 +492,38 @@
     ];
   };
 
+  # Obsidian vault exported by the SurfVM over the deployment LAN
+  # (NFSv4.2, only to this host's static 192.168.245.11). Open the vault in
+  # Obsidian from /data/nfs/obsidian. Nothing is copied to the WorkVM: when
+  # the SurfVM is off, the vault is simply not there.
+  #
+  # Lazy automount so the WorkVM boots while the SurfVM is off. "soft" with
+  # 15 s x 3 retries rides out short network hiccups, then returns I/O
+  # errors instead of hanging Obsidian forever when the SurfVM goes away.
+  # actimeo=3 keeps attribute caching short, so changes made on the SurfVM
+  # show up within seconds when a note is (re)opened. Nothing on it may
+  # execute here.
+  fileSystems."/data/nfs/obsidian" = {
+    device = "192.168.245.12:/home/hakkabara/Obsidian";
+    fsType = "nfs";
+
+    options = [
+      "nfsvers=4.2"
+      "nosuid"
+      "nodev"
+      "noexec"
+      "soft"
+      "timeo=150"
+      "retrans=3"
+      "actimeo=3"
+      "_netdev"
+      "nofail"
+      "noauto"
+      "x-systemd.automount"
+      "x-systemd.mount-timeout=15"
+    ];
+  };
+
   # Do not change this on normal updates.
   system.stateVersion = "26.05";
   boot.kernel.sysctl."vm.max_map_count" = 262144;

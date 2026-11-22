@@ -139,25 +139,9 @@
         mode = "0400";
       };
 
-      # --------------------------------------------------------
-      # Immich CLI
-      # --------------------------------------------------------
-
-      "immich/url" = {
-        sopsFile = ../../secrets/surf-vm/immich.yaml;
-        key = "url";
-
-        owner = "hakkabara";
-        mode = "0400";
-      };
-
-      "immich/api-key" = {
-        sopsFile = ../../secrets/surf-vm/immich.yaml;
-        key = "api-key";
-
-        owner = "hakkabara";
-        mode = "0400";
-      };
+      # Immich CLI secrets (secrets/surf-vm/immich.yaml: url, api-key) are
+      # disabled until the file holds quoted string values; see the
+      # commented `immich` block in default.nix.
 
       # --------------------------------------------------------
       # Claude Code subscription token (claude setup-token)
