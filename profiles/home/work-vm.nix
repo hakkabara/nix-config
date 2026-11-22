@@ -23,6 +23,7 @@
     browsers = {
       gecko = {
         extensions.foxyProxy.enable = lib.mkDefault true;
+        extensions.foxyProxy.settings.enable = lib.mkDefault true;
 
         # Gecko ignores the system trust store on Linux; trust the internal
         # deployment-LAN CA (HTTPS for git.deploy.internal) explicitly.
