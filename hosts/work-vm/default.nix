@@ -31,6 +31,7 @@
     ../../modules/nixos/desktop/niri.nix
     ../../modules/nixos/desktop/dms.nix
     ../../modules/nixos/desktop/autologin.nix
+    ../../modules/nixos/services/hacktricks.nix
 
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
@@ -97,6 +98,9 @@
   };
 
   hakkabara = {
+    # HackTricks (German) offline at http://localhost:3337, launcher "HackTricks".
+    services.hacktricks.enable = true;
+
     # Declarative primary account password via sops-nix.
     accounts.primary = {
       enable = true;
