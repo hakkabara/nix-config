@@ -23,31 +23,31 @@ let
   tools = [
     {
       name = "JLECmd";
-      src = mkSource "JLECmd" "sha256-WGe5ED5m7hYM6eTpO1sM0Vrjdmg6iVA8s/ldL9ws1uI=";
+      src = mkSource "JLECmd" "sha256-yza9orsqJUsriGxKMd+kgf7CCuQaaKV0SpUi3trvVM0=";
     }
     {
       name = "LECmd";
-      src = mkSource "LECmd" "sha256-79hbpmlKSquJEhZT16VRL1RAZEjqvHtWnTZO2ffbLyo=";
+      src = mkSource "LECmd" "sha256-Yp77iFFETh8CfPUPtCZ621gVLQygzvNPNdKhT6B435I=";
     }
     {
       name = "MFTECmd";
-      src = mkSource "MFTECmd" "sha256-85DOkHf5a880Vhp1yCkz8hQD+j5f2km8tzml3afN3Uc=";
+      src = mkSource "MFTECmd" "sha256-cUSe0WycXASKZPd/U1NQVv36ZgB3vjSxMFzODFiieMc=";
     }
     {
       name = "AmcacheParser";
-      src = mkSource "AmcacheParser" "sha256-3WDP4l81YO5IeOuGTiZjA4VetmCtqaOiZb+QYksPSBo=";
+      src = mkSource "AmcacheParser" "sha256-TvnLw0n4bZ55Mb8AnZCV+fw2mwCs3Ie1uN8yEz/XnI8=";
     }
     {
       name = "AppCompatCacheParser";
-      src = mkSource "AppCompatCacheParser" "sha256-pnBRVq0W0zFjyth2dLa0yM7+aAFdtxG64VNyAHMmLOk=";
+      src = mkSource "AppCompatCacheParser" "sha256-7dBXRdPLQtYoqQ7WwE4s/fYN9Pv07XScB+bccDnmR+E=";
     }
     {
       name = "SBECmd";
-      src = mkSource "SBECmd" "sha256-rrZkt0FrLVJ7ori53yGdgA5m5SNHh7NfB4ZDYKJhuEE=";
+      src = mkSource "SBECmd" "sha256-tnOmAWAbstOVebEE7Mqnd7MufEX21PCKr3YTd4m2DfI=";
     }
     {
       name = "RECmd";
-      src = mkSource "RECmd" "sha256-3N8y9bdXM8WnzW2fyXVyyEZrEc25z7Tqp9VkFsbh2uk=";
+      src = mkSource "RECmd" "sha256-QV2aqSVtV6xfoifk42+fcfxnT3+/rcXOQsiWu9nC1jE=";
       subdir = "RECmd";
       data = [
         "BatchExamples"
@@ -60,17 +60,17 @@ let
     }
     {
       name = "EvtxECmd";
-      src = mkSource "EvtxECmd" "sha256-79Wz35pSb61+LypiiRH224BVPj4EaMrvj56aSZJstdA=";
+      src = mkSource "EvtxECmd" "sha256-OmMfVGa16djEp1wfln3ZQp/XtOk1vGw73vO6WLD8nSA=";
       subdir = "EvtxeCmd";
       data = [ "Maps" ];
     }
     {
       name = "RBCmd";
-      src = mkSource "RBCmd" "sha256-4IQgRA59gdpKoPhXSMq1TD8tT6z/f/449DvKyEsxyjs=";
+      src = mkSource "RBCmd" "sha256-VWrK47GSvdxLMgJFES0/ocBkkubpsj0TkbgDR78musU=";
     }
     {
       name = "RecentFileCacheParser";
-      src = mkSource "RecentFileCacheParser" "sha256-S34bt8ZO5mjeNNtHIsNdPoNeeCK4pQpYYZl8srdGJyM=";
+      src = mkSource "RecentFileCacheParser" "sha256-zyEkbZZoUta08WhhLJZFQPB5ctn4eBNByDAIfvcn7ZU=";
     }
   ];
 
@@ -78,7 +78,8 @@ let
 in
 stdenvNoCC.mkDerivation {
   pname = "ez-tools";
-  version = "2026.10.0";
+  # No upstream version: date of the pinned download set (2026-11-22).
+  version = "2026.11.22";
 
   srcs = map (tool: tool.src) tools;
 

@@ -113,7 +113,7 @@
           inherit system;
 
           specialArgs = {
-            inherit pkgsUnstableUnfree;
+            inherit pkgsDfir pkgsUnstableUnfree;
           };
 
           modules = [

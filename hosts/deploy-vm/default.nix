@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  pkgsDfir,
   pkgsUnstableUnfree,
   ...
 }:
@@ -295,4 +296,12 @@
 
   # Do not change during normal updates.
   system.stateVersion = "26.05";
+
+  # Mirror for upstream downloads without a versioned URL: their pinned
+  # fixed-output store paths stay in this store (part of the system
+  # closure) and Harmonia serves them to every cache client, so builds keep
+  # working when upstream silently replaces a file. Store paths are keyed
+  # by hash, so the mirror can never serve different content.
+  # Eric Zimmerman tools: https://download.mikestammer.com/net9/<tool>.zip
+  system.extraDependencies = pkgsDfir.ez-tools.srcs;
 }
