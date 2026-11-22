@@ -45,7 +45,11 @@
           profileId = lib.mkDefault 0;
           whatsappProfile.enable = lib.mkDefault false;
 
-          graphics.xwaylandGlx.enable = lib.mkDefault true;
+          # Native Wayland: under xwayland-satellite, Floorp popups
+          # (menus, dropdowns, extension panels) do not take clicks.
+          # Trade-off: the Wayland/EGL path renders in software on
+          # VMware SVGA.
+          graphics.xwaylandGlx.enable = lib.mkDefault false;
         };
       };
 

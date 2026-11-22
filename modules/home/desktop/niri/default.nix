@@ -8,6 +8,14 @@
 let
   cfg = config.hakkabara.desktop.niri;
 
+  # Follow the Floorp module: the GLX launcher exists only when its
+  # XWayland workaround is enabled, otherwise start native Wayland.
+  browserSpawn =
+    if config.hakkabara.browsers.gecko.floorp.graphics.xwaylandGlx.enable then
+      ''"floorp-xwayland-glx" "--name" "floorp"''
+    else
+      ''"floorp"'';
+
   dmsBinds = lib.optionalString cfg.dmsIntegration.enable ''
     // DankMaterialShell IPC integration.
     //
@@ -256,7 +264,7 @@ in
 
           // Frequently used applications.
           Mod+B hotkey-overlay-title="Browser" {
-              spawn "floorp-xwayland-glx" "--name" "floorp";
+              spawn ${browserSpawn};
           }
 
           Mod+E hotkey-overlay-title="File Manager (Yazi)" {
