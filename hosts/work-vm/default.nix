@@ -524,6 +524,29 @@
     ];
   };
 
+  # Obsidian's Electron profile keeps a search index (with fragments of the
+  # notes) and caches in ~/.config/obsidian. Remove them at every boot so no
+  # note content outlives the NFS mount. Notes and vault settings live on
+  # the SurfVM; obsidian.json (the vault list) stays, so the vault opens
+  # again and Obsidian rebuilds the index on start.
+  systemd.tmpfiles.rules =
+    let
+      dir = "${config.users.users.${config.hakkabara.accounts.primary.username}.home}/.config/obsidian";
+    in
+    map (sub: ''R "${dir}/${sub}" - - - -'') [
+      "IndexedDB"
+      "Local Storage"
+      "Session Storage"
+      "Cache"
+      "Code Cache"
+      "GPUCache"
+      "DawnGraphiteCache"
+      "DawnWebGPUCache"
+      "Service Worker"
+      "Shared Dictionary"
+      "blob_storage"
+    ];
+
   # Do not change this on normal updates.
   system.stateVersion = "26.05";
   boot.kernel.sysctl."vm.max_map_count" = 262144;
