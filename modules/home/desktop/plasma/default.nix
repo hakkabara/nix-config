@@ -233,7 +233,13 @@ in
               # Common window operations.
               "Window Fullscreen" = "Meta+F";
               "Window Maximize" = "Meta+M";
-              "Window Close" = "Meta+Shift+Q";
+              # Meta+Q like Niri on the WorkVM; the old binding and Plasma's
+              # Alt+F4 keep working.
+              "Window Close" = [
+                "Meta+Q"
+                "Meta+Shift+Q"
+                "Alt+F4"
+              ];
             };
 
             # KRunner is Plasma's compact search/application runner.
@@ -248,6 +254,10 @@ in
             };
 
             plasmashell = {
+              # Meta+Q closes the window (see kwin."Window Close") instead
+              # of opening the activity manager.
+              "manage activities" = [ ];
+
               # Preserve Plasma's standard launcher bindings and add Meta+D.
               "activate application launcher" = [
                 "Meta"
