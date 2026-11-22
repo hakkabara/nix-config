@@ -20,6 +20,7 @@
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/apps/teams.nix
     ../../modules/nixos/apps/thunar.nix
+    ../../modules/nixos/apps/kdeconnect-media.nix
     ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -135,6 +136,15 @@
     };
 
     apps = {
+      # Show and control the SurfVM's media players (YouTube, Spotify) in
+      # the shell's media widget. Only the media plugin is installed.
+      kdeconnectMedia = {
+        enable = true;
+        role = "remote";
+        interface = "ens37";
+        peerAddress = config.hakkabara.networking.deploymentLan.hosts.surf-vm.address;
+      };
+
       # Teams inside the VM is intentionally limited to chat/downloads.
       # Calls and meetings are handled on the Windows host.
       teams = {

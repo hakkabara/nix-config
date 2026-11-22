@@ -27,6 +27,7 @@
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/apps/miniserve-firewall.nix
+    ../../modules/nixos/apps/kdeconnect-media.nix
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/accounts/primary.nix
@@ -450,6 +451,15 @@
     enable = true;
     port = 8443;
     user = "hakkabara";
+  };
+
+  # Share local media players (YouTube, Spotify) with the WorkVM, which
+  # shows and controls them. Only the media plugin is installed.
+  hakkabara.apps.kdeconnectMedia = {
+    enable = true;
+    role = "player";
+    interface = "ens33";
+    peerAddress = config.hakkabara.networking.deploymentLan.hosts.work-vm.address;
   };
 
   hakkabara.desktop.autologin = {
