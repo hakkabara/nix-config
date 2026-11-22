@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, pkgsUnstable, ... }:
 
 {
   # SurfVM-specific application selection.
@@ -16,9 +16,14 @@
   ];
 
   hakkabara.apps = {
+    fluxer.enable = true;
     obsidian.enable = true;
     signal.enable = true;
   };
+
+  # Floorp from nixos-unstable on the SurfVM; the stable build caused
+  # problems here after updates.
+  programs.floorp.package = pkgsUnstable.floorp-bin;
 
   programs.thunderbird = {
     enable = true;

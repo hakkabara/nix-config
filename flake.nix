@@ -57,6 +57,13 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # Fluxer chat client (SurfVM only).
+    #
+    # The concrete upstream revision is pinned in flake.lock.
+    fluxer = {
+      url = "github:Hy4ri/fluxer-flake";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs =
@@ -71,6 +78,7 @@
       nix-flatpak,
       dms,
       zellij-tools,
+      fluxer,
       ...
     }:
     let
@@ -129,6 +137,7 @@
                   inherit
                     pkgsUnstable
                     zellij-tools
+                    fluxer
                     ;
                 };
               };
@@ -176,6 +185,7 @@
                   inherit
                     pkgsUnstable
                     zellij-tools
+                    fluxer
                     ;
                 };
               };
@@ -221,6 +231,7 @@
                     plasma-manager
                     pkgsUnstable
                     zellij-tools
+                    fluxer
                     ;
                 };
               };

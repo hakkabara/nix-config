@@ -14,5 +14,6 @@
     ./signal.nix
     ./pihole
     ./miniserve
+    ./fluxer.nix
   ];
 }
