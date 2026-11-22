@@ -32,6 +32,19 @@ in
   options.hakkabara.browsers.gecko.extensions.foxyProxy.settings = {
     enable = lib.mkEnableOption "declarative FoxyProxy settings via managed storage";
 
+    lockViaPolicy = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Push managedStorage as enterprise policy. FoxyProxy then rewrites its
+        settings at every start and keeps the UI read-only, including the
+        mode switch. When false, only the JSON export is written: FoxyProxy
+        drops its managed flag on the next start, keeps the last stored
+        proxies, and the UI is editable again. A fresh profile imports the
+        export file once.
+      '';
+    };
+
     managedStorage = lib.mkOption {
       inherit (jsonFormat) type;
       default = {
@@ -113,11 +126,11 @@ in
           jsonFormat.generate "foxyproxy-managed-storage.json" managedStorage;
       }
 
-      (lib.mkIf config.programs.firefox.enable {
+      (lib.mkIf (cfg.settings.lockViaPolicy && config.programs.firefox.enable) {
         programs.firefox.policies."3rdparty".Extensions.${extensionId} = managedStorage;
       })
 
-      (lib.mkIf config.programs.floorp.enable {
+      (lib.mkIf (cfg.settings.lockViaPolicy && config.programs.floorp.enable) {
         programs.floorp.policies."3rdparty".Extensions.${extensionId} = managedStorage;
       })
     ]
