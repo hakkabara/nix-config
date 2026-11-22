@@ -1,6 +1,21 @@
 set -euo pipefail
 
-REPO_PATH="/persist/deployment/repos/nix-config"
+readonly SETTINGS="${DEPLOYMENT_SETTINGS:?DEPLOYMENT_SETTINGS is not set}"
+
+BUILD_REPOSITORY="$(jq --raw-output '.buildRepository' "$SETTINGS")"
+REPO_PATH="$(jq --raw-output '.repoDir' "$SETTINGS")/$BUILD_REPOSITORY"
+readonly BUILD_REPOSITORY REPO_PATH
+
+# Inputs fetched over SSH (for example nix-config from the internal Forgejo)
+# use the DeployVM-local identity, scoped to the Forgejo host names by the
+# generated ssh config. The user's global Git config (insteadOf rewrites to
+# GitHub SSH) is ignored for every nix call, like for the checkouts.
+export GIT_CONFIG_GLOBAL=/dev/null
+
+if [ "$(jq --raw-output '.ssh != null' "$SETTINGS")" = true ]; then
+    GIT_SSH_COMMAND="ssh -F $(jq --raw-output '.ssh.configFile' "$SETTINGS")"
+    export GIT_SSH_COMMAND
+fi
 
 usage() {
     echo "Usage: deploy-build <host>" >&2
@@ -31,6 +46,7 @@ echo "============================================================"
 
 echo
 echo "Host:       $HOST"
+echo "Flake:      $BUILD_REPOSITORY"
 echo "Repository: $REPO_PATH"
 
 echo
@@ -51,6 +67,17 @@ fi
 
 echo "PASS: managed repository is clean"
 
+# The lock file is used exactly as committed (--no-update-lock-file fails
+# on any missing or outdated entry). Updating inputs here would build
+# something that exists in no repository; bump locks where they are pushed
+# from.
+if [ ! -f flake.lock ]; then
+    echo "ERROR: flake.lock is missing; inputs would not be pinned."
+    exit 1
+fi
+
+echo "PASS: flake.lock present, inputs are used as locked"
+
 BRANCH="$(git_public branch --show-current)"
 COMMIT="$(git_public rev-parse --short HEAD)"
 
@@ -66,6 +93,7 @@ TARGET_ATTR=".#nixosConfigurations.${HOST}.config.system.build.toplevel"
 
 if ! EVALUATED_HOST="$(
     nix eval \
+        --no-update-lock-file \
         --raw \
         ".#nixosConfigurations.${HOST}.config.networking.hostName"
 )"; then
@@ -88,6 +116,7 @@ echo "===== BUILD ====="
 SYSTEM_PATH="$(
     nix build \
         "$TARGET_ATTR" \
+        --no-update-lock-file \
         --no-link \
         --print-out-paths
 )"
@@ -169,7 +198,7 @@ if [ ! -L "$CURRENT_ROOT" ]; then
     exit 1
 fi
 
-PINNED_PATH="$(readlink -f "$CURRENT_ROOT")"
+PINNED_PATH="$(readlink -e "$CURRENT_ROOT")"
 
 echo "Pinned: $PINNED_PATH"
 
@@ -181,10 +210,46 @@ fi
 echo "PASS: build result is protected by GC root"
 
 echo
+echo "===== FLAKE INPUTS ====="
+
+# Every input source (recursively, including this flake itself) must stay
+# in the store: offline clients substitute them from the cache to evaluate
+# the flake.
+ARCHIVE_JSON="$(nix flake archive --no-update-lock-file --json)"
+
+mapfile -t INPUT_PATHS < <(
+    jq --raw-output 'def paths: .path, (.inputs // {} | .[] | paths); paths' <<<"$ARCHIVE_JSON" | sort -u
+)
+
+if [ "${#INPUT_PATHS[@]}" -lt 2 ]; then
+    echo "ERROR: flake archive returned ${#INPUT_PATHS[@]} paths; expected the flake and its inputs."
+    exit 1
+fi
+
+echo "Input sources: ${#INPUT_PATHS[@]}"
+
+/run/wrappers/bin/sudo /run/current-system/sw/bin/deploy-cache-pin-inputs \
+    "$HOST" \
+    "${INPUT_PATHS[@]}"
+
+INPUTS_ROOT="/nix/var/nix/gcroots/hakkabara/${HOST}/inputs"
+
+for input_path in "${INPUT_PATHS[@]}"; do
+    if [ "$(readlink -e "$INPUTS_ROOT/$(basename "$input_path")")" != "$input_path" ]; then
+        echo "ERROR: input source is not pinned: $input_path"
+        exit 1
+    fi
+done
+
+echo "PASS: all input sources are protected by GC roots"
+
+echo
 echo "===== RESULT ====="
 echo "Host:   $HOST"
+echo "Flake:  $BUILD_REPOSITORY"
 echo "Commit: $COMMIT"
 echo "System: $SYSTEM_PATH"
+echo "Inputs: ${#INPUT_PATHS[@]} pinned"
 
 echo
 echo "============================================================"

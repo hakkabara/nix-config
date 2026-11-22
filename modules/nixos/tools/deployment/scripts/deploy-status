@@ -40,33 +40,54 @@ else
 fi
 
 echo
-echo "===== MANAGED REPOSITORY ====="
+echo "===== MANAGED REPOSITORIES ====="
 
-repo="/persist/deployment/repos/nix-config"
+settings="${DEPLOYMENT_SETTINGS:?DEPLOYMENT_SETTINGS is not set}"
+repo_dir="$(jq --raw-output '.repoDir' "$settings")"
 
-if [ -d "$repo/.git" ]; then
-    echo "PASS: repository exists"
-    echo "Path:   $repo"
+echo "Build flake: $(jq --raw-output '.buildRepository' "$settings")"
 
-    printf 'Branch: '
-    git -C "$repo" branch --show-current
+while read -r name; do
+    repo="$repo_dir/$name"
 
-    printf 'Commit: '
-    git -C "$repo" rev-parse --short HEAD
-else
-    echo "INFO: repository not initialized yet"
-fi
+    echo
+    if [ -d "$repo/.git" ]; then
+        echo "PASS: $name"
+        echo "Path:   $repo"
+
+        printf 'Branch: '
+        GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" branch --show-current
+
+        printf 'Commit: '
+        GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" rev-parse --short HEAD
+    else
+        echo "INFO: $name not initialized yet (deploy-repo-sync)"
+    fi
+done < <(jq --raw-output '.repositories | keys[]' "$settings")
 
 echo
 echo "===== CACHE ROOTS ====="
 
 if [ -d /nix/var/nix/gcroots/hakkabara ]; then
+    # System generations as links, input sets as counts.
     find \
         /nix/var/nix/gcroots/hakkabara \
+        -mindepth 2 -maxdepth 2 \
         -type l \
         -printf "%p -> %l\n" \
         2>/dev/null \
         | sort
+
+    find \
+        /nix/var/nix/gcroots/hakkabara \
+        -mindepth 2 -maxdepth 2 \
+        -type d \
+        -name 'inputs*' \
+        2>/dev/null \
+        | sort \
+        | while read -r dir; do
+            echo "$dir: $(find "$dir" -mindepth 1 -maxdepth 1 -type l | wc -l) input sources"
+        done
 else
     echo "No DeployVM roots found"
 fi

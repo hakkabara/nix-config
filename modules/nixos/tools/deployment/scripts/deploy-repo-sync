@@ -1,101 +1,168 @@
 set -euo pipefail
 
-readonly REPO_PATH="/persist/deployment/repos/nix-config"
-readonly REPO_URL="https://github.com/hakkabara/nix-config.git"
-readonly REPO_BRANCH="main"
+# Repositories, branches and the SSH identity come from the generated
+# settings file ($DEPLOYMENT_SETTINGS, see hakkabara.tools.deployment).
+readonly SETTINGS="${DEPLOYMENT_SETTINGS:?DEPLOYMENT_SETTINGS is not set}"
 
-# DeployVM currently has a global Git insteadOf rule that rewrites this
-# public HTTPS URL to SSH. This managed checkout deliberately ignores the
-# user's global Git config so the public repository needs no GitHub secret.
-git_public() {
+REPO_DIR="$(jq --raw-output '.repoDir' "$SETTINGS")"
+readonly REPO_DIR
+
+# DeployVM has a global Git insteadOf rule that rewrites public HTTPS URLs
+# to SSH. Managed checkouts deliberately ignore the user's global Git config
+# and SSH config, so they depend only on the settings file.
+git_managed() {
     GIT_CONFIG_GLOBAL=/dev/null git "$@"
+}
+
+if [ "$(jq --raw-output '.ssh != null' "$SETTINGS")" = true ]; then
+    identity="$(jq --raw-output '.ssh.identityFile' "$SETTINGS")"
+    ssh_config="$(jq --raw-output '.ssh.configFile' "$SETTINGS")"
+
+    if [ ! -s "$identity" ] || [ ! -s "$identity.pub" ] || [ ! -s "$ssh_config" ]; then
+        echo "ERROR: deploy SSH key or ssh config missing below $(dirname "$identity")"
+        echo "Run: sudo systemctl restart deploy-ssh-key.service"
+        exit 1
+    fi
+
+    # The generated config scopes the deploy key and the local host key to
+    # the configured host names only.
+    export GIT_SSH_COMMAND="ssh -F $ssh_config"
+fi
+
+sync_repository() {
+    local name="$1" url="$2" branch="$3"
+    local path="$REPO_DIR/$name"
+
+    echo
+    echo "------------------------------------------------------------"
+    echo " $name"
+    echo "------------------------------------------------------------"
+    echo "Repository: $url"
+    echo "Branch:     $branch"
+    echo "Path:       $path"
+
+    echo
+    echo "===== PRECHECK ====="
+
+    if [ -e "$path" ] && [ ! -d "$path/.git" ]; then
+        if [ -n "$(ls -A "$path" 2>/dev/null)" ]; then
+            echo "ERROR: repository path exists and is not an empty Git repository:"
+            echo "$path"
+            return 1
+        fi
+    fi
+
+    if [ -d "$path/.git" ]; then
+        if ! git_managed -C "$path" diff --quiet; then
+            echo "ERROR: managed repository has unstaged changes."
+            return 1
+        fi
+
+        if ! git_managed -C "$path" diff --cached --quiet; then
+            echo "ERROR: managed repository has staged changes."
+            return 1
+        fi
+
+        actual="$(git_managed -C "$path" config --get remote.origin.url)"
+
+        if [ "$actual" != "$url" ]; then
+            # The checkout is clean and fully managed; follow the configured
+            # origin, for example after moving from GitHub to the Forgejo mirror.
+            echo "NOTICE: origin changed"
+            echo "  Old: $actual"
+            echo "  New: $url"
+            git_managed -C "$path" remote set-url origin "$url"
+        fi
+
+        echo "PASS: existing managed repository is clean"
+    else
+        echo "PASS: repository will be initialized"
+    fi
+
+    echo
+    echo "===== SYNC ====="
+
+    if [ ! -d "$path/.git" ]; then
+        git_managed clone \
+            --branch "$branch" \
+            --single-branch \
+            "$url" \
+            "$path"
+    else
+        # The checkout may have been cloned with --single-branch for a
+        # different branch. Fetch with an explicit refspec so the
+        # remote-tracking ref exists even when the managed branch changes.
+        git_managed -C "$path" fetch \
+            --prune \
+            origin \
+            "+refs/heads/$branch:refs/remotes/origin/$branch"
+
+        git_managed -C "$path" checkout \
+            -B "$branch" \
+            "origin/$branch"
+    fi
+
+    echo
+    echo "===== RESULT ====="
+
+    printf 'Branch: '
+    git_managed -C "$path" branch --show-current
+
+    printf 'Commit: '
+    git_managed -C "$path" rev-parse --short HEAD
+
+    printf 'Origin: '
+    git_managed -C "$path" config --get remote.origin.url
+
+    if [ -n "$(git_managed -C "$path" status --porcelain)" ]; then
+        echo "ERROR: repository is dirty after sync."
+        return 1
+    fi
+
+    echo "PASS: $name synchronized."
 }
 
 echo "============================================================"
 echo " DEPLOY REPOSITORY SYNC"
 echo "============================================================"
 
-echo
-echo "Repository: $REPO_URL"
-echo "Branch:     $REPO_BRANCH"
-echo "Path:       $REPO_PATH"
-
-echo
-echo "===== PRECHECK ====="
-
-if [ -e "$REPO_PATH" ] && [ ! -d "$REPO_PATH/.git" ]; then
-    if [ -n "$(ls -A "$REPO_PATH" 2>/dev/null)" ]; then
-        echo "ERROR: repository path exists and is not an empty Git repository:"
-        echo "$REPO_PATH"
-        exit 1
-    fi
-fi
-
-if [ -d "$REPO_PATH/.git" ]; then
-    if ! git_public -C "$REPO_PATH" diff --quiet; then
-        echo "ERROR: managed repository has unstaged changes."
-        exit 1
-    fi
-
-    if ! git_public -C "$REPO_PATH" diff --cached --quiet; then
-        echo "ERROR: managed repository has staged changes."
-        exit 1
-    fi
-
-    expected="$REPO_URL"
-    actual="$(git_public -C "$REPO_PATH" config --get remote.origin.url)"
-
-    if [ "$actual" != "$expected" ]; then
-        echo "ERROR: unexpected origin."
-        echo "Expected: $expected"
-        echo "Actual:   $actual"
-        exit 1
-    fi
-
-    echo "PASS: existing managed repository is clean"
+if [ "$#" -gt 0 ]; then
+    names=("$@")
 else
-    echo "PASS: repository will be initialized"
+    mapfile -t names < <(jq --raw-output '.repositories | keys[]' "$SETTINGS")
 fi
 
+failed=0
+
+for name in "${names[@]}"; do
+    if [ "$(jq --raw-output --arg n "$name" '.repositories | has($n)' "$SETTINGS")" != true ]; then
+        echo "ERROR: unknown managed repository: $name"
+        failed=1
+        continue
+    fi
+
+    url="$(jq --raw-output --arg n "$name" '.repositories[$n].url' "$SETTINGS")"
+    branch="$(jq --raw-output --arg n "$name" '.repositories[$n].branch' "$SETTINGS")"
+
+    # A subshell outside any condition keeps errexit active inside the
+    # function, so a failing git command stops this repository only.
+    set +e
+    (
+        set -e
+        sync_repository "$name" "$url" "$branch"
+    )
+    rc=$?
+    set -e
+
+    if [ "$rc" -ne 0 ]; then
+        failed=1
+    fi
+done
+
 echo
-echo "===== SYNC ====="
-
-if [ ! -d "$REPO_PATH/.git" ]; then
-    git_public clone \
-        --branch "$REPO_BRANCH" \
-        --single-branch \
-        "$REPO_URL" \
-        "$REPO_PATH"
-else
-    # The checkout may have been cloned with --single-branch for a different
-    # branch. Fetch with an explicit refspec so the remote-tracking ref exists
-    # even when the managed branch changes.
-    git_public -C "$REPO_PATH" fetch \
-        --prune \
-        origin \
-        "+refs/heads/$REPO_BRANCH:refs/remotes/origin/$REPO_BRANCH"
-
-    git_public -C "$REPO_PATH" checkout \
-        -B "$REPO_BRANCH" \
-        "origin/$REPO_BRANCH"
-fi
-
-echo
-echo "===== RESULT ====="
-
-printf 'Branch: '
-git_public -C "$REPO_PATH" branch --show-current
-
-printf 'Commit: '
-git_public -C "$REPO_PATH" rev-parse --short HEAD
-
-printf 'Origin: '
-git_public -C "$REPO_PATH" config --get remote.origin.url
-
-if [ -n "$(git_public -C "$REPO_PATH" status --porcelain)" ]; then
-    echo "ERROR: repository is dirty after sync."
+if [ "$failed" -ne 0 ]; then
+    echo "ERROR: at least one managed repository failed to synchronize."
     exit 1
 fi
 
-echo
-echo "PASS: managed repository synchronized."
+echo "PASS: all managed repositories synchronized."

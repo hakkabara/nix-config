@@ -198,6 +198,7 @@ in
                 - name: <name>          # becomes <admin>/<name>
                   enable: true          # optional, default true
                   description: "..."    # optional
+                  deployKey: true       # optional, attach repositories.deployKey
                   mirror:               # optional, omit for a plain repository
                     url: https://...
                     interval: 1h        # optional, Go duration, minimum 10m
@@ -227,6 +228,29 @@ in
         type = lib.types.str;
         default = "forgejo-repositories";
         description = "Runtime sops-nix secret name.";
+      };
+
+      deployKey = {
+        publicKeyFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "/persist/deployment/ssh/id_ed25519.pub";
+          description = ''
+            Runtime path of a public SSH key that is added as read-only
+            deploy key to every repository marked `deployKey: true` in the
+            SOPS document. Used by the DeployVM build tooling
+            (hakkabara.tools.deployment.sshKey).
+          '';
+        };
+
+        title = lib.mkOption {
+          type = lib.types.str;
+          default = "nixos:deploy-build";
+          description = ''
+            Title of the managed deploy key. Keys with this title and other
+            key material are replaced.
+          '';
+        };
       };
     };
   };
@@ -476,6 +500,7 @@ in
           FORGEJO_API = apiUrl;
           ADMIN_USER = cfg.admin.username;
           TOKEN_FILE = tokenFile;
+          DEPLOY_KEY_TITLE = cfg.repositories.deployKey.title;
         };
 
         serviceConfig = {
@@ -489,7 +514,10 @@ in
 
           LoadCredential = [
             "repositories:${config.sops.secrets.${cfg.repositories.secretName}.path}"
-          ];
+          ]
+          ++ lib.optional (
+            cfg.repositories.deployKey.publicKeyFile != null
+          ) "deploy-key.pub:${cfg.repositories.deployKey.publicKeyFile}";
         };
 
         script = builtins.readFile ./forgejo-repositories.sh;

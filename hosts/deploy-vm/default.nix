@@ -110,7 +110,17 @@
 
   networking.firewall.interfaces.ens37.allowedTCPPorts = [ 22 ];
 
-  hakkabara.tools.deployment.enable = true;
+  hakkabara.tools.deployment = {
+    enable = true;
+
+    # Managed checkouts come from the local Forgejo over SSH with a key that
+    # never leaves this machine. Repository URLs and the build flake are set
+    # from nix-internal; the public default stays GitHub nix-config.
+    sshKey = {
+      enable = true;
+      knownHostNames = [ config.hakkabara.services.forgejo.domain ];
+    };
+  };
 
   hakkabara = {
     # Declarative primary account password via sops-nix.
@@ -178,6 +188,10 @@
       repositories = {
         enable = true;
         sopsFile = ../../secrets/deploy-vm/forgejo-repositories.yaml;
+
+        # Read-only access for deploy-repo-sync / deploy-build; attached to
+        # the repositories marked "deployKey: true" in the document.
+        deployKey.publicKeyFile = "/persist/deployment/ssh/id_ed25519.pub";
       };
     };
 

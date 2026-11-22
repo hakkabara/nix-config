@@ -108,6 +108,13 @@
       # Expose custom packages for local per-package and batch builds.
       packages.${system} = pkgsDfir;
 
+      # NixOS VM tests for infrastructure modules. Kept out of `checks` so CI
+      # and `nix flake check` stay fast; run them where a change touches the
+      # tested modules, e.g. `nix build .#vmTests.deployment -L`.
+      legacyPackages.${system}.vmTests = {
+        deployment = nixpkgs.legacyPackages.${system}.testers.runNixOSTest ./tests/deployment;
+      };
+
       nixosConfigurations = {
         deploy-vm = nixpkgs.lib.nixosSystem {
           inherit system;

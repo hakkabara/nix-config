@@ -114,3 +114,45 @@ jq --compact-output --argjson desired "$desired" '
     api DELETE "/user/keys/$(jq --raw-output .id <<<"$key")" --output /dev/null
     echo "SSH key removed: $(jq --raw-output .title <<<"$key")"
 done
+
+# Read-only deploy key of the DeployVM build tooling (systemd credential
+# "deploy-key.pub", see repositories.deployKey). It is attached to every
+# enabled repository marked "deployKey: true". A deploy key with the same
+# title but different key material is replaced, so a regenerated key takes
+# over on the next run.
+deploy_key_file="${CREDENTIALS_DIRECTORY}/deploy-key.pub"
+
+if [ -s "$deploy_key_file" ]; then
+    deploy_key=$(cut -d " " -f 1,2 "$deploy_key_file")
+
+    yq --output-format=json '.repositories // []' "$CREDENTIALS_DIRECTORY/repositories" |
+        jq --raw-output '.[] | select(.enable != false) | select(.deployKey == true) | .name' |
+        while read -r name; do
+            if [[ ! $name =~ ^[A-Za-z0-9._-]+$ ]]; then
+                echo "Invalid repository name in the SOPS document: $name" >&2
+                exit 1
+            fi
+            path="/repos/$ADMIN_USER/$name/keys"
+            existing=$(api GET "$path?limit=50")
+
+            jq --compact-output --arg title "$DEPLOY_KEY_TITLE" --arg key "$deploy_key" '
+                .[] | select(.title == $title or (.key | split(" ") | .[0:2] | join(" ")) == $key)
+                    | select((.key | split(" ") | .[0:2] | join(" ")) != $key or .read_only != true)
+            ' <<<"$existing" | while read -r stale; do
+                api DELETE "$path/$(jq --raw-output .id <<<"$stale")" --output /dev/null
+                echo "Deploy key replaced: $ADMIN_USER/$name"
+            done
+
+            if jq --exit-status --arg key "$deploy_key" '
+                map(select((.key | split(" ") | .[0:2] | join(" ")) == $key and .read_only == true)) | length > 0
+            ' <<<"$existing" >/dev/null; then
+                echo "Deploy key up to date: $ADMIN_USER/$name"
+                continue
+            fi
+
+            jq --null-input --arg title "$DEPLOY_KEY_TITLE" --arg key "$deploy_key" \
+                '{title: $title, key: $key, read_only: true}' |
+                api POST "$path" --data @- --output /dev/null
+            echo "Deploy key added (read-only): $ADMIN_USER/$name"
+        done
+fi
