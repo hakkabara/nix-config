@@ -14,11 +14,20 @@ let
 
   url = "http://localhost:${toString cfg.port}/";
 
+  # `hacktricks` in a terminal opens the wiki, like `cyberchef`.
+  opener = pkgs.writeShellApplication {
+    name = "hacktricks";
+    runtimeInputs = [ pkgs.xdg-utils ];
+    text = ''
+      exec xdg-open ${url}
+    '';
+  };
+
   launcher = pkgs.makeDesktopItem {
     name = "hacktricks";
     desktopName = "HackTricks";
     comment = "Lokales HackTricks-Wiki (Deutsch)";
-    exec = "xdg-open ${url}";
+    exec = lib.getExe opener;
     icon = "${cfg.package}/share/hacktricks/favicon.png";
     categories = [
       "Development"
@@ -79,6 +88,9 @@ in
       };
     };
 
-    environment.systemPackages = [ launcher ];
+    environment.systemPackages = [
+      opener
+      launcher
+    ];
   };
 }
