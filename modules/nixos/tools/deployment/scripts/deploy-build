@@ -78,6 +78,24 @@ fi
 
 echo "PASS: flake.lock present, inputs are used as locked"
 
+# The GC-root helpers need root at the very end. Ask for the password now
+# and keep the sudo timestamp fresh while the (possibly hours long) build
+# runs, so the pin step cannot time out unattended.
+echo
+echo "===== SUDO ====="
+/run/wrappers/bin/sudo -v
+
+(
+    while kill -0 "$$" 2>/dev/null; do
+        /run/wrappers/bin/sudo -n -v 2>/dev/null || exit 0
+        sleep 60
+    done
+) &
+SUDO_KEEPALIVE=$!
+trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null || true' EXIT
+
+echo "PASS: sudo credentials cached for the pin steps"
+
 BRANCH="$(git_public branch --show-current)"
 COMMIT="$(git_public rev-parse --short HEAD)"
 
