@@ -1,0 +1,3130 @@
+#!/usr/bin/env bash
+#
+# abuseipdb-check — read-only IP-Reputationspruefung gegen AbuseIPDB (GET /api/v2/check).
+#
+# Einzelne, deploybare Bash-Datei (curl + jq). Alle Funktionen tragen das
+# Praefix `aic_` und sind strikt return-code-basiert (identische Semantik
+# gesourct in bats wie direkt ausgefuehrt). Der einzige Netzzugriff laeuft
+# ueber `${AIC_CURL:-curl}` — die Mock-Naht fuer die Tests.
+#
+# Die Datei ist in Domaenensektionen gegliedert (validate / input / exclude /
+# config / cache / api / run / output / export). In diesem Entwicklungsstand
+# sind die Sektionen deps / validate / input / exclude / config / cache
+# vollstaendig; api / run / output / export folgen in Folge-Stories (US-007+).
+#
+# Exit-Codes: 0 sauber | 1 Fund >= kritisch | 2 Nutzungs-/Eingabefehler
+#             | 3 API-/Netzfehler.
+
+set -euo pipefail
+
+# Netz-Naht: das Tool ruft curl ausschliesslich hierueber auf.
+AIC_CURL="${AIC_CURL:-curl}"
+
+# ============================================================================
+# SEKTION: deps — Abhaengigkeitspruefung
+# ============================================================================
+
+# aic_check_deps: prueft curl + jq. Fehlt eines, Meldung + Exit 2.
+# Return-code-basiert; kein set -e-Verlass.
+aic_check_deps() {
+  local missing=()
+  command -v curl >/dev/null 2>&1 || missing+=("curl")
+  command -v jq >/dev/null 2>&1 || missing+=("jq")
+  if [ "${#missing[@]}" -gt 0 ]; then
+    printf 'Fehler: benoetigte Programme fehlen: %s\n' "${missing[*]}" >&2
+    printf 'Bitte installieren, z. B.: apt install %s\n' "${missing[*]}" >&2
+    return 2
+  fi
+  return 0
+}
+
+# ============================================================================
+# SEKTION: validate — Syntaxpruefung & Klassifizierung IPv4/IPv6
+# ============================================================================
+
+# aic_valid_ipv4 <str>: 0 wenn syntaktisch gueltige IPv4 (ohne fuehrende
+# Nullen, jedes Oktett 0-255), sonst 1.
+aic_valid_ipv4() {
+  local ip="${1-}"
+  # exakt vier Punkt-getrennte Dezimalgruppen, keine sonstigen Zeichen
+  [[ "${ip}" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+  local o
+  for o in "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"; do
+    # fuehrende Null verboten (mehr als eine Ziffer und beginnt mit 0)
+    [[ "${#o}" -gt 1 && "${o:0:1}" == "0" ]] && return 1
+    [ "${o}" -ge 0 ] 2>/dev/null || return 1
+    [ "${o}" -le 255 ] || return 1
+  done
+  return 0
+}
+
+# aic_valid_ipv6 <str>: 0 wenn syntaktisch gueltige IPv6 (inkl. ::,
+# IPv4-mapped ::ffff:a.b.c.d), sonst 1. Case-insensitiv.
+aic_valid_ipv6() {
+  local ip="${1-}"
+  [ -n "${ip}" ] || return 1
+  # Whitespace unzulaessig
+  [[ "${ip}" =~ [[:space:]] ]] && return 1
+  # muss mindestens einen Doppelpunkt enthalten
+  [[ "${ip}" == *:* ]] || return 1
+
+  local lower="${ip,,}"
+
+  # drei oder mehr aufeinanderfolgende Doppelpunkte sind ungueltig
+  [[ "${lower}" == *":::"* ]] && return 1
+
+  # IPv4-mapped/embedded: letztes Segment ist eine IPv4-Adresse.
+  if [[ "${lower}" == *.* ]]; then
+    local v6part="${lower%:*}"
+    local v4part="${lower##*:}"
+    aic_valid_ipv4 "${v4part}" || return 1
+    # v6part muss auf : enden oder gueltiges Praefix sein; wir haengen
+    # ein Platzhalter-Hextet an und pruefen den Rest als reine IPv6.
+    lower="${v6part}:0"
+  fi
+
+  # nicht mehr als ein "::"
+  local dcount
+  dcount="$(awk -F'::' '{print NF-1}' <<< "${lower}")"
+  [ "${dcount}" -le 1 ] || return 1
+
+  local has_dcolon=0
+  [[ "${lower}" == *"::"* ]] && has_dcolon=1
+
+  # in Gruppen zerlegen
+  local -a groups=()
+  local IFS=':'
+  # doppelter Doppelpunkt erzeugt leere Felder -> gezielt behandeln
+  read -r -a groups <<< "${lower}"
+
+  # jede nichtleere Gruppe: 1-4 Hexziffern
+  local g
+  local nonempty=0
+  for g in "${groups[@]}"; do
+    if [ -n "${g}" ]; then
+      [[ "${g}" =~ ^[0-9a-f]{1,4}$ ]] || return 1
+      nonempty=$((nonempty+1))
+    fi
+  done
+
+  if [ "${has_dcolon}" -eq 1 ]; then
+    # mit :: duerfen es hoechstens 7 explizite Gruppen sein
+    [ "${nonempty}" -le 7 ] || return 1
+  else
+    # ohne :: muessen es exakt 8 Gruppen sein
+    [ "${nonempty}" -eq 8 ] || return 1
+    # keine leeren Gruppen erlaubt (kein fuehrender/abschliessender :)
+    [[ "${lower}" == :* || "${lower}" == *: ]] && return 1
+  fi
+  return 0
+}
+
+# aic_expand_ipv6 <ipv6>: expandiert zu 8 Gruppen a 4 Hexziffern,
+# durch ':' getrennt, kleingeschrieben. Gibt die Vollform auf stdout.
+# IPv4-mapped wird in Hextets uebersetzt. Rueckgabe 1 bei Fehler.
+aic_expand_ipv6() {
+  local ip="${1-}"
+  local lower="${ip,,}"
+
+  # IPv4-Suffix in zwei Hextets umwandeln
+  if [[ "${lower}" == *.* ]]; then
+    local v6part="${lower%:*}"
+    local v4part="${lower##*:}"
+    aic_valid_ipv4 "${v4part}" || return 1
+    local a b c d
+    IFS='.' read -r a b c d <<< "${v4part}"
+    local h1 h2
+    h1="$(printf '%02x%02x' "${a}" "${b}")"
+    h2="$(printf '%02x%02x' "${c}" "${d}")"
+    lower="${v6part}:${h1}:${h2}"
+  fi
+
+  local left right
+  local -a lg=() rg=()
+  if [[ "${lower}" == *"::"* ]]; then
+    left="${lower%%::*}"
+    right="${lower##*::}"
+    if [ -n "${left}" ]; then
+      local IFS=':'; read -r -a lg <<< "${left}"
+    fi
+    if [ -n "${right}" ]; then
+      local IFS=':'; read -r -a rg <<< "${right}"
+    fi
+  else
+    local IFS=':'; read -r -a lg <<< "${lower}"
+  fi
+
+  local fill=$(( 8 - ${#lg[@]} - ${#rg[@]} ))
+  [ "${fill}" -ge 0 ] || return 1
+
+  local -a full=()
+  local g
+  for g in "${lg[@]}"; do full+=("${g}"); done
+  local i
+  for (( i=0; i<fill; i++ )); do full+=("0"); done
+  for g in "${rg[@]}"; do full+=("${g}"); done
+
+  [ "${#full[@]}" -eq 8 ] || return 1
+
+  local out=""
+  for g in "${full[@]}"; do
+    printf -v g '%04x' "$((16#${g}))"
+    out+="${g}:"
+  done
+  printf '%s\n' "${out%:}"
+  return 0
+}
+
+# aic_ipv4_to_int <ipv4>: gibt den 32-Bit-Integer auf stdout aus.
+aic_ipv4_to_int() {
+  local a b c d
+  IFS='.' read -r a b c d <<< "${1}"
+  printf '%s\n' "$(( (a<<24) | (b<<16) | (c<<8) | d ))"
+}
+
+# aic_classify_ipv4 <ipv4>: gibt Klasse aus (setzt gueltige IPv4 voraus).
+aic_classify_ipv4() {
+  local ip="${1}"
+  local a b c d
+  IFS='.' read -r a b c d <<< "${ip}"
+
+  # 0.0.0.0/8 -> reserved ("this network")
+  [ "${a}" -eq 0 ] && { echo "reserved"; return 0; }
+  # 127/8 loopback
+  [ "${a}" -eq 127 ] && { echo "loopback"; return 0; }
+  # RFC1918 private
+  [ "${a}" -eq 10 ] && { echo "private"; return 0; }
+  [ "${a}" -eq 172 ] && [ "${b}" -ge 16 ] && [ "${b}" -le 31 ] && { echo "private"; return 0; }
+  [ "${a}" -eq 192 ] && [ "${b}" -eq 168 ] && { echo "private"; return 0; }
+  # 169.254/16 link-local
+  [ "${a}" -eq 169 ] && [ "${b}" -eq 254 ] && { echo "link-local"; return 0; }
+  # 100.64/10 CGN -> reserved
+  [ "${a}" -eq 100 ] && [ "${b}" -ge 64 ] && [ "${b}" -le 127 ] && { echo "reserved"; return 0; }
+  # 224/4 multicast (224-239)
+  [ "${a}" -ge 224 ] && [ "${a}" -le 239 ] && { echo "multicast"; return 0; }
+  # 240/4 reserved (240-255)
+  [ "${a}" -ge 240 ] && { echo "reserved"; return 0; }
+
+  echo "public"
+  return 0
+}
+
+# aic_classify_ip <str>: public|private|loopback|link-local|multicast|reserved|invalid.
+aic_classify_ip() {
+  local ip="${1-}"
+
+  if aic_valid_ipv4 "${ip}"; then
+    aic_classify_ipv4 "${ip}"
+    return 0
+  fi
+
+  if aic_valid_ipv6 "${ip}"; then
+    local lower="${ip,,}"
+
+    # IPv4-mapped ::ffff:a.b.c.d -> nach IPv4-Regeln klassifizieren
+    if [[ "${lower}" =~ ^::ffff:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})$ ]]; then
+      local v4="${BASH_REMATCH[1]}"
+      if aic_valid_ipv4 "${v4}"; then
+        aic_classify_ipv4 "${v4}"
+        return 0
+      fi
+    fi
+
+    # Vollexpansion fuer Praefix-Vergleiche
+    local full
+    full="$(aic_expand_ipv6 "${lower}")" || { echo "invalid"; return 0; }
+    local h0="${full%%:*}"           # erstes Hextet
+    local firstbyte=$(( (16#${h0}) >> 8 ))
+
+    # ::1 loopback  (0000:...:0001)
+    [ "${full}" == "0000:0000:0000:0000:0000:0000:0000:0001" ] && { echo "loopback"; return 0; }
+    # fe80::/10 link-local: erstes Hextet fe80..febf
+    if [ "$((16#${h0}))" -ge "$((16#fe80))" ] && [ "$((16#${h0}))" -le "$((16#febf))" ]; then
+      echo "link-local"; return 0
+    fi
+    # ff00::/8 multicast
+    [ "${firstbyte}" -eq $((16#ff)) ] && { echo "multicast"; return 0; }
+    # fc00::/7 ULA -> private (fc00..fdff)
+    if [ "${firstbyte}" -ge $((16#fc)) ] && [ "${firstbyte}" -le $((16#fd)) ]; then
+      echo "private"; return 0
+    fi
+    # 2001:db8::/32 doc -> reserved
+    local h1="${full#*:}"; h1="${h1%%:*}"
+    if [ "${h0}" == "2001" ] && [ "${h1}" == "0db8" ]; then
+      echo "reserved"; return 0
+    fi
+
+    echo "public"
+    return 0
+  fi
+
+  echo "invalid"
+  return 0
+}
+
+# ============================================================================
+# SEKTION: input — Eingabewege & Dedupe
+# ============================================================================
+
+# aic_extract_ips: liest stdin, gibt alle IPv4/IPv6-artigen Tokens (eine/Zeile).
+aic_extract_ips() {
+  # grep -oE: IPv4 und IPv6 (grob), Validierung erfolgt spaeter.
+  grep -oiE '([0-9]{1,3}(\.[0-9]{1,3}){3})|(([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(:[0-9]{1,3}(\.[0-9]{1,3}){3})?)' \
+    2>/dev/null || true
+}
+
+# aic_count_input <n>: addiert <n> zum Einlese-Zaehler in AIC_INPUT_COUNT_FILE
+# (falls gesetzt). Der Zaehler laeuft ueber eine Datei, weil aic_read_inputs in
+# einer Subshell (Pipe) laeuft und eine globale Variable dort verloren ginge.
+# Return-code-basiert; fehlende Datei/Variable ist kein Fehler.
+aic_count_input() {
+  local n="${1:-1}"
+  local cf="${AIC_INPUT_COUNT_FILE:-}"
+  [ -n "${cf}" ] || return 0
+  local cur=0
+  [ -f "${cf}" ] && cur="$(cat "${cf}" 2>/dev/null)"
+  [[ "${cur}" =~ ^[0-9]+$ ]] || cur=0
+  printf '%s' "$(( cur + n ))" > "${cf}" 2>/dev/null || true
+  return 0
+}
+
+# aic_emit_line <zeile>: gibt eine getrimmte Eingabezeile als IP-Kandidat(en)
+# aus. Enthaelt die Zeile inneren Whitespace (unsaubere Listen, z. B.
+# `uniq -c`-Ausgabe "  5 1.2.3.4" oder mehrere IPs pro Zeile), werden die
+# IP-Tokens herausgeloest wie bei --extract. Findet sich darin kein IP-Token,
+# bleibt die Zeile als ganzer Kandidat erhalten und laeuft downstream als
+# INVALID in die Skip-Sektion (nichts wird stillschweigend verworfen).
+aic_emit_line() {
+  local line="${1-}"
+  if [[ "${line}" == *[[:space:]]* ]]; then
+    local ex; ex="$(printf '%s\n' "${line}" | aic_extract_ips)"
+    if [ -n "${ex}" ]; then
+      aic_count_input "$(printf '%s\n' "${ex}" | grep -c .)"
+      printf '%s\n' "${ex}"
+      return 0
+    fi
+  fi
+  aic_count_input 1
+  printf '%s\n' "${line}"
+  return 0
+}
+
+# aic_read_inputs: sammelt IPs aus Datei (AIC_INPUT_FILE), Positionsargumenten
+# (AIC_POSITIONAL[]), stdin (nur wenn kein TTY) und --extract (AIC_EXTRACT=1).
+# Gibt Roh-IPs (eine/Zeile) auf stdout. Kommentare (#) und Leerzeilen werden
+# bei Dateieingabe ignoriert. Zeilen mit innerem Whitespace werden auch ohne
+# --extract via aic_emit_line entschaerft (uniq -c, CRLF, Mehrfach-IPs).
+#
+# Nebenbei zaehlt die Funktion die IP-Kandidaten VOR Dedupe/Validierung/
+# Whitelist in AIC_INPUT_COUNT_FILE (F3-Bilanz): pro Positionsargument/stdin-
+# Zeile eins, bei --extract die Zahl der gefundenen Kandidaten je Quelle.
+aic_read_inputs() {
+  local extract="${AIC_EXTRACT:-0}"
+
+  # 1) Positionsargumente
+  if [ "${#AIC_POSITIONAL[@]}" -gt 0 ]; then
+    local p
+    for p in "${AIC_POSITIONAL[@]}"; do
+      [ -n "${p}" ] || continue
+      if [ "${extract}" -eq 1 ]; then
+        local ex; ex="$(printf '%s\n' "${p}" | aic_extract_ips)"
+        [ -n "${ex}" ] || continue
+        aic_count_input "$(printf '%s\n' "${ex}" | grep -c .)"
+        printf '%s\n' "${ex}"
+      else
+        aic_emit_line "${p}"
+      fi
+    done
+  fi
+
+  # 2) Datei
+  if [ -n "${AIC_INPUT_FILE:-}" ] && [ -f "${AIC_INPUT_FILE}" ]; then
+    local line
+    while IFS= read -r line || [ -n "${line}" ]; do
+      line="${line%%#*}"                       # Kommentar ab # entfernen
+      line="${line#"${line%%[![:space:]]*}"}"  # linksseitiger Whitespace
+      line="${line%"${line##*[![:space:]]}"}"  # rechtsseitiger Whitespace
+      [ -z "${line}" ] && continue
+      if [ "${extract}" -eq 1 ]; then
+        local ex; ex="$(printf '%s\n' "${line}" | aic_extract_ips)"
+        [ -n "${ex}" ] || continue
+        aic_count_input "$(printf '%s\n' "${ex}" | grep -c .)"
+        printf '%s\n' "${ex}"
+      else
+        aic_emit_line "${line}"
+      fi
+    done < "${AIC_INPUT_FILE}"
+  fi
+
+  # 3) stdin: nur lesen, wenn kein TTY UND keine anderen Quellen angegeben
+  # sind (Positionsargumente oder -f). Sonst wuerde ein Aufruf mit Args und
+  # nicht-TTY-stdin ohne Pipe-Daten (z. B. unter xargs/bats) endlos auf
+  # `read` warten. Andere Quellen haben Vorrang; stdin bleibt der reine
+  # Pipe-Fall ohne konkurrierende Eingabe.
+  local have_other=0
+  [ "${#AIC_POSITIONAL[@]}" -gt 0 ] && have_other=1
+  [ -n "${AIC_INPUT_FILE:-}" ] && [ -f "${AIC_INPUT_FILE}" ] && have_other=1
+  if [ ! -t 0 ] && [ "${have_other}" -eq 0 ]; then
+    if [ "${extract}" -eq 1 ]; then
+      local ex; ex="$(aic_extract_ips)"
+      if [ -n "${ex}" ]; then
+        aic_count_input "$(printf '%s\n' "${ex}" | grep -c .)"
+        printf '%s\n' "${ex}"
+      fi
+    else
+      local line
+      while IFS= read -r line || [ -n "${line}" ]; do
+        line="${line%%#*}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [ -z "${line}" ] && continue
+        aic_emit_line "${line}"
+      done
+    fi
+  fi
+
+  return 0
+}
+
+# aic_dedupe: liest IPs von stdin, gibt eindeutige (Reihenfolge des ersten
+# Auftretens) auf stdout. IPv6 wird case-insensitiv verglichen (Kleinschreibung
+# als Normalform). Duplikate werden — falls AIC_SKIP_FILE gesetzt — mit Grund
+# DUPLIKAT angehaengt (Format: "<ip>\tDUPLIKAT").
+aic_dedupe() {
+  local skipfile="${AIC_SKIP_FILE:-}"
+  declare -A seen=()
+  local ip key
+  while IFS= read -r ip || [ -n "${ip}" ]; do
+    [ -z "${ip}" ] && continue
+    # Normalform fuer den Vergleich: IPv6 lowercase, IPv4 unveraendert.
+    if [[ "${ip}" == *:* ]]; then
+      key="${ip,,}"
+    else
+      key="${ip}"
+    fi
+    if [ -n "${seen[${key}]:-}" ]; then
+      [ -n "${skipfile}" ] && printf '%s\tDUPLIKAT\n' "${ip}" >> "${skipfile}"
+      continue
+    fi
+    seen[${key}]=1
+    printf '%s\n' "${ip}"
+  done
+  return 0
+}
+
+# ============================================================================
+# SEKTION: exclude — Whitelist/Exclude (IP + CIDR, IPv4 & IPv6)
+# ============================================================================
+
+# aic_in_cidr <ip> <cidr>: 0 wenn <ip> in <cidr> liegt, sonst 1.
+# Blankes <cidr> ohne "/" wird als /32 (IPv4) bzw. /128 (IPv6) behandelt.
+aic_in_cidr() {
+  local ip="${1-}"
+  local cidr="${2-}"
+  [ -n "${ip}" ] && [ -n "${cidr}" ] || return 1
+
+  local net prefix
+  if [[ "${cidr}" == */* ]]; then
+    net="${cidr%%/*}"
+    prefix="${cidr##*/}"
+  else
+    net="${cidr}"
+    prefix=""
+  fi
+
+  # IPv4-Pfad
+  if aic_valid_ipv4 "${ip}" && aic_valid_ipv4 "${net}"; then
+    [ -z "${prefix}" ] && prefix=32
+    [ "${prefix}" -ge 0 ] && [ "${prefix}" -le 32 ] || return 1
+    local ipi neti mask
+    ipi="$(aic_ipv4_to_int "${ip}")"
+    neti="$(aic_ipv4_to_int "${net}")"
+    if [ "${prefix}" -eq 0 ]; then
+      mask=0
+    else
+      mask=$(( (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF ))
+    fi
+    [ $(( ipi & mask )) -eq $(( neti & mask )) ] && return 0
+    return 1
+  fi
+
+  # IPv6-Pfad: beide Seiten voll expandieren, dann Praefix-Bits vergleichen.
+  if aic_valid_ipv6 "${ip}" && aic_valid_ipv6 "${net}"; then
+    [ -z "${prefix}" ] && prefix=128
+    [ "${prefix}" -ge 0 ] && [ "${prefix}" -le 128 ] || return 1
+    local ipf netf
+    ipf="$(aic_expand_ipv6 "${ip}")" || return 1
+    netf="$(aic_expand_ipv6 "${net}")" || return 1
+
+    # Hextets in Nibble-freie Bitpruefung: pro 16-Bit-Hextet maskieren.
+    local -a ipa neta
+    local IFS=':'
+    read -r -a ipa <<< "${ipf}"
+    read -r -a neta <<< "${netf}"
+    unset IFS
+
+    local remaining="${prefix}"
+    local i
+    for (( i=0; i<8; i++ )); do
+      local bits=16
+      [ "${remaining}" -lt 16 ] && bits="${remaining}"
+      [ "${bits}" -le 0 ] && break
+      local m=$(( (0xFFFF << (16 - bits)) & 0xFFFF ))
+      local iv=$(( 16#${ipa[i]} & m ))
+      local nv=$(( 16#${neta[i]} & m ))
+      [ "${iv}" -eq "${nv}" ] || return 1
+      remaining=$(( remaining - bits ))
+    done
+    return 0
+  fi
+
+  return 1
+}
+
+# aic_is_excluded <ip>: 0 wenn <ip> gegen einen Eintrag in AIC_EXCLUDES[] matcht.
+aic_is_excluded() {
+  local ip="${1-}"
+  [ "${#AIC_EXCLUDES[@]}" -gt 0 ] || return 1
+  local entry
+  for entry in "${AIC_EXCLUDES[@]}"; do
+    [ -z "${entry}" ] && continue
+    if aic_in_cidr "${ip}" "${entry}"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# aic_load_exclude_file <datei>: haengt IP/CIDR-Eintraege (Kommentare #,
+# Leerzeilen ignoriert) an AIC_EXCLUDES[] an.
+aic_load_exclude_file() {
+  local f="${1-}"
+  [ -n "${f}" ] && [ -f "${f}" ] || return 1
+  local line
+  while IFS= read -r line || [ -n "${line}" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "${line}" ] && continue
+    AIC_EXCLUDES+=("${line}")
+  done < "${f}"
+  return 0
+}
+
+# aic_filter_excluded: liest IPs von stdin, gibt nicht-ausgeschlossene auf
+# stdout; ausgeschlossene werden — falls AIC_SKIP_FILE gesetzt — mit Grund
+# WHITELIST angehaengt.
+aic_filter_excluded() {
+  local skipfile="${AIC_SKIP_FILE:-}"
+  local ip
+  while IFS= read -r ip || [ -n "${ip}" ]; do
+    [ -z "${ip}" ] && continue
+    if aic_is_excluded "${ip}"; then
+      [ -n "${skipfile}" ] && printf '%s\tWHITELIST\n' "${ip}" >> "${skipfile}"
+      continue
+    fi
+    printf '%s\n' "${ip}"
+  done
+  return 0
+}
+
+# aic_filter_classify: liest IPs von stdin, gibt NUR public IPs auf stdout aus.
+# Nicht-public (private/loopback/link-local/multicast/reserved) und ungueltige
+# Eingaben werden — falls AIC_SKIP_FILE gesetzt — mit Grund in Grossbuchstaben
+# ("<ip>\t<GRUND>") in die Skip-Datei geschrieben. Nur public IPs erreichen so
+# den Runner (und damit den Key-Zwang / API-Calls). Return stets 0.
+aic_filter_classify() {
+  local skipfile="${AIC_SKIP_FILE:-}"
+  local ip class reason
+  while IFS= read -r ip || [ -n "${ip}" ]; do
+    [ -z "${ip}" ] && continue
+    class="$(aic_classify_ip "${ip}")"
+    if [ "${class}" = "public" ]; then
+      printf '%s\n' "${ip}"
+      continue
+    fi
+    # Klasse -> Grossbuchstaben-Grund fuer die Skip-Sektion.
+    case "${class}" in
+      private)    reason="PRIVATE" ;;
+      loopback)   reason="LOOPBACK" ;;
+      link-local) reason="LINK-LOCAL" ;;
+      multicast)  reason="MULTICAST" ;;
+      reserved)   reason="RESERVED" ;;
+      *)          reason="INVALID" ;;
+    esac
+    [ -n "${skipfile}" ] && printf '%s\t%s\n' "${ip}" "${reason}" >> "${skipfile}"
+  done
+  return 0
+}
+
+# ============================================================================
+# SEKTION: config — Konfigurationsdatei & API-Key-Aufloesung
+# ============================================================================
+#
+# Config-Format: schlichte `key=value`-Zeilen in ~/.config/abuseipdb/config.
+# Geparst wird strikt zeilenweise mit einer Key-Whitelist — NIEMALS via
+# `source`/`eval`, damit ein Wert wie `api_key=$(touch /tmp/pwned)` literal
+# uebernommen und nichts ausgefuehrt wird (Code-Injection-Schutz).
+#
+# Standardpfad der Config-Datei.
+AIC_CONFIG_PATH="${AIC_CONFIG_PATH:-${HOME}/.config/abuseipdb/config}"
+
+# Erlaubte Config-Keys (Whitelist). Werte werden in gleichnamige
+# AIC_CFG_<key>-Variablen abgelegt.
+AIC_CONFIG_KEYS=(
+  api_key
+  api_keys
+  ttl
+  ttl_hours
+  max_age_in_days
+  threshold_critical
+  threshold_suspect
+  cache_dir
+  whitelist
+)
+
+# aic_config_key_allowed <key>: 0 wenn <key> in der Whitelist steht, sonst 1.
+aic_config_key_allowed() {
+  local key="${1-}"
+  local k
+  for k in "${AIC_CONFIG_KEYS[@]}"; do
+    [ "${k}" == "${key}" ] && return 0
+  done
+  return 1
+}
+
+# aic_load_config [datei]: parst die Config-Datei zeilenweise und legt die
+# Werte erlaubter Keys in AIC_CFG_<key> ab. Fehlende Datei ist kein Fehler.
+# Kommentare (#) und Leerzeilen werden ignoriert. Nur am ERSTEN '=' gesplittet,
+# damit '=' im Wert erhalten bleibt. Rueckgabe stets 0 (return-code-basiert).
+aic_load_config() {
+  local cfg="${1:-${AIC_CONFIG_PATH}}"
+  [ -n "${cfg}" ] && [ -f "${cfg}" ] || return 0
+  local line k v
+  while IFS= read -r line || [ -n "${line}" ]; do
+    # fuehrenden Whitespace strippen
+    line="${line#"${line%%[![:space:]]*}"}"
+    # Kommentarzeilen und Leerzeilen ueberspringen
+    [ -z "${line}" ] && continue
+    [ "${line:0:1}" == "#" ] && continue
+    # kein '=' -> keine key=value-Zeile
+    [[ "${line}" == *"="* ]] || continue
+    k="${line%%=*}"          # alles vor dem ersten '='
+    v="${line#*=}"           # alles nach dem ersten '=' (Wert bleibt literal)
+    # umgebenden Whitespace am Key entfernen
+    k="${k#"${k%%[![:space:]]*}"}"
+    k="${k%"${k##*[![:space:]]}"}"
+    aic_config_key_allowed "${k}" || continue
+    # SEC3: Wert rechtsseitig trimmen — insbesondere ein CR (\r) aus CRLF-Dateien
+    # (Windows/Copy-Paste) und trailing Whitespace. Ohne das schleppte z. B.
+    # `api_key=ABC\r\n` ein Carriage-Return in den Key, das dann im HTTP-Header
+    # landet (kaputter/abgelehnter Request) oder Vergleiche verfaelscht. Fuehrender
+    # Whitespace/Inhalt bleibt literal (keine Expansion, Injection-Schutz).
+    v="${v%$'\r'}"                              # explizit ein abschliessendes CR
+    v="${v%"${v##*[![:space:]]}"}"             # restlicher rechtsseitiger Whitespace
+    # Wert literal in AIC_CFG_<key> ablegen (keine Expansion!)
+    printf -v "AIC_CFG_${k}" '%s' "${v}"
+  done < "${cfg}"
+  return 0
+}
+
+# aic_resolve_api_key: gibt den effektiven API-Key auf stdout aus.
+# Prioritaet: --api-key (AIC_OPT_API_KEY) > $ABUSEIPDB_API_KEY > Config
+# (AIC_CFG_api_key). Rueckgabe 1, wenn keine Quelle einen Key liefert.
+aic_resolve_api_key() {
+  if [ -n "${AIC_OPT_API_KEY:-}" ]; then
+    printf '%s\n' "${AIC_OPT_API_KEY}"
+    return 0
+  fi
+  if [ -n "${ABUSEIPDB_API_KEY:-}" ]; then
+    printf '%s\n' "${ABUSEIPDB_API_KEY}"
+    return 0
+  fi
+  if [ -n "${AIC_CFG_api_key:-}" ]; then
+    printf '%s\n' "${AIC_CFG_api_key}"
+    return 0
+  fi
+  return 1
+}
+
+# aic_resolve_api_keys: gibt ALLE effektiven API-Keys (eine/Zeile, in
+# Prioritaetsreihenfolge) auf stdout aus. Die QUELLE folgt der Prioritaet
+# Flag (AIC_OPT_API_KEYS[]) > Env (ABUSEIPDB_API_KEY, kommasepariert) > Config
+# (AIC_CFG_api_key gefolgt von AIC_CFG_api_keys, kommasepariert). Es zaehlt die
+# hoechste vorhandene Quelle; innerhalb der Quelle die Reihenfolge. Leere
+# Eintraege werden verworfen, Duplikate (gleicher Key) auf das erste Auftreten
+# reduziert. Return 1, wenn keine Quelle einen Key liefert.
+aic_resolve_api_keys() {
+  local -a keys=()
+
+  # Robuste Laenge auch bei ungesetztem Array (set -u): erst deklarieren.
+  declare -p AIC_OPT_API_KEYS >/dev/null 2>&1 || local -a AIC_OPT_API_KEYS=()
+  if [ "${#AIC_OPT_API_KEYS[@]}" -gt 0 ]; then
+    keys=("${AIC_OPT_API_KEYS[@]}")
+  elif [ -n "${ABUSEIPDB_API_KEY:-}" ]; then
+    local IFS=','
+    read -r -a keys <<< "${ABUSEIPDB_API_KEY}"
+    unset IFS
+  else
+    [ -n "${AIC_CFG_api_key:-}" ] && keys+=("${AIC_CFG_api_key}")
+    if [ -n "${AIC_CFG_api_keys:-}" ]; then
+      local -a cfgk=()
+      local IFS=','
+      read -r -a cfgk <<< "${AIC_CFG_api_keys}"
+      unset IFS
+      keys+=("${cfgk[@]}")
+    fi
+  fi
+
+  # Trim + Dedupe (Reihenfolge des ersten Auftretens erhalten).
+  local -A seen=()
+  local k out=0
+  for k in "${keys[@]}"; do
+    k="${k#"${k%%[![:space:]]*}"}"
+    k="${k%"${k##*[![:space:]]}"}"
+    [ -n "${k}" ] || continue
+    [ -n "${seen[${k}]:-}" ] && continue
+    seen[${k}]=1
+    printf '%s\n' "${k}"
+    out=1
+  done
+  [ "${out}" -eq 1 ] || return 1
+  return 0
+}
+
+# aic_key_fingerprint <key>: gibt einen stabilen, kurzen Hex-Fingerprint des
+# Keys aus (16 Hex-Zeichen = 64 Bit sha256-Praefix). Dient NUR dazu, Rate-Limit-
+# Metadaten pro Key zu trennen; der Key-Wert selbst erscheint NIRGENDS im
+# Fingerprint (kein Leak in Dateinamen/Logs). Fallback ohne sha256sum: cksum.
+aic_key_fingerprint() {
+  local key="${1-}"
+  local h=""
+  if command -v sha256sum >/dev/null 2>&1; then
+    h="$(printf '%s' "${key}" | sha256sum 2>/dev/null | cut -c1-16)"
+  elif command -v shasum >/dev/null 2>&1; then
+    h="$(printf '%s' "${key}" | shasum -a 256 2>/dev/null | cut -c1-16)"
+  else
+    # Letzter Fallback (kein Krypto-Anspruch, nur Trennung): cksum-Dezimalwert
+    # in Hex. Enthaelt ebenfalls nie den Key-Wert.
+    local c
+    c="$(printf '%s' "${key}" | cksum 2>/dev/null | cut -d' ' -f1)"
+    printf -v h '%x' "${c:-0}"
+  fi
+  [ -n "${h}" ] || h="0"
+  printf '%s\n' "${h}"
+  return 0
+}
+
+# aic_warn_insecure_config <datei>: warnt (stderr), wenn die Datei fuer
+# Gruppe/Andere lesbar ist (world/group-readable). Rueckgabe stets 0.
+aic_warn_insecure_config() {
+  local f="${1-}"
+  [ -n "${f}" ] && [ -f "${f}" ] || return 0
+  local perms
+  perms="$(stat -c '%a' "${f}" 2>/dev/null)" || return 0
+  # letzte zwei Oktalstellen = Gruppe/Andere; alles != 00 ist unsicher.
+  local go="${perms: -2}"
+  if [ "${go}" != "00" ]; then
+    printf 'Warnung: Konfigurationsdatei %s ist fuer andere lesbar (Rechte %s, world-readable). Empfehlung: chmod 600 %s\n' \
+      "${f}" "${perms}" "${f}" >&2
+  fi
+  return 0
+}
+
+# aic_config_write <datei> <key> [ttl_hours]: schreibt die Config-Datei mit
+# chmod 600 (Verzeichnis wird angelegt). Der optionale dritte Parameter ist die
+# TTL in STUNDEN (Legacy-Signatur, weiterhin als `ttl_hours=` geschrieben —
+# bestehende Tests verlassen sich darauf). Fuer die neue Ersteinrichtung in
+# TAGEN schreibt aic_config_init direkt `ttl=<N>d` und ruft diese Funktion nicht.
+# Return-code-basiert.
+aic_config_write() {
+  local cfg="${1-}"
+  local key="${2-}"
+  local ttl="${3-}"
+  [ -n "${cfg}" ] || return 1
+  local dir
+  dir="$(dirname "${cfg}")"
+  mkdir -p "${dir}" || return 1
+  # Restriktive Rechte bereits bei der Anlage.
+  local old_umask
+  old_umask="$(umask)"
+  umask 077
+  {
+    printf 'api_key=%s\n' "${key}"
+    if [ -n "${ttl}" ]; then printf 'ttl_hours=%s\n' "${ttl}"; fi
+  } > "${cfg}" || { umask "${old_umask}"; return 1; }
+  umask "${old_umask}"
+  chmod 600 "${cfg}" || return 1
+  return 0
+}
+
+# aic_config_write_days <datei> <key> <tage> [extra_keys]: wie aic_config_write,
+# schreibt die TTL aber als `ttl=<N>d` (F1-Format). Leere/ungueltige Tagesangabe
+# -> ohne TTL-Zeile (Default greift beim Lesen). Optionale weitere Keys
+# (kommasepariert) landen als `api_keys=`-Zeile (F2-Rotation). Return-code-basiert.
+aic_config_write_days() {
+  local cfg="${1-}"
+  local key="${2-}"
+  local days="${3-}"
+  local extra_keys="${4-}"
+  [ -n "${cfg}" ] || return 1
+  local dir
+  dir="$(dirname "${cfg}")"
+  mkdir -p "${dir}" || return 1
+  local old_umask
+  old_umask="$(umask)"
+  umask 077
+  {
+    printf 'api_key=%s\n' "${key}"
+    if [ -n "${extra_keys}" ]; then
+      printf 'api_keys=%s\n' "${extra_keys}"
+    fi
+    if [[ "${days}" =~ ^[0-9]+$ ]] && [ "${days}" -gt 0 ]; then
+      printf 'ttl=%sd\n' "${days}"
+    fi
+  } > "${cfg}" || { umask "${old_umask}"; return 1; }
+  umask "${old_umask}"
+  chmod 600 "${cfg}" || return 1
+  return 0
+}
+
+# aic_config_init <datei>: interaktive Ersteinrichtung — fragt einen Pflicht-
+# Key, danach beliebig viele weitere Keys fuer die Rotation (F2b; Enter beendet
+# die Abfrage) und die TTL (optional, Enter = Default). Schreibt die Config mit
+# chmod 600. Liest von stdin (im echten Betrieb vom TTY). Return-code-basiert.
+aic_config_init() {
+  local cfg="${1:-${AIC_CONFIG_PATH}}"
+  local key days
+  printf 'AbuseIPDB API-Key: ' >&2
+  IFS= read -r key || return 1
+  [ -n "${key}" ] || { printf 'Fehler: kein API-Key eingegeben.\n' >&2; return 2; }
+  # Weitere Keys (Rotation bei erschoepftem Tageskontingent): leere Eingabe
+  # beendet die Schleife; die Keys landen kommasepariert in `api_keys=`.
+  local more extra="" nkeys=1
+  while :; do
+    printf 'Weiterer API-Key fuer Rotation (Enter = fertig): ' >&2
+    IFS= read -r more || more=""
+    [ -n "${more}" ] || break
+    if [ -n "${extra}" ]; then extra="${extra},${more}"; else extra="${more}"; fi
+    nkeys=$(( nkeys + 1 ))
+  done
+  # F1: TTL wird in TAGEN abgefragt (Default 10) und als ttl=<N>d geschrieben.
+  printf 'Cache-TTL in Tagen [10]: ' >&2
+  IFS= read -r days || days=""
+  [ -n "${days}" ] || days=10
+  aic_config_write_days "${cfg}" "${key}" "${days}" "${extra}" || {
+    printf 'Fehler: Konfiguration konnte nicht geschrieben werden: %s\n' "${cfg}" >&2
+    return 2
+  }
+  printf 'Konfiguration gespeichert: %s (chmod 600, %s Key(s))\n' "${cfg}" "${nkeys}" >&2
+  return 0
+}
+
+# aic_ensure_api_key: stellt sicher, dass ein Key verfuegbar ist.
+# Gibt den Key auf stdout aus (Return 0). Fehlt er:
+#   * TTY (oder AIC_ASSUME_TTY=1): interaktive Ersteinrichtung, dann Key.
+#   * nicht-TTY: Fehlermeldung mit den drei Quellen + Return 2.
+aic_ensure_api_key() {
+  local key
+  if key="$(aic_resolve_api_key)"; then
+    printf '%s\n' "${key}"
+    return 0
+  fi
+  # Kein Key vorhanden.
+  if [ -t 0 ] || [ "${AIC_ASSUME_TTY:-0}" == "1" ]; then
+    aic_config_init "${AIC_CONFIG_PATH}" || return 2
+    aic_load_config "${AIC_CONFIG_PATH}"
+    if key="$(aic_resolve_api_key)"; then
+      printf '%s\n' "${key}"
+      return 0
+    fi
+    return 2
+  fi
+  printf 'Fehler: Kein AbuseIPDB API-Key gefunden.\n' >&2
+  printf 'Key ueber eine der drei Quellen bereitstellen (Prioritaet in dieser Reihenfolge):\n' >&2
+  printf '  1. Flag   --api-key <KEY>\n' >&2
+  printf '  2. Umgebung  ABUSEIPDB_API_KEY=<KEY>\n' >&2
+  printf '  3. Config    %s  (Zeile: api_key=<KEY>)\n' "${AIC_CONFIG_PATH}" >&2
+  return 2
+}
+
+# aic_ensure_api_keys: stellt sicher, dass mindestens ein Key verfuegbar ist und
+# befuellt das globale AIC_RUN_KEYS[] (in Prioritaetsreihenfolge) fuer die
+# Rotation. Fehlt jeder Key: bei TTY (oder AIC_ASSUME_TTY=1) interaktive
+# Ersteinrichtung + erneuter Versuch, sonst Fehlermeldung + Return 2. Der
+# Key-WERT wird nie ausgegeben (Return-Wert steht in AIC_RUN_KEYS).
+aic_ensure_api_keys() {
+  AIC_RUN_KEYS=()
+  local -a k=()
+  if mapfile -t k < <(aic_resolve_api_keys) && [ "${#k[@]}" -gt 0 ]; then
+    AIC_RUN_KEYS=("${k[@]}")
+    return 0
+  fi
+  # Kein Key vorhanden.
+  if [ -t 0 ] || [ "${AIC_ASSUME_TTY:-0}" == "1" ]; then
+    aic_config_init "${AIC_CONFIG_PATH}" || return 2
+    aic_load_config "${AIC_CONFIG_PATH}"
+    if mapfile -t k < <(aic_resolve_api_keys) && [ "${#k[@]}" -gt 0 ]; then
+      AIC_RUN_KEYS=("${k[@]}")
+      return 0
+    fi
+    return 2
+  fi
+  printf 'Fehler: Kein AbuseIPDB API-Key gefunden.\n' >&2
+  printf 'Key ueber eine der drei Quellen bereitstellen (Prioritaet in dieser Reihenfolge):\n' >&2
+  printf '  1. Flag   --api-key <KEY>  (wiederholbar fuer Key-Rotation)\n' >&2
+  printf '  2. Umgebung  ABUSEIPDB_API_KEY=<KEY[,KEY2,...]>\n' >&2
+  printf '  3. Config    %s  (Zeile: api_key=<KEY> und/oder api_keys=<KEY,...>)\n' "${AIC_CONFIG_PATH}" >&2
+  return 2
+}
+
+# aic_apply_config_whitelist: haengt die kommaseparierten Eintraege aus
+# AIC_CFG_whitelist an AIC_EXCLUDES[] an (fuer die bestehende Exclude-Logik).
+aic_apply_config_whitelist() {
+  local wl="${AIC_CFG_whitelist:-}"
+  [ -n "${wl}" ] || return 0
+  local IFS=','
+  local -a entries=()
+  read -r -a entries <<< "${wl}"
+  unset IFS
+  local e
+  for e in "${entries[@]}"; do
+    # umgebenden Whitespace entfernen
+    e="${e#"${e%%[![:space:]]*}"}"
+    e="${e%"${e##*[![:space:]]}"}"
+    [ -n "${e}" ] && AIC_EXCLUDES+=("${e}")
+  done
+  return 0
+}
+
+# ============================================================================
+# SEKTION: cache — Geteilter TTL-Cache (atomar, multi-user)
+# ============================================================================
+#
+# Ein JSON-File pro IP, neben dem Tool (`<tool-dir>/cache`), uebersteuerbar
+# via Config `cache_dir` bzw. Flag `--cache-dir`. IPv6-':' wird im Dateinamen
+# durch '_' ersetzt. Geschrieben wird atomar (`mktemp` im Cache-Dir + `mv`)
+# mit lokalem `umask 002` (Gruppenschreibrecht fuer Multi-User). Ist das
+# Verzeichnis nicht beschreibbar, warnt das Tool und laeuft OHNE Cache weiter
+# (kein Abbruch — Principle 2). TTL ueber die Datei-mtime.
+
+# Default-TTL in Stunden. F1: neuer Default 240h (= 10 Tage). Uebersteuerbar via
+# Flag --ttl (Suffix d/h/nackt), Config `ttl` (Suffix) oder legacy `ttl_hours`.
+AIC_TTL_HOURS="${AIC_TTL_HOURS:-240}"
+
+# aic_ttl_to_hours <wert>: uebersetzt einen TTL-Wert in ganze Stunden auf stdout.
+# Suffix `d` = Tage (*24), `h` = Stunden, Zahl ohne Suffix = Stunden (abwaerts-
+# kompatibel). Nur positive Ganzzahlen; 0, negativ oder Muell -> Return 1.
+aic_ttl_to_hours() {
+  local raw="${1-}"
+  [ -n "${raw}" ] || return 1
+  local num unit hours
+  if [[ "${raw}" =~ ^([0-9]+)([dh])$ ]]; then
+    num="${BASH_REMATCH[1]}"
+    unit="${BASH_REMATCH[2]}"
+  elif [[ "${raw}" =~ ^([0-9]+)$ ]]; then
+    num="${BASH_REMATCH[1]}"
+    unit="h"
+  else
+    return 1
+  fi
+  [ "${num}" -gt 0 ] 2>/dev/null || return 1
+  if [ "${unit}" = "d" ]; then
+    hours=$(( num * 24 ))
+  else
+    hours="${num}"
+  fi
+  printf '%s\n' "${hours}"
+  return 0
+}
+
+# aic_resolve_ttl_hours: gibt die effektive TTL in Stunden auf stdout aus.
+# Prioritaet der QUELLE: Flag --ttl (AIC_OPT_TTL) > Config `ttl` (AIC_CFG_ttl) >
+# legacy `ttl_hours` (AIC_CFG_ttl_hours) > Default 240h (10 Tage). Ein ungueltiger
+# Flag-Wert fuehrt zu Return 2 (Nutzungsfehler); ungueltige Config-Werte werden
+# ignoriert und fallen auf die naechste Quelle bzw. den Default zurueck.
+aic_resolve_ttl_hours() {
+  local h
+  if [ -n "${AIC_OPT_TTL:-}" ]; then
+    if h="$(aic_ttl_to_hours "${AIC_OPT_TTL}")"; then
+      printf '%s\n' "${h}"; return 0
+    fi
+    return 2
+  fi
+  if [ -n "${AIC_CFG_ttl:-}" ]; then
+    if h="$(aic_ttl_to_hours "${AIC_CFG_ttl}")"; then
+      printf '%s\n' "${h}"; return 0
+    fi
+  fi
+  if [ -n "${AIC_CFG_ttl_hours:-}" ]; then
+    if h="$(aic_ttl_to_hours "${AIC_CFG_ttl_hours}")"; then
+      printf '%s\n' "${h}"; return 0
+    fi
+  fi
+  printf '240\n'
+  return 0
+}
+
+# aic_cache_resolve_dir: gibt das effektive Cache-Verzeichnis auf stdout aus.
+# Prioritaet: --cache-dir (AIC_OPT_CACHE_DIR) > Config (AIC_CFG_cache_dir) >
+# Default `<tool-dir>/cache` (via BASH_SOURCE, korrekt auch unter bats-Sourcing).
+aic_cache_resolve_dir() {
+  if [ -n "${AIC_OPT_CACHE_DIR:-}" ]; then
+    printf '%s\n' "${AIC_OPT_CACHE_DIR}"
+    return 0
+  fi
+  if [ -n "${AIC_CFG_cache_dir:-}" ]; then
+    printf '%s\n' "${AIC_CFG_cache_dir}"
+    return 0
+  fi
+  # F3: Laufzeit-Artefakte liegen jetzt unter <tooldir>/data/. Der Ergebnis-Cache
+  # wandert damit von <tooldir>/cache nach <tooldir>/data/cache (Migration siehe
+  # aic_migrate_cache_layout). Rate-Limit-Metadaten liegen weiterhin im Cache-
+  # Verzeichnis (aic_cache_meta_path), bei Default also unter data/cache/.
+  local tool_dir
+  tool_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+  printf '%s\n' "${tool_dir}/data/cache"
+  return 0
+}
+
+# aic_migrate_cache_layout: einmalige, best-effort Migration des alten Cache-
+# Layouts (F3). Existiert beim Start <tooldir>/cache (alt) UND noch KEIN
+# <tooldir>/data/cache, werden die vorhandenen Cache-Dateien nach data/cache/
+# verschoben (mv), mit einmaligem stderr-Hinweis. Existiert data/cache bereits,
+# passiert nichts (kein Ueberschreiben). Der Tool-Ordner wird ueber BASH_SOURCE
+# ermittelt; AIC_MIGRATE_TOOLDIR uebersteuert ihn (fuer Tests). Return stets 0.
+aic_migrate_cache_layout() {
+  local tool_dir
+  if [ -n "${AIC_MIGRATE_TOOLDIR:-}" ]; then
+    tool_dir="${AIC_MIGRATE_TOOLDIR}"
+  else
+    tool_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+  fi
+  local old_cache="${tool_dir}/cache"
+  local new_cache="${tool_dir}/data/cache"
+
+  # Nur migrieren, wenn altes cache/ existiert und data/cache noch nicht.
+  [ -d "${old_cache}" ] || return 0
+  [ -d "${new_cache}" ] && return 0
+
+  mkdir -p "${new_cache}" 2>/dev/null || return 0
+  # Inhalt best effort verschieben (Dotfiles wie .ratelimit inklusive).
+  local moved=0 entry base
+  shopt -s nullglob dotglob
+  for entry in "${old_cache}"/*; do
+    base="$(basename "${entry}")"
+    if mv -f "${entry}" "${new_cache}/${base}" 2>/dev/null; then
+      moved=1
+    fi
+  done
+  shopt -u nullglob dotglob
+  # Leeres altes Verzeichnis entfernen (best effort).
+  rmdir "${old_cache}" 2>/dev/null || true
+
+  if [ "${moved}" -eq 1 ]; then
+    printf 'Hinweis: alter Cache nach %s verschoben (Migration auf data/cache).\n' \
+      "${new_cache}" >&2
+  fi
+  return 0
+}
+
+# aic_cache_current_dir: das aktuell aktive Cache-Verzeichnis.
+# Nutzt AIC_CACHE_DIR, falls gesetzt (Tests/Override), sonst die Aufloesung.
+aic_cache_current_dir() {
+  if [ -n "${AIC_CACHE_DIR:-}" ]; then
+    printf '%s\n' "${AIC_CACHE_DIR}"
+  else
+    aic_cache_resolve_dir
+  fi
+  return 0
+}
+
+# aic_cache_path <ip>: gibt den Dateipfad fuer die IP im Cache-Dir aus.
+# IPv6-':' wird durch '_' ersetzt (dateisystemsicher).
+aic_cache_path() {
+  local ip="${1-}"
+  [ -n "${ip}" ] || return 1
+  local dir safe
+  dir="$(aic_cache_current_dir)"
+  safe="${ip//:/_}"
+  printf '%s\n' "${dir}/${safe}.json"
+  return 0
+}
+
+# aic_cache_ensure_dir <dir>: legt das Cache-Verzeichnis best-effort mit
+# setgid (2775) an. Rueckgabe 0 wenn beschreibbar, sonst 1 (kein Abbruch).
+aic_cache_ensure_dir() {
+  local dir="${1-}"
+  [ -n "${dir}" ] || return 1
+  if [ ! -d "${dir}" ]; then
+    # Best-Effort: 2775 (setgid) fuer Multi-User; Fehler nicht fatal.
+    mkdir -p "${dir}" 2>/dev/null || return 1
+    chmod 2775 "${dir}" 2>/dev/null || true
+  fi
+  [ -w "${dir}" ] || return 1
+  return 0
+}
+
+# aic_cache_write <ip> <json>: schreibt <json> atomar in die Cache-Datei.
+# Setzt lokal `umask 002` (Dateirechte 664, Gruppenschreibrecht). Ist das
+# Verzeichnis nicht beschreibbar, Warnung auf stderr + Return 0 (Weiterlauf
+# ohne Cache). Atomar via mktemp IM Cache-Dir + mv (gleiches Dateisystem).
+aic_cache_write() {
+  local ip="${1-}"
+  local json="${2-}"
+  [ -n "${ip}" ] || return 1
+  local dir
+  dir="$(aic_cache_current_dir)"
+  if ! aic_cache_ensure_dir "${dir}"; then
+    printf 'Warnung: Cache-Verzeichnis nicht beschreibbar (%s) — Weiterlauf ohne Cache.\n' "${dir}" >&2
+    return 0
+  fi
+  local target tmp
+  target="$(aic_cache_path "${ip}")"
+  # Umask lokal setzen (Vererbung ueber xargs-Forks nicht verlassen).
+  local old_umask
+  old_umask="$(umask)"
+  umask 002
+  tmp="$(mktemp "${dir}/.tmp.XXXXXX" 2>/dev/null)" || {
+    umask "${old_umask}"
+    printf 'Warnung: Cache-Tempdatei konnte nicht angelegt werden (%s) — ohne Cache.\n' "${dir}" >&2
+    return 0
+  }
+  printf '%s' "${json}" > "${tmp}" || {
+    rm -f "${tmp}"
+    umask "${old_umask}"
+    printf 'Warnung: Cache-Schreibfehler (%s) — ohne Cache.\n' "${dir}" >&2
+    return 0
+  }
+  # mktemp legt 600 an; auf 664 anheben (umask-konform fuer Multi-User).
+  chmod 664 "${tmp}" 2>/dev/null || true
+  # SEC4: einen untergeschobenen Symlink am Ziel vorab entfernen, damit das mv
+  # den Link (und nicht dessen fremde Zieldatei) ersetzt.
+  [ -L "${target}" ] && rm -f "${target}" 2>/dev/null
+  mv -f "${tmp}" "${target}" 2>/dev/null || {
+    rm -f "${tmp}"
+    umask "${old_umask}"
+    printf 'Warnung: Cache-Verschiebefehler (%s) — ohne Cache.\n' "${target}" >&2
+    return 0
+  }
+  umask "${old_umask}"
+  return 0
+}
+
+# aic_cache_mtime <file>: gibt die mtime (Epoch-Sekunden) aus, 1 bei Fehler.
+aic_cache_mtime() {
+  local f="${1-}"
+  [ -n "${f}" ] && [ -f "${f}" ] || return 1
+  stat -c '%Y' "${f}" 2>/dev/null || return 1
+  return 0
+}
+
+# aic_cache_read <ip>: gibt den gecachten JSON-Body auf stdout aus, sofern die
+# Datei existiert UND juenger als die TTL (AIC_TTL_HOURS) ist. Sonst Return 1
+# (Cache-Miss). Fehlendes Verzeichnis/Datei = sauberer Miss (kein Abbruch).
+aic_cache_read() {
+  local ip="${1-}"
+  [ -n "${ip}" ] || return 1
+  local f
+  f="$(aic_cache_path "${ip}")"
+  # SEC4: Symlinks NIE lesen. Ein untergeschobener Symlink <ip>.json -> /etc/passwd
+  # (o. Ae.) wuerde sonst fremde Dateien in Ausgabe/Export ziehen. Symlink =
+  # sauberer Cache-Miss (kein Folgen, Zieldatei bleibt unberuehrt).
+  [ -L "${f}" ] && return 1
+  [ -f "${f}" ] || return 1
+  local mtime now age_s ttl_s
+  mtime="$(aic_cache_mtime "${f}")" || return 1
+  now="$(date +%s)"
+  age_s=$(( now - mtime ))
+  ttl_s=$(( ${AIC_TTL_HOURS:-240} * 3600 ))
+  [ "${age_s}" -le "${ttl_s}" ] || return 1
+  cat "${f}" 2>/dev/null || return 1
+  return 0
+}
+
+# aic_cache_age <ip>: gibt das Alter des Cache-Eintrags menschenlesbar aus
+# (z. B. "3h", "45m", "2d"). Return 1, wenn kein Eintrag existiert.
+aic_cache_age() {
+  local ip="${1-}"
+  [ -n "${ip}" ] || return 1
+  local f
+  f="$(aic_cache_path "${ip}")"
+  [ -f "${f}" ] || return 1
+  local mtime now age_s
+  mtime="$(aic_cache_mtime "${f}")" || return 1
+  now="$(date +%s)"
+  age_s=$(( now - mtime ))
+  [ "${age_s}" -lt 0 ] && age_s=0
+  if [ "${age_s}" -lt 3600 ]; then
+    printf '%dm\n' $(( age_s / 60 ))
+  elif [ "${age_s}" -lt 86400 ]; then
+    printf '%dh\n' $(( age_s / 3600 ))
+  else
+    printf '%dd\n' $(( age_s / 86400 ))
+  fi
+  return 0
+}
+
+# aic_cache_meta_path: Pfad der Rate-Limit-Metadatei (getrennt vom Ergebnis-
+# Cache; wird von --clear-cache mitgeloescht, aber von --no-cache nicht).
+# F2: pro Key getrennt ueber den Fingerprint des aktiven Keys (AIC_ACTIVE_KEY) —
+# der Key-WERT taucht nie im Dateinamen auf. Ohne aktiven Key faellt es auf die
+# legacy-Datei `.ratelimit` zurueck (Abwaertskompatibilitaet / Single-Key).
+aic_cache_meta_path() {
+  local dir
+  dir="$(aic_cache_current_dir)"
+  if [ -n "${AIC_ACTIVE_KEY:-}" ]; then
+    local fp
+    fp="$(aic_key_fingerprint "${AIC_ACTIVE_KEY}")"
+    printf '%s\n' "${dir}/.ratelimit.${fp}"
+    return 0
+  fi
+  printf '%s\n' "${dir}/.ratelimit"
+  return 0
+}
+
+# aic_clear_cache: entfernt alle Cache-Eintraege (*.json) UND die Rate-Limit-
+# Metadatei. Toleriert leeres/fehlendes Verzeichnis (Return 0).
+aic_clear_cache() {
+  local dir
+  dir="$(aic_cache_current_dir)"
+  if [ -d "${dir}" ]; then
+    find "${dir}" -maxdepth 1 -name '*.json' -type f -delete 2>/dev/null || true
+    # Legacy-Metadatei UND alle key-spezifischen (.ratelimit.<fingerprint>).
+    rm -f "${dir}/.ratelimit" 2>/dev/null || true
+    find "${dir}" -maxdepth 1 -name '.ratelimit.*' -type f -delete 2>/dev/null || true
+  fi
+  return 0
+}
+
+# aic_cache_stats: gibt Statistiken aus (Anzahl Eintraege, Alter min/max,
+# Gesamtgroesse). Toleriert leeres/fehlendes Verzeichnis (Return 0).
+aic_cache_stats() {
+  local dir
+  dir="$(aic_cache_current_dir)"
+  if [ ! -d "${dir}" ]; then
+    printf 'Cache-Verzeichnis: %s (existiert nicht)\n' "${dir}"
+    printf 'Eintraege: 0\n'
+    return 0
+  fi
+  local -a files=()
+  local f
+  while IFS= read -r -d '' f; do
+    files+=("${f}")
+  done < <(find "${dir}" -maxdepth 1 -name '*.json' -type f -print0 2>/dev/null)
+
+  local count="${#files[@]}"
+  printf 'Cache-Verzeichnis: %s\n' "${dir}"
+  printf 'Eintraege: %d\n' "${count}"
+
+  if [ "${count}" -eq 0 ]; then
+    printf 'Groesse: 0\n'
+    return 0
+  fi
+
+  local now min_age="" max_age="" mtime age_s total_bytes=0 bytes
+  now="$(date +%s)"
+  for f in "${files[@]}"; do
+    mtime="$(stat -c '%Y' "${f}" 2>/dev/null)" || continue
+    age_s=$(( now - mtime ))
+    [ "${age_s}" -lt 0 ] && age_s=0
+    if [ -z "${min_age}" ] || [ "${age_s}" -lt "${min_age}" ]; then min_age="${age_s}"; fi
+    if [ -z "${max_age}" ] || [ "${age_s}" -gt "${max_age}" ]; then max_age="${age_s}"; fi
+    bytes="$(stat -c '%s' "${f}" 2>/dev/null)" || bytes=0
+    total_bytes=$(( total_bytes + bytes ))
+  done
+  printf 'Alter (min/max): %dm / %dm\n' $(( ${min_age:-0} / 60 )) $(( ${max_age:-0} / 60 ))
+  printf 'Groesse: %d Bytes\n' "${total_bytes}"
+  return 0
+}
+
+# ============================================================================
+# SEKTION: api — read-only API-Client (GET /api/v2/check)
+# ============================================================================
+#
+# Der EINZIGE Netzzugriff des Tools. Streng read-only: ausschliesslich
+# GET /api/v2/check; ein mutierender Melde-Endpunkt existiert nicht. Aufruf via
+# `-G` (Pflicht —
+# ohne `-G` wuerde `--data-urlencode` einen POST-Body erzeugen). `--max-time 15`
+# begrenzt haengende Worker. Body, HTTP-Code und Rate-Limit-Header werden in
+# einem Rutsch erfasst: `-D <tmp>` dumpt die Header (CRLF), `-w '%{http_code}'`
+# liefert den Code hinter dem Body. Header-Parsing ist case-insensitiv und
+# CRLF-tolerant. Fehler (401/402/422/429, kaputtes JSON, Timeout) enden als
+# Status FEHLER im Ergebnis-JSON — NIE als Abbruch des Gesamtlaufs (Principle 2).
+
+# Basis-URL (fuer Tests uebersteuerbar; im Betrieb konstant).
+AIC_API_URL="${AIC_API_URL:-https://api.abuseipdb.com/api/v2/check}"
+
+# F2: globale Key-Liste fuer die Rotation. Vom main via aic_ensure_api_keys
+# befuellt; leer initialisiert, damit ${#AIC_RUN_KEYS[@]} unter set -u nie
+# fehlschlaegt, wenn der Runner ohne Multi-Key-Setup aufgerufen wird (Alt-Tests).
+AIC_RUN_KEYS=()
+# maxAgeInDays (Flag --max-age; Default 90).
+AIC_MAX_AGE="${AIC_MAX_AGE:-90}"
+
+# SEC1: jq-Sanitize-Prolog gegen Terminal-/ANSI-Injection. API-Feldwerte (isp,
+# domain, usageType, hostnames, error_detail, countryCode …) sind angreifer-
+# kontrolliert und werden ungefiltert in Terminal, CSV, TXT und MD gerendert;
+# eingebettete ESC/BEL/OSC-Sequenzen koennten den Terminaltitel setzen, Farbe
+# faelschen oder Ausgabe verschleiern. Diese jq-Funktion entfernt rekursiv ALLE
+# Steuerzeichen ([[:cntrl:]] deckt C0 0x00-0x1f inkl. ESC/BEL, DEL 0x7f und im
+# Unicode-Modus die C1-Steuerzeichen ab) aus allen String-Werten. Angewandt direkt
+# bei der Ergebnis-JSON-Erzeugung (aic_api_check/aic_result_error/aic_result_from_cache),
+# damit Terminal, alle Exportformate UND der Cache konsistent sauber sind. Auch
+# TAB/LF/CR werden entfernt — in Feldwerten (isp/domain/…) ohnehin untypisch, und
+# ein Tab im Wert wuerde die per echtem Tab getrennte TSV-Naht zerschiessen.
+# (Explizite \u-Ranges scheiden aus: Oniguruma in jq matcht \u-Codepoints in
+# Character-Classes nicht zuverlaessig — [[:cntrl:]] ist die robuste Wahl.)
+# Die Variable ist ein jq-Programmfragment und wird IMMER doppelt gequotet
+# ("${AIC_JQ_SANITIZE}") als Prolog vor einen Single-Quote-Filter gesetzt; es
+# findet kein Wort-Splitting statt. Die SC2089/SC2090-Warnungen (Quotes literal)
+# sind hier daher gegenstandslos.
+# shellcheck disable=SC2089
+AIC_JQ_SANITIZE='def aic_clean: walk(if type == "string" then gsub("[[:cntrl:]]"; "") else . end);'
+
+# aic_header_value <headerfile> <name>: gibt den Wert des Headers <name>
+# case-insensitiv aus (CRLF-tolerant). Leere Ausgabe, wenn nicht vorhanden.
+aic_header_value() {
+  local file="${1-}" name="${2-}"
+  [ -n "${file}" ] && [ -f "${file}" ] || return 0
+  # Case-insensitiv matchen; Wert nach dem ersten ':' extrahieren; CR entfernen.
+  local line val
+  line="$(grep -i "^${name}:" "${file}" 2>/dev/null | head -n1)" || return 0
+  [ -n "${line}" ] || return 0
+  val="${line#*:}"
+  val="${val//$'\r'/}"                       # CR entfernen
+  val="${val#"${val%%[![:space:]]*}"}"       # linksseitiger Whitespace
+  val="${val%"${val##*[![:space:]]}"}"       # rechtsseitiger Whitespace
+  printf '%s' "${val}"
+  return 0
+}
+
+# aic_api_check <ip> <key>: fuehrt genau einen GET /check aus und gibt EIN
+# Ergebnis-JSON-Objekt auf stdout aus. Return stets 0 (return-code-basiert);
+# Fehler stecken im JSON-Feld status ("OK"|"FEHLER"). Felder:
+#   status, source=live, http_code, error_detail, retry_after,
+#   ratelimit{limit,remaining,reset} + alle Felder der API-data.
+aic_api_check() {
+  local ip="${1-}" key="${2-}"
+  local curl_bin="${AIC_CURL:-curl}"
+
+  local hdr body rc code
+  hdr="$(mktemp "${TMPDIR:-/tmp}/aic-hdr.XXXXXX")" || hdr=""
+
+  # SEC2: Der API-Key darf NICHT als curl-Argument erscheinen — Argumente sind in
+  # der Prozessliste (/proc, `ps`) fuer andere Nutzer sichtbar. Der Key-Header
+  # wird deshalb ueber eine curl-Config auf STDIN (`--config -`) uebergeben; nur
+  # dieser Kanal ist nicht in argv. URL/Query/Accept bleiben unkritisch als Args.
+  # curl-Config-Syntax: `header = "Key: ..."` (doppelte Quotes maskieren Sonder-
+  # zeichen im Wert; ein " im Key selbst waere untypisch, wird aber escaped).
+  local key_escaped="${key//\"/\\\"}"
+  # -G ist PFLICHT (sonst POST). Body auf stdout, Header nach $hdr, Code via -w.
+  set +e
+  body="$(printf 'header = "Key: %s"\n' "${key_escaped}" | "${curl_bin}" -sS -G \
+    --config - \
+    --data-urlencode "ipAddress=${ip}" \
+    --data-urlencode "maxAgeInDays=${AIC_MAX_AGE}" \
+    --max-time 15 \
+    -H "Accept: application/json" \
+    -D "${hdr}" \
+    -w '%{http_code}' \
+    "${AIC_API_URL}" 2>/dev/null)"
+  rc=$?
+  set -e
+
+  # Der HTTP-Code steht (per -w) am Ende der Ausgabe hinter dem Body.
+  code="${body##*$'\n'}"
+  # -w liefert den Code ohne fuehrenden Newline direkt hinter dem Body:
+  # letzte 3 Ziffern extrahieren, Body davor abtrennen.
+  if [[ "${body}" =~ ^(.*)([0-9]{3})$ ]]; then
+    code="${BASH_REMATCH[2]}"
+    body="${BASH_REMATCH[1]}"
+  else
+    code=""
+  fi
+
+  # Rate-Limit-Header (case-insensitiv, CRLF-tolerant).
+  local rl_limit rl_remaining rl_reset retry_after
+  rl_limit="$(aic_header_value "${hdr}" "X-RateLimit-Limit")"
+  rl_remaining="$(aic_header_value "${hdr}" "X-RateLimit-Remaining")"
+  rl_reset="$(aic_header_value "${hdr}" "X-RateLimit-Reset")"
+  retry_after="$(aic_header_value "${hdr}" "Retry-After")"
+  if [ -n "${hdr}" ]; then rm -f "${hdr}" 2>/dev/null || true; fi
+
+  # curl-Fehler (Timeout etc.) -> FEHLER.
+  if [ "${rc}" -ne 0 ]; then
+    aic_result_error "${ip}" "${code:-0}" \
+      "Netzfehler oder Timeout (curl exit ${rc})" \
+      "${retry_after}" "${rl_limit}" "${rl_remaining}" "${rl_reset}"
+    return 0
+  fi
+
+  # HTTP-Fehlercodes -> FEHLER mit errors[0].detail.
+  if [ -n "${code}" ] && [ "${code}" != "200" ]; then
+    local detail
+    detail="$(printf '%s' "${body}" | jq -r '.errors[0].detail // empty' 2>/dev/null)"
+    [ -n "${detail}" ] || detail="HTTP ${code}"
+    aic_result_error "${ip}" "${code}" "${detail}" \
+      "${retry_after}" "${rl_limit}" "${rl_remaining}" "${rl_reset}"
+    return 0
+  fi
+
+  # Body muss valides JSON mit .data sein.
+  if ! printf '%s' "${body}" | jq -e '.data' >/dev/null 2>&1; then
+    aic_result_error "${ip}" "${code:-200}" \
+      "Ungueltige API-Antwort (kein valides JSON)" \
+      "${retry_after}" "${rl_limit}" "${rl_remaining}" "${rl_reset}"
+    return 0
+  fi
+
+  # Erfolg: API-data + eigene Felder zusammenfuehren. ipAddress ist verbindlich
+  # die ANGEFRAGTE IP (API kann z. B. IPv6 kanonisieren — Cache-Schluessel und
+  # Anzeige muessen zur Eingabe des Analysten passen).
+  printf '%s' "${body}" | jq -c \
+    --arg status "OK" \
+    --arg source "live" \
+    --arg ip "${ip}" \
+    --argjson http_code "${code:-200}" \
+    --arg cache_age "" \
+    --arg error_detail "" \
+    --arg retry_after "${retry_after}" \
+    --arg rl_limit "${rl_limit}" \
+    --arg rl_remaining "${rl_remaining}" \
+    --arg rl_reset "${rl_reset}" \
+    "${AIC_JQ_SANITIZE}"' (.data + {
+        ipAddress: $ip,
+        status: $status,
+        source: $source,
+        http_code: $http_code,
+        cache_age: (if $cache_age == "" then null else $cache_age end),
+        error_detail: (if $error_detail == "" then null else $error_detail end),
+        retry_after: (if $retry_after == "" then null else $retry_after end),
+        ratelimit: { limit: $rl_limit, remaining: $rl_remaining, reset: $rl_reset }
+     }) | aic_clean'
+  return 0
+}
+
+# aic_result_error <ip> <code> <detail> <retry_after> <limit> <remaining> <reset>:
+# baut ein FEHLER-Ergebnis-JSON und gibt es auf stdout aus.
+aic_result_error() {
+  local ip="${1-}" code="${2-0}" detail="${3-}" retry="${4-}"
+  local rl_limit="${5-}" rl_remaining="${6-}" rl_reset="${7-}"
+  jq -nc \
+    --arg ip "${ip}" \
+    --argjson http_code "${code:-0}" \
+    --arg detail "${detail}" \
+    --arg retry "${retry}" \
+    --arg rl_limit "${rl_limit}" \
+    --arg rl_remaining "${rl_remaining}" \
+    --arg rl_reset "${rl_reset}" \
+    "${AIC_JQ_SANITIZE}"' ({
+        ipAddress: $ip,
+        status: "FEHLER",
+        source: "live",
+        http_code: $http_code,
+        abuseConfidenceScore: null,
+        error_detail: $detail,
+        retry_after: (if $retry == "" then null else $retry end),
+        cache_age: null,
+        ratelimit: { limit: $rl_limit, remaining: $rl_remaining, reset: $rl_reset }
+     }) | aic_clean'
+  return 0
+}
+
+# aic_result_from_cache <ip> <cached_json> <age>: baut aus einem gecachten
+# API-Body (nur .data) ein Ergebnis-JSON mit source=cache und Alter.
+aic_result_from_cache() {
+  local ip="${1-}" cached="${2-}" age="${3-}"
+  printf '%s' "${cached}" | jq -c \
+    --arg age "${age}" \
+    "${AIC_JQ_SANITIZE}"' (.data + {
+        status: "OK",
+        source: "cache",
+        http_code: 200,
+        cache_age: (if $age == "" then null else $age end),
+        error_detail: null,
+        retry_after: null,
+        ratelimit: { limit: "", remaining: "", reset: "" }
+     }) | aic_clean'
+  return 0
+}
+
+# ============================================================================
+# SEKTION: run — paralleler Runner + Rate-Limit-Steuerung
+# ============================================================================
+#
+# Ablauf: Cache-Treffer VOR dem Lauf abgreifen (zaehlen nicht gegen die Probe);
+# W1-Vorwarnung aus der .ratelimit-Metadatei; erster Live-Call sequenziell als
+# Probe; W2-Warnung mit realem remaining (TTY: Bestaetigung, nicht-TTY:
+# Weiterlauf); restliche IPs via `xargs -d '\n' -P` mit exportierter Worker-
+# Funktion. Worker schreiben atomar EIN JSON pro IP ins Lauf-Tempdir. Remaining
+# am Ende = Minimum ueber alle Ergebnisse, in .ratelimit persistiert. Ein
+# `trap INT TERM` rendert den Zwischenstand aus validen JSONs und raeumt auf.
+
+# aic_meta_read: liest die .ratelimit-Metadatei; gibt "remaining" auf stdout
+# (leer, wenn nicht vorhanden). Format: key=value-Zeilen.
+aic_meta_read_remaining() {
+  local meta
+  meta="$(aic_cache_meta_path)"
+  [ -f "${meta}" ] || return 1
+  local line
+  while IFS='=' read -r k v; do
+    [ "${k}" = "remaining" ] && { printf '%s' "${v}"; return 0; }
+  done < "${meta}"
+  return 1
+}
+
+# aic_meta_write <remaining> <limit> <reset>: schreibt die .ratelimit-Metadatei
+# atomar (mktemp im Cache-Dir + mv). Best-Effort; Fehler nicht fatal.
+aic_meta_write() {
+  local remaining="${1-}" limit="${2-}" reset="${3-}"
+  local dir meta tmp
+  dir="$(aic_cache_current_dir)"
+  aic_cache_ensure_dir "${dir}" || return 0
+  meta="$(aic_cache_meta_path)"
+  tmp="$(mktemp "${dir}/.rl.XXXXXX" 2>/dev/null)" || return 0
+  {
+    printf 'remaining=%s\n' "${remaining}"
+    printf 'limit=%s\n' "${limit}"
+    printf 'reset=%s\n' "${reset}"
+  } > "${tmp}" 2>/dev/null || { rm -f "${tmp}"; return 0; }
+  mv -f "${tmp}" "${meta}" 2>/dev/null || rm -f "${tmp}"
+  return 0
+}
+
+# aic_worker <ip> <key>: fuehrt aic_api_check aus, schreibt das Ergebnis-JSON
+# atomar ins Lauf-Tempdir (AIC_RUN_DIR) und cached bei OK (ausser AIC_NO_CACHE).
+# Return-code-basiert.
+#
+# F2-Rotation: Liefert der Call HTTP 429 (Tageskontingent leer) UND ist eine
+# Rotation moeglich (AIC_ROTATE_MARKER_DIR gesetzt), so schreibt der Worker die
+# IP als Marker in dieses Verzeichnis und legt (noch) KEIN finales Ergebnis-JSON
+# an — die IP bleibt fuer die Nachrunde mit dem naechsten Key offen. Der
+# Elternprozess sammelt die Marker nach dem Fan-Out ein. Ohne Rotationsmoeglich-
+# keit (kein weiterer Key) faellt der 429 wie bisher als finales FEHLER-Ergebnis
+# durch.
+aic_worker() {
+  local ip="${1-}" key="${2-}"
+  local run_dir="${AIC_RUN_DIR:-}"
+  local result
+  result="$(aic_api_check "${ip}" "${key}")"
+
+  # F2: 429 + Rotation moeglich -> Marker statt Ergebnis, IP bleibt offen.
+  local marker_dir="${AIC_ROTATE_MARKER_DIR:-}"
+  if [ -n "${marker_dir}" ] && [ -d "${marker_dir}" ]; then
+    local hc
+    hc="$(printf '%s' "${result}" | jq -r '.http_code // empty' 2>/dev/null)"
+    if [ "${hc}" = "429" ]; then
+      local safe mtmp
+      safe="${ip//:/_}"
+      mtmp="$(mktemp "${marker_dir}/.m.XXXXXX" 2>/dev/null)" || mtmp=""
+      if [ -n "${mtmp}" ]; then
+        printf '%s\n' "${ip}" > "${mtmp}" 2>/dev/null \
+          && mv -f "${mtmp}" "${marker_dir}/${safe}" 2>/dev/null \
+          || rm -f "${mtmp}" 2>/dev/null || true
+      fi
+      return 0
+    fi
+  fi
+
+  # Ergebnis atomar ins Lauf-Tempdir schreiben (falls gesetzt).
+  if [ -n "${run_dir}" ] && [ -d "${run_dir}" ]; then
+    local safe tmp
+    safe="${ip//:/_}"
+    tmp="$(mktemp "${run_dir}/.w.XXXXXX" 2>/dev/null)" || tmp=""
+    if [ -n "${tmp}" ]; then
+      if printf '%s' "${result}" > "${tmp}" 2>/dev/null; then
+        mv -f "${tmp}" "${run_dir}/${safe}.json" 2>/dev/null || rm -f "${tmp}" 2>/dev/null || true
+      else
+        rm -f "${tmp}" 2>/dev/null || true
+      fi
+    fi
+  fi
+
+  # Bei OK + nicht AIC_NO_CACHE: Body als Ergebnis-Cache ablegen.
+  local status
+  status="$(printf '%s' "${result}" | jq -r '.status // empty' 2>/dev/null)"
+  if [ "${status}" = "OK" ] && [ "${AIC_NO_CACHE:-0}" != "1" ]; then
+    # Nur die API-data cachen (source-neutral) — Roundtrip via aic_cache_read.
+    local body
+    body="$(printf '%s' "${result}" | jq -c '{data: (. | del(.status,.source,.http_code,.cache_age,.error_detail,.retry_after,.ratelimit))}' 2>/dev/null)"
+    [ -n "${body}" ] && aic_cache_write "${ip}" "${body}"
+  fi
+  return 0
+}
+
+# aic_run_checks <ip...>: bequemer Wrapper (IPs als Argumente). Delegiert an
+# aic_run_checks_from_file ueber eine Tempdatei.
+aic_run_checks() {
+  local key="${AIC_RUN_KEY:-TESTKEY}"
+  local tmp
+  tmp="$(mktemp)"
+  printf '%s\n' "$@" > "${tmp}"
+  aic_run_checks_from_file "${tmp}" "${key}"
+  local rc=$?
+  rm -f "${tmp}"
+  return "${rc}"
+}
+
+# aic_run_checks_from_file <datei> <key>: liest IPs (eine/Zeile) und fuehrt den
+# vollstaendigen Lauf aus (Cache-Treffer, Probe, W1/W2, paralleler Fan-Out,
+# Min-Aggregation, trap-Zwischenstand). Ergebnis-JSONs landen im Lauf-Tempdir;
+# aic_collect_results aggregiert sie fuer Ausgabe/Export (US-009+).
+aic_run_checks_from_file() {
+  local ipfile="${1-}" key="${2-}"
+  [ -n "${ipfile}" ] && [ -f "${ipfile}" ] || return 2
+
+  # Lauf-Tempdir anlegen; trap raeumt auf und rendert Zwischenstand.
+  AIC_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aic-run.XXXXXX")"
+  export AIC_RUN_DIR
+  # shellcheck disable=SC2064
+  trap 'aic_cleanup_and_render' INT TERM
+
+  # 1) Cache-Treffer vorab abgreifen (source=cache) — zaehlen NICHT gegen Probe.
+  # Der Abgleich laeuft pro IP durch jq und kann bei grossen Listen spuerbar
+  # dauern: bei aktiver Fortschrittsanzeige laeuft deshalb ein Live-Zaehler
+  # (analog zum Fortschritt des Live-Fan-Outs).
+  local -a live_ips=()
+  local ip cached age
+  local total_all=0 done_all=0
+  total_all="$(grep -c . "${ipfile}" 2>/dev/null)" || total_all=0
+  while IFS= read -r ip || [ -n "${ip}" ]; do
+    [ -z "${ip}" ] && continue
+    done_all=$(( done_all + 1 ))
+    if aic_progress_active; then
+      printf '\rCache-Abgleich: %s/%s' "${done_all}" "${total_all}" >&2
+    fi
+    if [ "${AIC_NO_CACHE:-0}" != "1" ] && cached="$(aic_cache_read "${ip}")"; then
+      age="$(aic_cache_age "${ip}" 2>/dev/null)" || age=""
+      local safe tmp result
+      result="$(aic_result_from_cache "${ip}" "${cached}" "${age}")"
+      safe="${ip//:/_}"
+      tmp="$(mktemp "${AIC_RUN_DIR}/.c.XXXXXX" 2>/dev/null)" || tmp=""
+      if [ -n "${tmp}" ]; then
+        if printf '%s' "${result}" > "${tmp}"; then
+          mv -f "${tmp}" "${AIC_RUN_DIR}/${safe}.json" 2>/dev/null || rm -f "${tmp}"
+        else
+          rm -f "${tmp}"
+        fi
+      fi
+    else
+      live_ips+=("${ip}")
+    fi
+  done < "${ipfile}"
+  if [ "${done_all}" -gt 0 ] && aic_progress_active; then
+    printf '\rCache-Abgleich: %s/%s\n' "${done_all}" "${total_all}" >&2
+  fi
+
+  local total_live="${#live_ips[@]}"
+
+  # F2-Startzeile (nur bei TTY-stderr oder AIC_FORCE_PROGRESS=1). Erscheint,
+  # sobald ein echter Prueflauf startet — also nur bei mindestens einer Live-IP.
+  if [ "${total_live}" -gt 0 ] && aic_progress_active; then
+    printf 'Pruefe %s IPs (Parallelitaet %s, maxAge %s Tage) ...\n' \
+      "${total_live}" "${AIC_PARALLEL:-5}" "${AIC_MAX_AGE:-90}" >&2
+  fi
+
+  # Keine Live-IPs -> nur Cache; direkt aggregieren. Der aktive Key muss auch
+  # ohne Live-Runde gesetzt werden: sonst liest die Rate-Limit-Anzeige den
+  # Legacy-Meta-Pfad (.ratelimit) statt der key-spezifischen Metadatei
+  # (.ratelimit.<fingerprint>) und zeigt veraltete/keine Werte.
+  if [ "${total_live}" -eq 0 ]; then
+    if [ -z "${AIC_ACTIVE_KEY:-}" ]; then
+      if [ "${#AIC_RUN_KEYS[@]}" -gt 0 ]; then
+        AIC_ACTIVE_KEY="${AIC_RUN_KEYS[0]}"
+        AIC_ACTIVE_KEY_COUNT="${#AIC_RUN_KEYS[@]}"
+      else
+        AIC_ACTIVE_KEY="${key}"
+        AIC_ACTIVE_KEY_COUNT=1
+      fi
+      AIC_ACTIVE_KEY_INDEX=1
+      export AIC_ACTIVE_KEY AIC_ACTIVE_KEY_INDEX AIC_ACTIVE_KEY_COUNT
+    fi
+    aic_finalize_run
+    return 0
+  fi
+
+  # F2: Key-Liste bestimmen. AIC_RUN_KEYS[] (vom main gesetzt) hat Vorrang; sonst
+  # der einzelne <key>-Parameter (Abwaertskompatibilitaet fuer Alt-Tests). Bei
+  # nur einem Key gibt es keine Rotation — 429 faellt dann als FEHLER durch.
+  local -a keys=()
+  if [ "${#AIC_RUN_KEYS[@]}" -gt 0 ]; then
+    keys=("${AIC_RUN_KEYS[@]}")
+  else
+    keys=("${key}")
+  fi
+  local nkeys="${#keys[@]}"
+
+  # Offene IPs fuer die aktuelle Key-Runde in einer Datei fuehren (Marker-basierte
+  # Nachrunde: 429-IPs werden vom Worker als Marker abgelegt und hier fuer den
+  # naechsten Key erneut aufgesammelt).
+  local open_file="${AIC_RUN_DIR}/.open"
+  printf '%s\n' "${live_ips[@]}" > "${open_file}"
+
+  local ki
+  for (( ki=0; ki<nkeys; ki++ )); do
+    local cur_key="${keys[ki]}"
+    # Aktiver Key steuert die key-spezifische Rate-Limit-Metadatei (Fingerprint).
+    AIC_ACTIVE_KEY="${cur_key}"
+    export AIC_ACTIVE_KEY
+    AIC_ACTIVE_KEY_INDEX=$(( ki + 1 ))
+    AIC_ACTIVE_KEY_COUNT="${nkeys}"
+    export AIC_ACTIVE_KEY_INDEX AIC_ACTIVE_KEY_COUNT
+
+    # Marker-Verzeichnis nur, wenn noch ein WEITERER Key folgt (sonst kein
+    # Rotationsziel -> 429 wird finales FEHLER).
+    local marker_dir=""
+    if [ "${ki}" -lt $(( nkeys - 1 )) ]; then
+      marker_dir="${AIC_RUN_DIR}/.429.${ki}"
+      mkdir -p "${marker_dir}"
+      AIC_ROTATE_MARKER_DIR="${marker_dir}"
+    else
+      AIC_ROTATE_MARKER_DIR=""
+    fi
+    export AIC_ROTATE_MARKER_DIR
+
+    if [ "${ki}" -gt 0 ]; then
+      printf 'Rotation: Tageskontingent von Key %s/%s erschoepft (HTTP 429), wechsle auf Key %s/%s.\n' \
+        "${ki}" "${nkeys}" "$(( ki + 1 ))" "${nkeys}" >&2
+    fi
+
+    aic_run_live_round "${cur_key}" "${open_file}" "${total_live}"
+
+    # Nachrunde-IPs einsammeln (nur wenn Marker-Dir aktiv war).
+    if [ -n "${marker_dir}" ] && [ -d "${marker_dir}" ]; then
+      : > "${open_file}"
+      local m
+      for m in "${marker_dir}"/*; do
+        [ -f "${m}" ] || continue
+        cat "${m}" >> "${open_file}"
+      done
+      rm -rf "${marker_dir}"
+      # Keine offenen IPs mehr -> fertig, keine weitere Key-Runde noetig.
+      [ -s "${open_file}" ] || break
+    fi
+  done
+
+  aic_finalize_run
+  return 0
+}
+
+# aic_run_live_round <key> <open_file> <total_live>: fuehrt EINE Live-Runde mit
+# genau einem Key aus: W1-Vorwarnung, sequenzielle Probe (erste offene IP), W2-
+# Post-Probe-Warnung, dann paralleler Fan-Out der restlichen offenen IPs. Nutzt
+# AIC_ROTATE_MARKER_DIR (falls gesetzt), damit 429-IPs als Marker fuer die
+# Nachrunde abgelegt werden statt als finales Ergebnis. Return stets 0.
+aic_run_live_round() {
+  local key="${1-}" open_file="${2-}" total_live="${3-0}"
+  local -a round_ips=()
+  local ip
+  while IFS= read -r ip || [ -n "${ip}" ]; do
+    [ -n "${ip}" ] && round_ips+=("${ip}")
+  done < "${open_file}"
+  local n="${#round_ips[@]}"
+  [ "${n}" -gt 0 ] || return 0
+
+  # W1: Prae-Lauf-Vorwarnung. Bei mehreren Keys (F2b) rechnet die Vorwarnung
+  # gegen die AGGREGIERTE Verbleibend-Zahl ueber alle Keys; bei ungenutzten Keys
+  # ist die Summe eine Teilsumme (das echte Kontingent ist mindestens so gross),
+  # daher warnt W1 dann konservativ nicht. Einzelner Key: aktive Metadatei.
+  local meta_remaining=""
+  if [ "${AIC_ACTIVE_KEY_COUNT:-1}" -gt 1 ] 2>/dev/null; then
+    local _agr _apt
+    IFS=$'\t' read -r _ _agr _ _ _ _apt < <(aic_ratelimit_aggregate) || true
+    # Nur bei vollstaendiger Summe (kein ungenutzter Key) verlaesslich vergleichbar.
+    if [ "${_apt:-0}" != "1" ]; then
+      meta_remaining="${_agr}"
+    fi
+  else
+    meta_remaining="$(aic_meta_read_remaining)" || meta_remaining=""
+  fi
+  if [ -n "${meta_remaining}" ] && [ "${meta_remaining}" -lt "${n}" ] 2>/dev/null; then
+    printf 'Vorwarnung (W1): Kontingent laut Metadatei bei %s, aber %s IPs zu pruefen.\n' \
+      "${meta_remaining}" "${n}" >&2
+  fi
+
+  # Erster Call IMMER sequenziell als Probe.
+  aic_worker "${round_ips[0]}" "${key}"
+  local probe_result probe_remaining
+  # Bei 429+Rotation legt der Worker KEIN Ergebnis-JSON an (Marker stattdessen) —
+  # das cat schlaegt dann fehl; unter set -e mit || abfangen (leere Probe).
+  probe_result="$(cat "${AIC_RUN_DIR}/${round_ips[0]//:/_}.json" 2>/dev/null)" || probe_result=""
+  probe_remaining="$(printf '%s' "${probe_result}" | jq -r '.ratelimit.remaining // empty' 2>/dev/null)" || probe_remaining=""
+
+  # W2: Post-Probe-Warnung mit realem remaining.
+  local rest=$(( n - 1 ))
+  if [ -n "${probe_remaining}" ] && [ "${probe_remaining}" -lt "${rest}" ] 2>/dev/null; then
+    printf 'Warnung (W2): reales Kontingent bei %s, aber noch %s IPs offen.\n' \
+      "${probe_remaining}" "${rest}" >&2
+    if [ -t 0 ]; then
+      printf 'Fortfahren? [j/N] ' >&2
+      local answer=""
+      IFS= read -r answer || answer=""
+      case "${answer}" in
+        j|J|y|Y) : ;;
+        *) printf 'Abgebrochen auf Nutzerwunsch.\n' >&2; return 0 ;;
+      esac
+    fi
+  fi
+
+  # Restliche IPs parallel (oder sequenziell bei --parallel 1).
+  local parallel="${AIC_PARALLEL:-5}"
+  if [ "${rest}" -gt 0 ]; then
+    export AIC_RUN_KEY="${key}"
+    # Kind-Prozesse erben Flags/Config nicht: resolvierten Cache-Pfad und
+    # Cache-Schalter explizit exportieren, sonst schreiben Worker in den
+    # Default-Cache neben dem Tool statt in --cache-dir/Config-Pfad.
+    # AIC_API_URL/AIC_MAX_AGE sind Pflicht fuer aic_api_check im Kind: ohne
+    # Export ist die URL dort leer und echtes curl bricht mit Exit 2 ab
+    # ("no URL specified") — der nachgiebige Mock hatte das verdeckt.
+    # AIC_ROTATE_MARKER_DIR wird ebenfalls exportiert, damit die xargs-Kinder
+    # bei 429 den Marker im richtigen Verzeichnis ablegen (F2-Rotation).
+    AIC_CACHE_DIR="$(aic_cache_current_dir)"
+    # AIC_JQ_SANITIZE muss mit exportiert werden: aic_api_check/aic_result_error
+    # laufen in den xargs-Kindern und referenzieren den Sanitize-Prolog (SEC1).
+    # shellcheck disable=SC2090
+    export AIC_CACHE_DIR AIC_NO_CACHE AIC_API_URL AIC_MAX_AGE AIC_ROTATE_MARKER_DIR AIC_JQ_SANITIZE
+    export -f aic_worker aic_api_check aic_result_error aic_header_value \
+              aic_cache_write aic_cache_ensure_dir aic_cache_current_dir \
+              aic_cache_resolve_dir aic_cache_path
+    # Ab dem zweiten Eintrag; Delimiter explizit \n (kein Whitespace-Splitting).
+    # Das Single-Quote-Skript ist Absicht: $1 und $AIC_RUN_KEY expandieren im
+    # Kind-bash, nicht hier (aic_worker + Helfer sind per `export -f` verfuegbar).
+    #
+    # Bei aktiver Fortschrittsanzeige laeuft xargs im Hintergrund (&); der
+    # Elternprozess pollt die fertigen Ergebnis-JSONs und zeigt einen Live-
+    # Zaehler, dann `wait`. Ohne Progress bleibt der synchrone Aufruf (kein
+    # Verhaltensunterschied fuer die Alt-Suiten). Das trap INT/TERM greift in
+    # beiden Faellen (aic_cleanup_and_render).
+    if aic_progress_active; then
+      # shellcheck disable=SC2016
+      printf '%s\n' "${round_ips[@]:1}" \
+        | xargs -d '\n' -P "${parallel}" -n1 bash -c 'aic_worker "$1" "$AIC_RUN_KEY"' _ &
+      local xargs_pid=$!
+      aic_progress_poll "${xargs_pid}" "${total_live}"
+      wait "${xargs_pid}" 2>/dev/null || true
+    else
+      # shellcheck disable=SC2016
+      printf '%s\n' "${round_ips[@]:1}" \
+        | xargs -d '\n' -P "${parallel}" -n1 bash -c 'aic_worker "$1" "$AIC_RUN_KEY"' _
+    fi
+  fi
+  return 0
+}
+
+# aic_progress_active: 0 wenn die Fortschrittsanzeige aktiv sein soll.
+# Aktiv bei stderr==TTY ODER AIC_FORCE_PROGRESS=1 (Test-Naht). Sonst inaktiv,
+# damit Pipes/Exporte bei nicht-TTY sauber bleiben (keine Progress-Artefakte).
+aic_progress_active() {
+  [ "${AIC_FORCE_PROGRESS:-0}" = "1" ] && return 0
+  [ -t 2 ] && return 0
+  return 1
+}
+
+# aic_progress_poll <pid> <gesamt>: pollt (0,2 s) die Zahl fertiger Ergebnis-
+# JSONs im AIC_RUN_DIR, solange <pid> laeuft, und zeigt "\rFortschritt: <f>/<g>"
+# auf stderr. Schliesst mit "<gesamt>/<gesamt>" + Newline ab. Return stets 0.
+aic_progress_poll() {
+  local pid="${1-}" total="${2-}"
+  local run_dir="${AIC_RUN_DIR:-}"
+  [ -n "${run_dir}" ] && [ -d "${run_dir}" ] || return 0
+  [ -n "${total}" ] || return 0
+  local done=0
+  while kill -0 "${pid}" 2>/dev/null; do
+    done="$(find "${run_dir}" -maxdepth 1 -name '*.json' -type f 2>/dev/null | wc -l)"
+    [ "${done}" -gt "${total}" ] && done="${total}"
+    printf '\rFortschritt: %s/%s' "${done}" "${total}" >&2
+    sleep 0.2
+  done
+  # Endstand: alle fertig.
+  printf '\rFortschritt: %s/%s\n' "${total}" "${total}" >&2
+  return 0
+}
+
+# aic_finalize_run: aggregiert Ergebnisse, persistiert das Minimum-remaining in
+# die .ratelimit-Metadatei, gibt die vorlaeufige Zeilenliste aus und raeumt auf.
+aic_finalize_run() {
+  trap - INT TERM
+
+  # Min-Aggregation ueber alle Live-Ergebnisse (source==live) mit Remaining.
+  local min_remaining="" limit="" reset=""
+  local f rem lim res src
+  for f in "${AIC_RUN_DIR}"/*.json; do
+    [ -f "${f}" ] || continue
+    jq -e . "${f}" >/dev/null 2>&1 || continue
+    src="$(jq -r '.source // empty' "${f}" 2>/dev/null)"
+    [ "${src}" = "live" ] || continue
+    rem="$(jq -r '.ratelimit.remaining // empty' "${f}" 2>/dev/null)"
+    lim="$(jq -r '.ratelimit.limit // empty' "${f}" 2>/dev/null)"
+    res="$(jq -r '.ratelimit.reset // empty' "${f}" 2>/dev/null)"
+    [ -n "${lim}" ] && limit="${lim}"
+    [ -n "${res}" ] && reset="${res}"
+    if [ -n "${rem}" ] && [[ "${rem}" =~ ^[0-9]+$ ]]; then
+      if [ -z "${min_remaining}" ] || [ "${rem}" -lt "${min_remaining}" ]; then
+        min_remaining="${rem}"
+      fi
+    fi
+  done
+  if [ -n "${min_remaining}" ]; then
+    aic_meta_write "${min_remaining}" "${limit}" "${reset}"
+  fi
+
+  aic_collect_results
+  return 0
+}
+
+# aic_collect_results: aggregiert alle Ergebnis-JSONs zur sortierten Tabelle
+# (aic_output). Diese Funktion ist die stabile Renderer-Naht: die Aggregations-/
+# Min-Logik lebt in aic_finalize_run, die Ausgabe in der output-Sektion. Bei
+# Abbruch (trap) rendert sie den Zwischenstand aus den bis dahin validen JSONs.
+aic_collect_results() {
+  aic_output
+  return 0
+}
+
+# aic_cleanup_and_render: Trap-Funktion fuer INT/TERM. Rendert den Zwischenstand
+# nur aus validen JSONs (jq-Parse-Fehler = ueberspringen) und raeumt das
+# Lauf-Tempdir auf. Der Lauf endet damit immer vollstaendig (Principle 2).
+aic_cleanup_and_render() {
+  trap - INT TERM
+  printf '\n-- Abbruch: Zwischenstand --\n' >&2
+  aic_collect_results
+  [ -n "${AIC_RUN_DIR:-}" ] && [ -d "${AIC_RUN_DIR}" ] && rm -rf "${AIC_RUN_DIR}"
+  return 0
+}
+
+# ============================================================================
+# SEKTION: output — sortierte Tabelle, Farben, Skip-Sektion, Rate-Limit-Zeile
+# ============================================================================
+#
+# Zentrale Naht ist aic_results_tsv: sie baut aus den Ergebnis-JSONs in
+# AIC_RUN_DIR EINE Tab-getrennte, sortierte Zeilenliste. Diese Liste ist die
+# EINZIGE Datenquelle fuer die Terminal-Tabelle UND alle Exporte (US-010) —
+# so wirkt die Sortierung ueberall identisch.
+#
+# TSV-Spalten (13, Tab-getrennt, in dieser Reihenfolge):
+#   1 ip  2 score  3 country  4 isp  5 usage  6 domain  7 tor  8 wl
+#   9 reports  10 reporter  11 last  12 source(LIVE|CACHED <age>|FEHLER)
+#   13 error_detail
+# null-Werte werden als "-" gerendert; der Score bleibt fuer FEHLER-Zeilen ""
+# (leer), damit sie stabil ans Ende der numerischen Sortierung fallen.
+#
+# Farb-Entscheidung: eingefaerbt wird NUR die SCORE-Spalte (rot >= kritisch,
+# gelb >= verdaechtig, gruen darunter) — die Spaltentrenner bleiben so ruhig.
+# error_detail wird bei FEHLER-Zeilen kompakt in der ISP-Spalte gezeigt (ISP
+# ist dort ohnehin leer), zusaetzlich steht es als eigene TSV-Spalte fuer die
+# Exporte bereit.
+
+# Schwellen (Flag --threshold-* > Config > Default 75/25).
+AIC_THRESHOLD_CRITICAL="${AIC_THRESHOLD_CRITICAL:-75}"
+AIC_THRESHOLD_SUSPECT="${AIC_THRESHOLD_SUSPECT:-25}"
+
+# aic_sort_jqkey <key>: uebersetzt den CLI-Sort-Key in den jq-Sortierausdruck.
+# Gibt den jq-Ausdruck auf stdout aus; Return 1 bei unbekanntem Key.
+aic_sort_jqkey() {
+  case "${1-}" in
+    score)         printf '.abuseConfidenceScore'; return 0 ;;
+    country)       printf '.countryCode'; return 0 ;;
+    isp)           printf '.isp'; return 0 ;;
+    reports)       printf '.totalReports'; return 0 ;;
+    last-reported) printf '.lastReportedAt'; return 0 ;;
+    *)             return 1 ;;
+  esac
+}
+
+# aic_valid_sort_key <key>: 0 wenn <key> ein gueltiger Sort-Key ist.
+aic_valid_sort_key() {
+  aic_sort_jqkey "${1-}" >/dev/null 2>&1
+}
+
+# aic_results_tsv: gibt die sortierte, Tab-getrennte Zeilenliste auf stdout aus.
+# Sortierung: AIC_SORT_KEY (Default score), Richtung absteigend, per
+# AIC_SORT_REVERSE=1 umgekehrt. null-Sortierschluessel fallen stabil ans Ende.
+aic_results_tsv() {
+  local run_dir="${AIC_RUN_DIR:-}"
+  [ -n "${run_dir}" ] && [ -d "${run_dir}" ] || return 0
+
+  local sort_key="${AIC_SORT_KEY:-score}"
+  local reverse="${AIC_SORT_REVERSE:-0}"
+  local jqkey
+  jqkey="$(aic_sort_jqkey "${sort_key}")" || jqkey='.abuseConfidenceScore'
+
+  # Alle validen Ergebnis-JSONs einsammeln.
+  local -a files=()
+  local f
+  for f in "${run_dir}"/*.json; do
+    [ -f "${f}" ] || continue
+    jq -e . "${f}" >/dev/null 2>&1 || continue
+    files+=("${f}")
+  done
+  [ "${#files[@]}" -gt 0 ] || return 0
+
+  # Sortierrichtung: numerische Keys (Score, Meldungszahl) numerisch, sonst
+  # lexikal. jq sort_by setzt null bei absteigend nicht automatisch ans Ende —
+  # wir sortieren aufsteigend und drehen bei Bedarf um; null bleibt am Rand.
+  # Standard (kein --reverse): absteigend (hoch->niedrig bzw. Z->A) fuer Text —
+  # jeweils null zuletzt.
+  local descending=1
+  [ "${reverse}" = "1" ] && descending=0
+
+  # jq-Programm: Objekte -> [Sortierschluessel, TSV-Zeile]; null-Key markieren.
+  local jq_prog
+  jq_prog='
+    def cell(x): if x == null then "-" else (x|tostring) end;
+    def src:
+      if .status == "FEHLER" then "FEHLER"
+      elif .source == "cache" then ("CACHED " + (.cache_age // "?" | tostring))
+      else "LIVE" end;
+    def scorecell:
+      if .abuseConfidenceScore == null then "" else (.abuseConfidenceScore|tostring) end;
+    {
+      k: ('"${jqkey}"'),
+      row: [
+        cell(.ipAddress),
+        scorecell,
+        cell(.countryCode),
+        cell(.isp),
+        cell(.usageType),
+        cell(.domain),
+        (if .isTor == true then "ja" elif .isTor == false then "nein" else "-" end),
+        (if .isWhitelisted == true then "ja" elif .isWhitelisted == false then "nein" else "-" end),
+        cell(.totalReports),
+        cell(.numDistinctUsers),
+        cell(.lastReportedAt),
+        src,
+        cell(.error_detail)
+      ] | join("\t")
+    }
+  '
+
+  # Sortierung in jq: null-Key -> sortiert ans Ende (unabhaengig von Richtung).
+  # Wir emittieren [hasnull, key, row] und sortieren: erst hasnull (0 vor 1),
+  # dann key. Bei descending drehen wir nur den key-Teil.
+  local order_expr
+  if [ "${descending}" -eq 1 ]; then
+    # absteigend nach key; nulls zuletzt.
+    order_expr='sort_by([( .k == null ), .k]) | reverse | sort_by(.k == null)'
+  else
+    # aufsteigend nach key; nulls zuletzt.
+    order_expr='sort_by([( .k == null ), .k])'
+  fi
+
+  jq -rs "map(${jq_prog}) | ${order_expr} | .[] | .row" "${files[@]}" 2>/dev/null
+  return 0
+}
+
+# aic_use_color: 0 wenn Farbe verwendet werden soll. Steuerung:
+#   AIC_COLOR=1 erzwingt Farbe, AIC_COLOR=0 unterdrueckt sie; ohne Vorgabe
+#   nur bei stdout==TTY.
+aic_use_color() {
+  case "${AIC_COLOR:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
+  [ -t 1 ] && return 0
+  return 1
+}
+
+# aic_score_color <score>: gibt den ANSI-Farbcode fuer den Score aus (leer bei
+# nicht-numerischem Score). rot >= kritisch, gelb >= verdaechtig, sonst gruen.
+aic_score_color() {
+  local score="${1-}"
+  [[ "${score}" =~ ^[0-9]+$ ]] || { printf ''; return 0; }
+  local crit="${AIC_THRESHOLD_CRITICAL:-75}"
+  local susp="${AIC_THRESHOLD_SUSPECT:-25}"
+  if [ "${score}" -ge "${crit}" ]; then
+    printf '\033[31m'          # rot
+  elif [ "${score}" -ge "${susp}" ]; then
+    printf '\033[33m'          # gelb
+  else
+    printf '\033[32m'          # gruen
+  fi
+  return 0
+}
+
+# aic_trunc <text> <max>: kuerzt <text> auf <max> Zeichen mit "…"-Suffix.
+aic_trunc() {
+  local text="${1-}" max="${2-}"
+  if [ -z "${max}" ] || [ "${max}" -le 0 ]; then
+    printf '%s' "${text}"
+    return 0
+  fi
+  if [ "${#text}" -le "${max}" ]; then
+    printf '%s' "${text}"
+  else
+    printf '%s…' "${text:0:$((max-1))}"
+  fi
+  return 0
+}
+
+# aic_render_table: rendert die ASCII-Tabelle (dynamische Spaltenbreiten) aus
+# der zentralen TSV-Liste. Farbe nur in der SCORE-Spalte (siehe Sektionskopf).
+aic_render_table() {
+  local tsv
+  tsv="$(aic_results_tsv)"
+  [ -n "${tsv}" ] || return 0
+
+  # Maximalbreiten fuer potenziell lange Spalten (ISP, USAGE, DOMAIN).
+  local max_isp=22 max_usage=18 max_domain=20
+
+  # Kopf + Zeilen als Arrays (parallel). Spaltenreihenfolge wie TSV, wobei bei
+  # FEHLER-Zeilen error_detail (Spalte 13) in die ISP-Spalte (4) uebernommen
+  # wird, wenn ISP leer/"-" ist.
+  local -a header=(IP SCORE LAND ISP USAGE DOMAIN TOR WL REPORTS REPORTER ZULETZT QUELLE)
+  local ncol=12
+
+  # Zeilen einlesen; pro Zelle Breite tracken.
+  local -a widths=()
+  local i
+  for (( i=0; i<ncol; i++ )); do widths[i]="${#header[i]}"; done
+
+  # Zwischenspeicher: aufbereitete Zellen (ohne Farbe) je Zeile.
+  local -a cells=()
+  local line
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    local -a f=()
+    IFS=$'\t' read -r -a f <<< "${line}"
+    # error_detail (Index 12) in ISP (Index 3) spiegeln, wenn Fehlerzeile.
+    local isp="${f[3]:-"-"}"
+    if [ "${f[11]:-}" = "FEHLER" ]; then
+      local ed="${f[12]:-}"
+      [ -n "${ed}" ] && [ "${ed}" != "-" ] && isp="${ed}"
+    fi
+    # Kuerzen langer Werte.
+    isp="$(aic_trunc "${isp}" "${max_isp}")"
+    local usage; usage="$(aic_trunc "${f[4]:-"-"}" "${max_usage}")"
+    local domain; domain="$(aic_trunc "${f[5]:-"-"}" "${max_domain}")"
+    # 12 sichtbare Spalten (ohne error_detail).
+    local -a c=(
+      "${f[0]:-"-"}" "${f[1]:-}" "${f[2]:-"-"}" "${isp}" "${usage}" "${domain}"
+      "${f[6]:-"-"}" "${f[7]:-"-"}" "${f[8]:-"-"}" "${f[9]:-"-"}" "${f[10]:-"-"}" "${f[11]:-"-"}"
+    )
+    # Score leer -> "-" fuer die Anzeige.
+    [ -z "${c[1]}" ] && c[1]="-"
+    for (( i=0; i<ncol; i++ )); do
+      local w="${#c[i]}"
+      [ "${w}" -gt "${widths[i]}" ] && widths[i]="${w}"
+      cells+=("${c[i]}")
+    done
+  done <<< "${tsv}"
+
+  # Format-String aus den ermittelten Breiten bauen.
+  local fmt=""
+  for (( i=0; i<ncol; i++ )); do
+    fmt+="%-${widths[i]}s"
+    [ "${i}" -lt $((ncol-1)) ] && fmt+="  "
+  done
+  fmt+="\n"
+
+  # Kopfzeile.
+  # shellcheck disable=SC2059
+  printf "${fmt}" "${header[@]}"
+
+  # Trennlinie.
+  local total=0
+  for (( i=0; i<ncol; i++ )); do total=$(( total + widths[i] + 2 )); done
+  printf '%*s\n' "${total}" '' | tr ' ' '-'
+
+  # Datenzeilen.
+  local use_color=0
+  aic_use_color && use_color=1
+  local nrows=$(( ${#cells[@]} / ncol ))
+  local r
+  for (( r=0; r<nrows; r++ )); do
+    local base=$(( r * ncol ))
+    local -a rowc=()
+    for (( i=0; i<ncol; i++ )); do rowc+=("${cells[base+i]}"); done
+    if [ "${use_color}" -eq 1 ]; then
+      # Score-Spalte (Index 1) einfaerben.
+      local col reset=$'\033[0m'
+      col="$(aic_score_color "${rowc[1]}")"
+      if [ -n "${col}" ]; then
+        # Score-Feld separat mit Farbe + Reset, Rest normal.
+        local scorepad
+        printf -v scorepad "%-${widths[1]}s" "${rowc[1]}"
+        rowc[1]="${col}${scorepad}${reset}"
+        # Format ohne Breitenangabe fuer die bereits gepaddete Score-Zelle.
+        local fmt2="" j
+        for (( j=0; j<ncol; j++ )); do
+          if [ "${j}" -eq 1 ]; then fmt2+="%s"; else fmt2+="%-${widths[j]}s"; fi
+          [ "${j}" -lt $((ncol-1)) ] && fmt2+="  "
+        done
+        fmt2+="\n"
+        # shellcheck disable=SC2059
+        printf "${fmt2}" "${rowc[@]}"
+        continue
+      fi
+    fi
+    # shellcheck disable=SC2059
+    printf "${fmt}" "${rowc[@]}"
+  done
+  return 0
+}
+
+# aic_render_skips: gibt die Skip-Sektion aus (gruppiert nach Grund mit
+# Zaehlern) aus AIC_SKIP_FILE. Leere/fehlende Datei -> keine Ausgabe.
+aic_render_skips() {
+  local skipfile="${AIC_SKIP_FILE:-}"
+  [ -n "${skipfile}" ] && [ -f "${skipfile}" ] || return 0
+  [ -s "${skipfile}" ] || return 0
+
+  printf '\nUebersprungen:\n'
+  # Grund (Spalte 2, Tab-getrennt) zaehlen; nach Haeufigkeit absteigend.
+  local reason count
+  while IFS=$'\t' read -r reason count; do
+    [ -n "${reason}" ] || continue
+    printf '  %-12s %s\n' "${reason}" "${count}"
+  done < <(cut -f2 "${skipfile}" | sort | uniq -c | sort -rn | while read -r c r; do printf '%s\t%s\n' "${r}" "${c}"; done)
+  return 0
+}
+
+# aic_render_ratelimit <limit> <remaining> <reset>: gibt die Rate-Limit-Zeile
+# aus; Reset-Epoch wird in lokale Zeit uebersetzt (date -d @<epoch>).
+# aic_fmt_epoch <epoch>: uebersetzt eine Epoche in lokale Zeit (leerer/nicht-
+# numerischer Wert -> "-").
+aic_fmt_epoch() {
+  local reset="${1-}"
+  if [ -n "${reset}" ] && [[ "${reset}" =~ ^[0-9]+$ ]]; then
+    date -d "@${reset}" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || printf '%s' "${reset}"
+    return 0
+  fi
+  printf '-'
+  return 0
+}
+
+# aic_render_ratelimit <limit> <remaining> <reset>: gibt die Rate-Limit-Zeile aus.
+# Einzelner Key (AIC_ACTIVE_KEY_COUNT<=1): unveraenderte Form aus den uebergebenen
+# Feldern des aktiven Keys. Mehrere Keys (F2b): AGGREGIERT ueber alle Keys —
+# Gesamt-Limit/Verbleibend als Summe der bekannten Pro-Key-Metadaten, Reset =
+# fruehester bekannter Reset, plus "(<n> Keys[, <u> ungenutzt])". Ungenutzte Keys
+# (keine Metadaten) machen die Summe zur Teilsumme: sie wird mit ">=" markiert,
+# da die ungenutzten Keys zusaetzliches, noch unbekanntes Kontingent beisteuern.
+aic_render_ratelimit() {
+  local limit="${1-}" remaining="${2-}" reset="${3-}"
+
+  # Single-Key (oder unbekannte Key-Anzahl): bisheriges Verhalten.
+  if [ "${AIC_ACTIVE_KEY_COUNT:-1}" -le 1 ] 2>/dev/null; then
+    [ -n "${limit}" ] || limit="-"
+    [ -n "${remaining}" ] || remaining="-"
+    printf '\nAPI-Limit: %s | Verbleibend: %s | Reset: %s\n' \
+      "${limit}" "${remaining}" "$(aic_fmt_epoch "${reset}")"
+    return 0
+  fi
+
+  # Multi-Key: aggregierte Anzeige.
+  local sl sr rst nk un pt
+  IFS=$'\t' read -r sl sr rst nk un pt < <(aic_ratelimit_aggregate) || true
+
+  # Praefix ">=" bei Teilsumme (mindestens ein ungenutzter Key).
+  local pre=""
+  [ "${pt:-0}" = "1" ] && pre=">="
+  local limit_s remaining_s
+  if [ -n "${sl}" ]; then limit_s="${pre}${sl}"; else limit_s="-"; fi
+  if [ -n "${sr}" ]; then remaining_s="${pre}${sr}"; else remaining_s="-"; fi
+
+  # Key-Zusatz: "(<n> Keys)" bzw. "(<n> Keys, <u> ungenutzt)".
+  local keys_note
+  if [ "${un:-0}" -gt 0 ] 2>/dev/null; then
+    keys_note="$(printf '(%s Keys, %s ungenutzt)' "${nk}" "${un}")"
+  else
+    keys_note="$(printf '(%s Keys)' "${nk}")"
+  fi
+
+  # Aktiver Key (i/n) bleibt als Hinweis erhalten.
+  local key_suffix
+  key_suffix="$(printf ' | Key %s/%s' "${AIC_ACTIVE_KEY_INDEX:-1}" "${AIC_ACTIVE_KEY_COUNT}")"
+
+  printf '\nAPI-Limit: %s %s | Verbleibend: %s | Reset: %s%s\n' \
+    "${limit_s}" "${keys_note}" "${remaining_s}" "$(aic_fmt_epoch "${rst}")" "${key_suffix}"
+  return 0
+}
+
+# aic_ratelimit_fields: gibt "limit\tremaining\treset" aus der .ratelimit-
+# Metadatei aus (leer, wenn nicht vorhanden).
+aic_ratelimit_fields() {
+  local meta limit="" remaining="" reset=""
+  meta="$(aic_cache_meta_path)"
+  if [ -f "${meta}" ]; then
+    local k v
+    while IFS='=' read -r k v; do
+      case "${k}" in
+        limit)     limit="${v}" ;;
+        remaining) remaining="${v}" ;;
+        reset)     reset="${v}" ;;
+      esac
+    done < "${meta}"
+  fi
+  printf '%s\t%s\t%s' "${limit}" "${remaining}" "${reset}"
+  return 0
+}
+
+# aic_meta_fields_for_key <key>: liest die Pro-Key-Metadatei (Fingerprint-Pfad)
+# und gibt "limit\tremaining\treset" aus (leer, wenn keine Metadaten existieren).
+aic_meta_fields_for_key() {
+  local key="${1-}"
+  local dir fp meta limit="" remaining="" reset=""
+  dir="$(aic_cache_current_dir)"
+  fp="$(aic_key_fingerprint "${key}")"
+  meta="${dir}/.ratelimit.${fp}"
+  if [ -f "${meta}" ]; then
+    local k v
+    while IFS='=' read -r k v; do
+      case "${k}" in
+        limit)     limit="${v}" ;;
+        remaining) remaining="${v}" ;;
+        reset)     reset="${v}" ;;
+      esac
+    done < "${meta}"
+  fi
+  printf '%s\t%s\t%s' "${limit}" "${remaining}" "${reset}"
+  return 0
+}
+
+# aic_ratelimit_aggregate: aggregiert die Rate-Limit-Metadaten ueber ALLE Keys
+# in AIC_RUN_KEYS[] (F2b). Ausgabe Tab-getrennt:
+#   sum_limit  sum_remaining  reset  nkeys  unused  partial
+# sum_limit/sum_remaining: Summe ueber die Keys MIT bekannten Metadaten (numerisch).
+# reset: die FRUEHESTE (kleinste) bekannte Reset-Epoche (naechster Reset).
+# nkeys: Gesamtzahl der Keys; unused: Keys ohne Metadaten (nie benutzt).
+# partial: 1, wenn mindestens ein Key ungenutzt ist (Summe ist Teilsumme -> ">=").
+# Sind gar keine Metadaten vorhanden, bleiben die Summen leer.
+aic_ratelimit_aggregate() {
+  local -a keys=()
+  if [ "${#AIC_RUN_KEYS[@]}" -gt 0 ]; then
+    keys=("${AIC_RUN_KEYS[@]}")
+  fi
+  local nkeys="${#keys[@]}"
+  local sum_limit="" sum_remaining="" min_reset="" unused=0 known=0
+  local k lim rem res
+  for k in "${keys[@]}"; do
+    IFS=$'\t' read -r lim rem res < <(aic_meta_fields_for_key "${k}") || true
+    if [ -z "${lim}${rem}${res}" ]; then
+      unused=$(( unused + 1 ))
+      continue
+    fi
+    known=$(( known + 1 ))
+    if [[ "${lim}" =~ ^[0-9]+$ ]]; then
+      sum_limit=$(( ${sum_limit:-0} + lim ))
+    fi
+    if [[ "${rem}" =~ ^[0-9]+$ ]]; then
+      sum_remaining=$(( ${sum_remaining:-0} + rem ))
+    fi
+    if [[ "${res}" =~ ^[0-9]+$ ]]; then
+      if [ -z "${min_reset}" ] || [ "${res}" -lt "${min_reset}" ]; then
+        min_reset="${res}"
+      fi
+    fi
+  done
+  local partial=0
+  [ "${unused}" -gt 0 ] && [ "${known}" -gt 0 ] && partial=1
+  printf '%s\t%s\t%s\t%s\t%s\t%s' \
+    "${sum_limit}" "${sum_remaining}" "${min_reset}" "${nkeys}" "${unused}" "${partial}"
+  return 0
+}
+
+# aic_balance_counts: gibt die F3-Bilanzzahlen Tab-getrennt auf stdout aus:
+#   eingelesen  geprueft  live  cache  fehler  uebersprungen
+# eingelesen  = Kandidatenzahl VOR Dedupe/Validierung (AIC_INPUT_COUNT_FILE).
+# geprueft    = Zahl der Ergebnis-JSONs im AIC_RUN_DIR (live + cache, inkl.
+#               FEHLER — es wurde geprueft, nur eben mit Fehlerergebnis).
+# live/cache/fehler = Aufschluesselung nach source/status.
+# uebersprungen = nicht-leere Zeilen im Skipfile (DUPLIKAT/WHITELIST/PRIVATE/…).
+aic_balance_counts() {
+  local run_dir="${AIC_RUN_DIR:-}"
+  local eingelesen=0 geprueft=0 live=0 cache=0 fehler=0 skip=0
+
+  local cf="${AIC_INPUT_COUNT_FILE:-}"
+  if [ -n "${cf}" ] && [ -f "${cf}" ]; then
+    eingelesen="$(cat "${cf}" 2>/dev/null)"
+    [[ "${eingelesen}" =~ ^[0-9]+$ ]] || eingelesen=0
+  fi
+
+  if [ -n "${run_dir}" ] && [ -d "${run_dir}" ]; then
+    local f src status
+    for f in "${run_dir}"/*.json; do
+      [ -f "${f}" ] || continue
+      jq -e . "${f}" >/dev/null 2>&1 || continue
+      geprueft=$(( geprueft + 1 ))
+      status="$(jq -r '.status // empty' "${f}" 2>/dev/null)"
+      src="$(jq -r '.source // empty' "${f}" 2>/dev/null)"
+      if [ "${status}" = "FEHLER" ]; then
+        fehler=$(( fehler + 1 ))
+      elif [ "${src}" = "cache" ]; then
+        cache=$(( cache + 1 ))
+      else
+        live=$(( live + 1 ))
+      fi
+    done
+  fi
+
+  local skipfile="${AIC_SKIP_FILE:-}"
+  if [ -n "${skipfile}" ] && [ -f "${skipfile}" ]; then
+    skip="$(grep -c . "${skipfile}" 2>/dev/null)" || skip=0
+    [[ "${skip}" =~ ^[0-9]+$ ]] || skip=0
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s' \
+    "${eingelesen}" "${geprueft}" "${live}" "${cache}" "${fehler}" "${skip}"
+  return 0
+}
+
+# aic_render_balance: gibt die F3-Bilanzzeile auf stdout aus und prueft die
+# Invariante eingelesen == geprueft + uebersprungen. Bei Diskrepanz zusaetzlich
+# eine WARNUNG auf stderr (moegliche Parsing-Luecke) mit beiden Zahlen.
+aic_render_balance() {
+  local eingelesen geprueft live cache fehler skip
+  IFS=$'\t' read -r eingelesen geprueft live cache fehler skip < <(aic_balance_counts) || true
+  printf 'Bilanz: %s Eingaben -> %s geprueft (%s live, %s Cache), %s Fehler, %s uebersprungen\n' \
+    "${eingelesen}" "${geprueft}" "${live}" "${cache}" "${fehler}" "${skip}"
+  local sum=$(( geprueft + skip ))
+  if [ "${eingelesen}" -ne "${sum}" ]; then
+    printf 'WARNUNG: Eingabe-Bilanz stimmt nicht (eingelesen=%s, geprueft+uebersprungen=%s) — moegliche Parsing-Luecke.\n' \
+      "${eingelesen}" "${sum}" >&2
+  fi
+  return 0
+}
+
+# aic_output: Gesamt-Terminalausgabe — Tabelle, Skip-Sektion, Rate-Limit-Zeile,
+# Bilanzzeile (F3, immer, unter der Rate-Limit-Zeile).
+aic_output() {
+  aic_render_table
+  aic_render_skips
+  local limit remaining reset
+  # read liefert bei fehlendem Zeilenumbruch Exit 1 (Felder sind dennoch
+  # gesetzt) — unter `set -e` mit `|| true` abfangen.
+  IFS=$'\t' read -r limit remaining reset < <(aic_ratelimit_fields) || true
+  # Rate-Limit-Zeile: bei mehreren Keys aggregiert (auch wenn der aktive Key
+  # allein keine Felder haette), sonst nur wenn Werte des aktiven Keys vorliegen.
+  if [ "${AIC_ACTIVE_KEY_COUNT:-1}" -gt 1 ] 2>/dev/null; then
+    local agl agr
+    IFS=$'\t' read -r agl agr _ _ _ _ < <(aic_ratelimit_aggregate) || true
+    if [ -n "${agl}${agr}" ]; then
+      aic_render_ratelimit "${limit}" "${remaining}" "${reset}"
+    fi
+  elif [ -n "${limit}${remaining}${reset}" ]; then
+    aic_render_ratelimit "${limit}" "${remaining}" "${reset}"
+  fi
+  aic_render_balance
+  return 0
+}
+
+# ============================================================================
+# SEKTION: export — Datei-Export in csv|json|jsonl|txt|md
+# ============================================================================
+#
+# Export erfolgt ausschliesslich bei --output-file. Alle Formate speisen sich
+# aus derselben sortierten Zeilenliste (aic_results_tsv fuer csv/txt/md; die
+# rohen Ergebnis-JSONs, in derselben Reihenfolge, fuer json/jsonl). Geschrieben
+# wird atomar (Tempfile im Zielverzeichnis + mv); bestehende Dateien werden
+# ueberschrieben. Ein nicht beschreibbarer Zielpfad fuehrt zu Exit 2.
+
+# aic_export_headers: die CSV/MD-Spaltenueberschriften (inkl. error_detail).
+AIC_EXPORT_COLUMNS=(ip score country isp usage domain tor wl reports reporter last_reported source error_detail)
+
+# aic_csv_quote <feld>: gibt das Feld CSV-konform aus (Quoting bei Komma,
+# Anfuehrungszeichen oder Zeilenumbruch; interne " werden verdoppelt).
+aic_csv_quote() {
+  local v="${1-}"
+  if [[ "${v}" == *,* || "${v}" == *'"'* || "${v}" == *$'\n'* ]]; then
+    v="${v//\"/\"\"}"
+    printf '"%s"' "${v}"
+  else
+    printf '%s' "${v}"
+  fi
+  return 0
+}
+
+# aic_export_csv: schreibt CSV (Header + Zeilen) auf stdout.
+aic_export_csv() {
+  local IFS=','
+  printf '%s\n' "${AIC_EXPORT_COLUMNS[*]}"
+  unset IFS
+  local line
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    local -a f=()
+    IFS=$'\t' read -r -a f <<< "${line}"
+    local out="" i
+    for (( i=0; i<13; i++ )); do
+      [ "${i}" -gt 0 ] && out+=","
+      out+="$(aic_csv_quote "${f[i]:-}")"
+    done
+    printf '%s\n' "${out}"
+  done <<< "$(aic_results_tsv)"
+  return 0
+}
+
+# aic_export_json: schreibt ein JSON-Objekt {meta,results,skipped} auf stdout.
+aic_export_json() {
+  local run_dir="${AIC_RUN_DIR:-}"
+  local sort_key="${AIC_SORT_KEY:-score}"
+  local reverse="${AIC_SORT_REVERSE:-0}"
+  local jqkey; jqkey="$(aic_sort_jqkey "${sort_key}")" || jqkey='.abuseConfidenceScore'
+  local descending=1; [ "${reverse}" = "1" ] && descending=0
+
+  # Ergebnis-JSONs sammeln (valide).
+  local -a files=()
+  local f
+  if [ -n "${run_dir}" ] && [ -d "${run_dir}" ]; then
+    for f in "${run_dir}"/*.json; do
+      [ -f "${f}" ] || continue
+      jq -e . "${f}" >/dev/null 2>&1 || continue
+      files+=("${f}")
+    done
+  fi
+
+  # Sortierte results (gleiche Reihenfolge wie die Tabelle).
+  local results='[]'
+  if [ "${#files[@]}" -gt 0 ]; then
+    local order
+    if [ "${descending}" -eq 1 ]; then
+      order='sort_by([(('"${jqkey}"') == null), ('"${jqkey}"')]) | reverse | sort_by(('"${jqkey}"') == null)'
+    else
+      order='sort_by([(('"${jqkey}"') == null), ('"${jqkey}"')])'
+    fi
+    results="$(jq -s "${order}" "${files[@]}" 2>/dev/null)" || results='[]'
+  fi
+
+  # Skips als [{ip,reason}].
+  local skipped='[]'
+  local skipfile="${AIC_SKIP_FILE:-}"
+  if [ -n "${skipfile}" ] && [ -s "${skipfile}" ]; then
+    skipped="$(jq -Rs 'split("\n") | map(select(length>0)) | map(split("\t")) | map({ip: .[0], reason: .[1]})' "${skipfile}" 2>/dev/null)" || skipped='[]'
+  fi
+
+  # Rate-Limit + Counts aus den results.
+  local limit remaining reset
+  IFS=$'\t' read -r limit remaining reset < <(aic_ratelimit_fields) || true
+
+  # F3-Bilanz: eingelesene Kandidaten VOR Dedupe/Validierung (input_total).
+  local input_total=0
+  local cf="${AIC_INPUT_COUNT_FILE:-}"
+  if [ -n "${cf}" ] && [ -f "${cf}" ]; then
+    input_total="$(cat "${cf}" 2>/dev/null)"
+    [[ "${input_total}" =~ ^[0-9]+$ ]] || input_total=0
+  fi
+
+  jq -n \
+    --argjson results "${results}" \
+    --argjson skipped "${skipped}" \
+    --arg generated "$(date '+%Y-%m-%dT%H:%M:%S%z')" \
+    --arg tool "abuseipdb-check" \
+    --arg maxAge "${AIC_MAX_AGE:-90}" \
+    --arg limit "${limit}" \
+    --arg remaining "${remaining}" \
+    --arg reset "${reset}" \
+    --arg crit "${AIC_THRESHOLD_CRITICAL:-75}" \
+    --arg susp "${AIC_THRESHOLD_SUSPECT:-25}" \
+    --argjson inputTotal "${input_total}" \
+    '{
+      meta: {
+        generated: $generated,
+        tool: $tool,
+        maxAgeInDays: ($maxAge|tonumber? // $maxAge),
+        ratelimit: { limit: $limit, remaining: $remaining, reset: $reset },
+        counts: {
+          input_total: $inputTotal,
+          total: ($results|length),
+          kritisch: ([$results[] | select(.abuseConfidenceScore != null and .abuseConfidenceScore >= ($crit|tonumber))] | length),
+          verdaechtig: ([$results[] | select(.abuseConfidenceScore != null and .abuseConfidenceScore >= ($susp|tonumber) and .abuseConfidenceScore < ($crit|tonumber))] | length),
+          sauber: ([$results[] | select(.abuseConfidenceScore != null and .abuseConfidenceScore < ($susp|tonumber))] | length),
+          fehler: ([$results[] | select(.status == "FEHLER")] | length),
+          uebersprungen: ($skipped|length)
+        }
+      },
+      results: $results,
+      skipped: $skipped
+    }'
+  return 0
+}
+
+# aic_export_jsonl: ein Ergebnis-Objekt pro Zeile (nur results, sortiert).
+aic_export_jsonl() {
+  local run_dir="${AIC_RUN_DIR:-}"
+  local sort_key="${AIC_SORT_KEY:-score}"
+  local reverse="${AIC_SORT_REVERSE:-0}"
+  local jqkey; jqkey="$(aic_sort_jqkey "${sort_key}")" || jqkey='.abuseConfidenceScore'
+  local descending=1; [ "${reverse}" = "1" ] && descending=0
+
+  local -a files=()
+  local f
+  if [ -n "${run_dir}" ] && [ -d "${run_dir}" ]; then
+    for f in "${run_dir}"/*.json; do
+      [ -f "${f}" ] || continue
+      jq -e . "${f}" >/dev/null 2>&1 || continue
+      files+=("${f}")
+    done
+  fi
+  [ "${#files[@]}" -gt 0 ] || return 0
+
+  local order
+  if [ "${descending}" -eq 1 ]; then
+    order='sort_by([(('"${jqkey}"') == null), ('"${jqkey}"')]) | reverse | sort_by(('"${jqkey}"') == null)'
+  else
+    order='sort_by([(('"${jqkey}"') == null), ('"${jqkey}"')])'
+  fi
+  jq -c -s "${order} | .[]" "${files[@]}" 2>/dev/null
+  return 0
+}
+
+# aic_export_txt: gerenderte Tabelle + Skips + Rate-Limit OHNE ANSI-Farben.
+aic_export_txt() {
+  AIC_COLOR=0 aic_output
+  return 0
+}
+
+# aic_export_md: Markdown-Report (Ueberschrift, Summary, Tabelle, Skip-Liste).
+aic_export_md() {
+  local crit="${AIC_THRESHOLD_CRITICAL:-75}"
+  local susp="${AIC_THRESHOLD_SUSPECT:-25}"
+  local tsv; tsv="$(aic_results_tsv)"
+
+  # Summary-Zaehler aus der TSV (Score = Feld 2). Nicht-numerischer Score
+  # (leer bei FEHLER, "-" als Platzhalter) zaehlt als Fehler — indexunabhaengig.
+  local n_krit=0 n_susp=0 n_clean=0 n_err=0 line
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    local -a f=(); IFS=$'\t' read -r -a f <<< "${line}"
+    local s="${f[1]:-}"
+    if ! [[ "${s}" =~ ^[0-9]+$ ]]; then
+      n_err=$((n_err+1)); continue
+    fi
+    if [ "${s}" -ge "${crit}" ]; then n_krit=$((n_krit+1))
+    elif [ "${s}" -ge "${susp}" ]; then n_susp=$((n_susp+1))
+    else n_clean=$((n_clean+1)); fi
+  done <<< "${tsv}"
+
+  local n_skip=0
+  local skipfile="${AIC_SKIP_FILE:-}"
+  [ -n "${skipfile}" ] && [ -f "${skipfile}" ] && n_skip="$(grep -c . "${skipfile}" 2>/dev/null || printf 0)"
+
+  # F3-Bilanzzahlen (eingelesen/geprueft/live/cache/…) fuer die Bilanzzeile.
+  local b_ein b_gep b_live b_cache b_feh b_skip
+  IFS=$'\t' read -r b_ein b_gep b_live b_cache b_feh b_skip < <(aic_balance_counts) || true
+
+  printf '# AbuseIPDB-Report\n\n'
+  printf 'Erstellt: %s\n\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  printf '## Zusammenfassung\n\n'
+  printf -- '- Kritisch: %s\n' "${n_krit}"
+  printf -- '- Verdaechtig: %s\n' "${n_susp}"
+  printf -- '- Sauber: %s\n' "${n_clean}"
+  printf -- '- Fehler: %s\n' "${n_err}"
+  printf -- '- Uebersprungen: %s\n\n' "${n_skip}"
+  printf 'Bilanz: %s Eingaben -> %s geprueft (%s live, %s Cache), %s Fehler, %s uebersprungen\n\n' \
+    "${b_ein}" "${b_gep}" "${b_live}" "${b_cache}" "${b_feh}" "${b_skip}"
+
+  printf '## Ergebnisse\n\n'
+  printf '| IP | Score | Land | ISP | Usage | Domain | Tor | WL | Reports | Reporter | Zuletzt | Quelle |\n'
+  printf '|---|---|---|---|---|---|---|---|---|---|---|---|\n'
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    local -a f=(); IFS=$'\t' read -r -a f <<< "${line}"
+    local score="${f[1]:-}"; [ -z "${score}" ] && score="-"
+    # Pipe im Wert escapen.
+    local isp="${f[3]//|/\\|}" usage="${f[4]//|/\\|}" domain="${f[5]//|/\\|}"
+    printf '| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n' \
+      "${f[0]:-"-"}" "${score}" "${f[2]:-"-"}" "${isp:-"-"}" "${usage:-"-"}" "${domain:-"-"}" \
+      "${f[6]:-"-"}" "${f[7]:-"-"}" "${f[8]:-"-"}" "${f[9]:-"-"}" "${f[10]:-"-"}" "${f[11]:-"-"}"
+  done <<< "${tsv}"
+
+  if [ -n "${skipfile}" ] && [ -s "${skipfile}" ]; then
+    printf '\n## Uebersprungen\n\n'
+    local ip reason
+    while IFS=$'\t' read -r ip reason; do
+      [ -n "${ip}" ] || continue
+      printf -- '- %s (%s)\n' "${ip}" "${reason}"
+    done < "${skipfile}"
+  fi
+  return 0
+}
+
+# aic_export <format> <pfad>: schreibt den Export atomar in <pfad>. Format-
+# Default csv; ungueltiges Format oder nicht beschreibbarer Pfad -> Exit 2.
+aic_export() {
+  local format="${1-}" path="${2-}"
+  [ -n "${format}" ] || format="csv"
+  [ -n "${path}" ] || { printf 'Fehler: Export ohne Zielpfad.\n' >&2; return 2; }
+
+  case "${format}" in
+    csv|json|jsonl|txt|md) : ;;
+    *) printf 'Fehler: unbekanntes Export-Format: %s (erlaubt: csv|json|jsonl|txt|md)\n' "${format}" >&2
+       return 2 ;;
+  esac
+
+  local dir
+  dir="$(dirname "${path}")"
+  if [ ! -d "${dir}" ] || [ ! -w "${dir}" ]; then
+    printf 'Fehler: Zielverzeichnis nicht beschreibbar: %s\n' "${dir}" >&2
+    return 2
+  fi
+
+  # Atomar: in Tempdatei im Zielverzeichnis schreiben, dann mv.
+  local tmp
+  tmp="$(mktemp "${dir}/.aic-export.XXXXXX" 2>/dev/null)" || {
+    printf 'Fehler: Tempdatei konnte nicht angelegt werden in: %s\n' "${dir}" >&2
+    return 2
+  }
+
+  local rc=0
+  case "${format}" in
+    csv)   aic_export_csv   > "${tmp}" || rc=$? ;;
+    json)  aic_export_json  > "${tmp}" || rc=$? ;;
+    jsonl) aic_export_jsonl > "${tmp}" || rc=$? ;;
+    txt)   aic_export_txt   > "${tmp}" || rc=$? ;;
+    md)    aic_export_md    > "${tmp}" || rc=$? ;;
+  esac
+
+  if [ "${rc}" -ne 0 ]; then
+    rm -f "${tmp}"
+    printf 'Fehler: Export fehlgeschlagen (%s).\n' "${format}" >&2
+    return 2
+  fi
+
+  mv -f "${tmp}" "${path}" 2>/dev/null || {
+    rm -f "${tmp}"
+    printf 'Fehler: Export konnte nicht geschrieben werden: %s\n' "${path}" >&2
+    return 2
+  }
+  return 0
+}
+
+# ============================================================================
+# SEKTION: cli — Argument-Parsing & main
+# ============================================================================
+
+# aic_usage: Help-Text (Grundgeruest, wird in US-011 erweitert).
+aic_usage() {
+  cat <<'EOF'
+abuseipdb-check — read-only IP-Reputationspruefung gegen AbuseIPDB.
+
+VERWENDUNG:
+  abuseipdb-check [OPTIONEN] [IP ...]
+
+BEISPIELE (alle vier Eingabewege):
+  abuseipdb-check 1.2.3.4 5.6.7.8            # Weg 1: IPs als Positionsargumente
+  abuseipdb-check -f ips.txt                 # Weg 2: IP-Liste aus Datei (-f/--file)
+  cat text.log | abuseipdb-check             # Weg 3: IPs ueber stdin-Pipe
+  cat text.log | abuseipdb-check --extract   # Weg 4: IPs aus Fliesstext extrahieren
+
+EINGABE:
+  -f, --file DATEI       IPs aus Datei lesen (eine/Zeile, # Kommentare, Leerzeilen ignoriert)
+      IP ...             IPs direkt als Argumente
+      (stdin)            IPs ueber Pipe (nur wenn kein Terminal)
+      --extract          IPs aus unstrukturiertem Fliesstext herausfischen
+
+WHITELIST / EXCLUDE:
+      --exclude IP|CIDR      vom Check ausnehmen (wiederholbar; IPv4/IPv6, CIDR)
+      --exclude-file DATEI   Ausschlussliste aus Datei (Kommentare erlaubt)
+
+KONFIGURATION:
+      --init                 interaktive Einrichtung: API-Key(s) fuer die
+                             Rotation und Cache-TTL abfragen, Config schreiben
+                             (Ziel: --config bzw. Standardpfad), dann beenden
+      --api-key KEY          API-Key (Vorrang vor ABUSEIPDB_API_KEY und Config).
+                             Wiederholbar: mehrere Keys werden bei erschoepftem
+                             Tageskontingent (HTTP 429) der Reihe nach rotiert.
+                             Auch ABUSEIPDB_API_KEY (kommasepariert) und Config
+                             (api_keys=) liefern mehrere Keys.
+      --config DATEI         alternative Config-Datei (Standard: ~/.config/abuseipdb/config)
+
+CACHE:
+      --cache-dir VERZ       Cache-Verzeichnis (Standard: <tool-dir>/data/cache)
+      --ttl DAUER            Cache-TTL: 10d (Tage), 36h (Stunden) oder nackte
+                             Zahl = Stunden (Standard: 10d)
+      --no-cache             Ergebnis-Cache umgehen (immer live abfragen)
+      --clear-cache          Cache (inkl. Rate-Limit-Metadatei) leeren und beenden
+      --cache-stats          Cache-Statistik anzeigen und beenden
+
+ABFRAGE:
+      --parallel N           parallele Abfragen (Standard 5, Max 10, 1 = sequenziell)
+      --max-age TAGE         maxAgeInDays fuer die API (Standard 90, 1-365)
+
+AUSGABE:
+      --sort KEY             score|country|isp|reports|last-reported (Standard score)
+      --reverse              Sortierreihenfolge umkehren
+      --no-color             farbige Ausgabe abschalten (auto-aus ohne Terminal)
+      --threshold-critical N Schwelle rot (Standard 75)
+      --threshold-suspect N  Schwelle gelb (Standard 25)
+
+EXPORT:
+      --output-file DATEI    Ergebnis zusaetzlich in Datei schreiben (atomar);
+                             ohne Endung wird .FORMAT automatisch angehaengt
+      --output-format FORMAT csv|json|jsonl|txt|md (Standard csv)
+
+SONSTIGES:
+  -h, --help             diese Hilfe anzeigen
+
+EXIT-CODES:
+  0  alle geprueften IPs unauffaellig (sauber)
+  1  mindestens eine IP >= kritischem Schwellenwert
+  2  Nutzungs-/Eingabe-/Abhaengigkeitsfehler
+  3  API-/Netzfehler
+  Prioritaet bei mehreren zutreffenden Faellen: 2 vor 3 vor 1.
+EOF
+}
+
+# aic_need_arg <flag> [wert...]: prueft, ob auf <flag> ein Argument folgt.
+# Rueckgabe 2 + stderr-Meldung, wenn nicht — der Aufrufer reicht den Code durch.
+aic_need_arg() {
+  [ "$#" -ge 2 ] || { printf 'Fehler: %s benoetigt ein Argument\n' "${1}" >&2; return 2; }
+}
+
+# aic_parse_args: befuellt globale Zustandsvariablen aus den CLI-Argumenten.
+# Unbekannte Flags brechen mit Exit 2 (+ Hilfe-Hinweis) ab; `--` beendet die
+# Optionsverarbeitung, der Rest wird als Positionsargumente behandelt.
+aic_parse_args() {
+  AIC_POSITIONAL=()
+  AIC_INPUT_FILE=""
+  AIC_EXTRACT=0
+  AIC_EXCLUDES=()
+  AIC_SHOW_HELP=0
+  AIC_OPT_API_KEY=""
+  AIC_OPT_API_KEYS=()
+  AIC_OPT_CONFIG=""
+  AIC_OPT_CACHE_DIR=""
+  AIC_OPT_TTL=""
+  AIC_NO_CACHE=0
+  AIC_DO_CLEAR_CACHE=0
+  AIC_DO_CACHE_STATS=0
+  AIC_DO_INIT=0
+  AIC_OPT_PARALLEL=""
+  AIC_OPT_MAX_AGE=""
+  AIC_OPT_SORT=""
+  AIC_OPT_REVERSE=0
+  AIC_OPT_NO_COLOR=0
+  AIC_OPT_OUTPUT_FILE=""
+  AIC_OPT_OUTPUT_FORMAT=""
+  AIC_OPT_THRESHOLD_CRITICAL=""
+  AIC_OPT_THRESHOLD_SUSPECT=""
+
+  while [ "$#" -gt 0 ]; do
+    case "${1}" in
+      -h|--help)
+        AIC_SHOW_HELP=1; shift ;;
+      -f|--file)
+        aic_need_arg "$@" || return 2
+        AIC_INPUT_FILE="${2}"; shift 2 ;;
+      --extract)
+        AIC_EXTRACT=1; shift ;;
+      --init)
+        AIC_DO_INIT=1; shift ;;
+      --exclude)
+        aic_need_arg "$@" || return 2
+        AIC_EXCLUDES+=("${2}"); shift 2 ;;
+      --exclude-file)
+        aic_need_arg "$@" || return 2
+        aic_load_exclude_file "${2}" || { printf 'Fehler: Exclude-Datei nicht lesbar: %s\n' "${2}" >&2; return 2; }
+        shift 2 ;;
+      --api-key)
+        aic_need_arg "$@" || return 2
+        # Wiederholbar (F2): Reihenfolge = Prioritaet. AIC_OPT_API_KEY bleibt der
+        # erste Wert (Abwaertskompatibilitaet fuer aic_resolve_api_key).
+        [ -z "${AIC_OPT_API_KEY}" ] && AIC_OPT_API_KEY="${2}"
+        AIC_OPT_API_KEYS+=("${2}"); shift 2 ;;
+      --config)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_CONFIG="${2}"; shift 2 ;;
+      --cache-dir)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_CACHE_DIR="${2}"; shift 2 ;;
+      --ttl)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_TTL="${2}"; shift 2 ;;
+      --no-cache)
+        # AIC_NO_CACHE wird vom Runner in US-008 konsumiert (Ergebnis-Cache
+        # umgehen); hier bereits geparst, damit das Flag frueh verfuegbar ist.
+        # shellcheck disable=SC2034
+        AIC_NO_CACHE=1; shift ;;
+      --clear-cache)
+        AIC_DO_CLEAR_CACHE=1; shift ;;
+      --cache-stats)
+        AIC_DO_CACHE_STATS=1; shift ;;
+      --parallel)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_PARALLEL="${2}"; shift 2 ;;
+      --max-age)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_MAX_AGE="${2}"; shift 2 ;;
+      --sort)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_SORT="${2}"; shift 2 ;;
+      --reverse)
+        AIC_OPT_REVERSE=1; shift ;;
+      --no-color)
+        AIC_OPT_NO_COLOR=1; shift ;;
+      --output-file)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_OUTPUT_FILE="${2}"; shift 2 ;;
+      --output-format)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_OUTPUT_FORMAT="${2}"; shift 2 ;;
+      --threshold-critical)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_THRESHOLD_CRITICAL="${2}"; shift 2 ;;
+      --threshold-suspect)
+        aic_need_arg "$@" || return 2
+        AIC_OPT_THRESHOLD_SUSPECT="${2}"; shift 2 ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do AIC_POSITIONAL+=("${1}"); shift; done ;;
+      -*)
+        printf 'Fehler: unbekanntes Flag: %s\n' "${1}" >&2
+        printf "Nutze 'abuseipdb-check --help' fuer die Hilfe.\n" >&2
+        return 2 ;;
+      *)
+        AIC_POSITIONAL+=("${1}"); shift ;;
+    esac
+  done
+  return 0
+}
+
+# aic_derive_finding_code: leitet den befundbasierten Exit-Code aus den
+# Ergebnis-JSONs im AIC_RUN_DIR ab (VOR dem Aufraeumen aufrufen). Regeln:
+#   3  mindestens ein Ergebnis mit status=="FEHLER" (API-/Netzfehler)
+#   1  sonst: mindestens ein OK-Ergebnis mit abuseConfidenceScore >= kritisch
+#   0  sonst (alle geprueften unauffaellig / keine Ergebnisse)
+# Der Fehler-Fall hat Vorrang vor dem Kritisch-Fall (Prioritaet 3 vor 1).
+# Gibt den Code als Zahl auf stdout aus und liefert immer return 0 (set -e-sicher;
+# die Auswertung erfolgt beim Aufrufer ueber Kommando-Substitution).
+aic_derive_finding_code() {
+  local run_dir="${AIC_RUN_DIR:-}"
+  local crit="${AIC_THRESHOLD_CRITICAL:-75}"
+  if [ -z "${run_dir}" ] || [ ! -d "${run_dir}" ]; then
+    printf '0\n'; return 0
+  fi
+
+  local -a files=()
+  local f
+  for f in "${run_dir}"/*.json; do
+    [ -f "${f}" ] || continue
+    jq -e . "${f}" >/dev/null 2>&1 || continue
+    files+=("${f}")
+  done
+  [ "${#files[@]}" -gt 0 ] || { printf '0\n'; return 0; }
+
+  # Ein einziger jq-Aufruf ueber alle validen Ergebnisse: FEHLER (3) schlaegt
+  # kritisch (1) schlaegt sauber (0).
+  local code
+  code="$(jq -s --argjson crit "${crit}" '
+    if any(.[]; .status == "FEHLER") then 3
+    elif any(.[]; .abuseConfidenceScore != null and .abuseConfidenceScore >= $crit) then 1
+    else 0 end
+  ' "${files[@]}" 2>/dev/null)" || code=0
+  case "${code}" in
+    1|3) printf '%s\n' "${code}" ;;
+    *)   printf '0\n' ;;
+  esac
+  return 0
+}
+
+# aic_main: Einstiegspunkt bei direkter Ausfuehrung.
+aic_main() {
+  aic_parse_args "$@" || return $?
+  if [ "${AIC_SHOW_HELP}" -eq 1 ]; then
+    aic_usage
+    return 0
+  fi
+  aic_check_deps || return $?
+
+  # Config laden (Flag --config uebersteuert den Standardpfad) und die
+  # konfigurierte Whitelist in die Exclude-Logik uebernehmen.
+  local config_path="${AIC_OPT_CONFIG:-${AIC_CONFIG_PATH}}"
+
+  # --init: interaktive (Neu-)Einrichtung der Konfiguration, dann Ende.
+  # Respektiert --config als Zielpfad; eine bestehende Datei wird nach
+  # Hinweis ueberschrieben.
+  if [ "${AIC_DO_INIT:-0}" -eq 1 ]; then
+    if [ -f "${config_path}" ]; then
+      printf 'Hinweis: bestehende Konfiguration wird ueberschrieben: %s\n' "${config_path}" >&2
+    fi
+    aic_config_init "${config_path}" || return 2
+    return 0
+  fi
+
+  aic_load_config "${config_path}"
+  [ -f "${config_path}" ] && aic_warn_insecure_config "${config_path}"
+  aic_apply_config_whitelist
+
+  # TTL-Aufloesung (F1): Flag --ttl > Config `ttl` > legacy `ttl_hours` > 240h
+  # (10 Tage). Suffix d=Tage, h=Stunden, nackt=Stunden. Ungueltiger Flag-Wert
+  # (0/negativ/Muell) -> Exit 2.
+  local ttl_hours
+  if ! ttl_hours="$(aic_resolve_ttl_hours)"; then
+    printf 'Fehler: --ttl erwartet eine positive Zahl mit optionalem Suffix d (Tage) oder h (Stunden).\n' >&2
+    return 2
+  fi
+  AIC_TTL_HOURS="${ttl_hours}"
+  export AIC_TTL_HOURS
+
+  # F3: einmalige Cache-Layout-Migration (altes <tooldir>/cache -> data/cache).
+  # Nur relevant, wenn der Default-Pfad aktiv ist (weder --cache-dir noch Config
+  # cache_dir uebersteuern den Cache-Ort). Best effort, kein Abbruch.
+  if [ -z "${AIC_OPT_CACHE_DIR:-}" ] && [ -z "${AIC_CFG_cache_dir:-}" ]; then
+    aic_migrate_cache_layout
+  fi
+
+  # Fruehe Cache-Verwaltungs-Aktionen (beenden das Programm mit Exit 0).
+  if [ "${AIC_DO_CLEAR_CACHE:-0}" -eq 1 ]; then
+    aic_clear_cache
+    printf 'Cache geleert.\n'
+    return 0
+  fi
+  if [ "${AIC_DO_CACHE_STATS:-0}" -eq 1 ]; then
+    aic_cache_stats
+    return 0
+  fi
+
+  # --parallel aufloesen/validieren: Default 5, Cap 10 (mehr -> klemmen), min 1.
+  local parallel=5
+  if [ -n "${AIC_OPT_PARALLEL:-}" ]; then
+    if ! [[ "${AIC_OPT_PARALLEL}" =~ ^[0-9]+$ ]] || [ "${AIC_OPT_PARALLEL}" -lt 1 ]; then
+      printf 'Fehler: --parallel erwartet eine Ganzzahl >= 1.\n' >&2
+      return 2
+    fi
+    parallel="${AIC_OPT_PARALLEL}"
+    if [ "${parallel}" -gt 10 ]; then
+      printf 'Hinweis: --parallel auf 10 begrenzt (angefragt: %s).\n' "${parallel}" >&2
+      parallel=10
+    fi
+  fi
+  AIC_PARALLEL="${parallel}"
+  export AIC_PARALLEL
+
+  # --max-age aufloesen/validieren: Default 90, Bereich 1-365.
+  local max_age=90
+  if [ -n "${AIC_OPT_MAX_AGE:-}" ]; then
+    if ! [[ "${AIC_OPT_MAX_AGE}" =~ ^[0-9]+$ ]] || [ "${AIC_OPT_MAX_AGE}" -lt 1 ] || [ "${AIC_OPT_MAX_AGE}" -gt 365 ]; then
+      printf 'Fehler: --max-age erwartet eine Ganzzahl zwischen 1 und 365.\n' >&2
+      return 2
+    fi
+    max_age="${AIC_OPT_MAX_AGE}"
+  elif [ -n "${AIC_CFG_max_age_in_days:-}" ]; then
+    max_age="${AIC_CFG_max_age_in_days}"
+  fi
+  AIC_MAX_AGE="${max_age}"
+  export AIC_MAX_AGE
+
+  # Schwellen aufloesen: Flag > Config > Default (75/25).
+  if [ -n "${AIC_OPT_THRESHOLD_CRITICAL:-}" ]; then
+    AIC_THRESHOLD_CRITICAL="${AIC_OPT_THRESHOLD_CRITICAL}"
+  elif [ -n "${AIC_CFG_threshold_critical:-}" ]; then
+    AIC_THRESHOLD_CRITICAL="${AIC_CFG_threshold_critical}"
+  fi
+  if [ -n "${AIC_OPT_THRESHOLD_SUSPECT:-}" ]; then
+    AIC_THRESHOLD_SUSPECT="${AIC_OPT_THRESHOLD_SUSPECT}"
+  elif [ -n "${AIC_CFG_threshold_suspect:-}" ]; then
+    AIC_THRESHOLD_SUSPECT="${AIC_CFG_threshold_suspect}"
+  fi
+  export AIC_THRESHOLD_CRITICAL AIC_THRESHOLD_SUSPECT
+
+  # Sortierung: --sort validieren (ungueltig -> Exit 2), --reverse uebernehmen.
+  if [ -n "${AIC_OPT_SORT:-}" ]; then
+    if ! aic_valid_sort_key "${AIC_OPT_SORT}"; then
+      printf 'Fehler: ungueltiger --sort-Wert: %s (erlaubt: score|country|isp|reports|last-reported)\n' "${AIC_OPT_SORT}" >&2
+      return 2
+    fi
+    AIC_SORT_KEY="${AIC_OPT_SORT}"
+  fi
+  AIC_SORT_REVERSE="${AIC_OPT_REVERSE:-0}"
+  export AIC_SORT_KEY AIC_SORT_REVERSE
+
+  # Farbe: --no-color erzwingt Aus; sonst Auto (TTY-Erkennung in aic_use_color).
+  if [ "${AIC_OPT_NO_COLOR:-0}" -eq 1 ]; then
+    AIC_COLOR=0
+    export AIC_COLOR
+  fi
+
+  # Export-Format validieren (falls --output-file gesetzt): Default csv.
+  local output_format="${AIC_OPT_OUTPUT_FORMAT:-csv}"
+  if [ -n "${AIC_OPT_OUTPUT_FILE:-}" ]; then
+    case "${output_format}" in
+      csv|json|jsonl|txt|md) : ;;
+      *) printf 'Fehler: ungueltiges --output-format: %s (erlaubt: csv|json|jsonl|txt|md)\n' "${output_format}" >&2
+         return 2 ;;
+    esac
+    # Ohne Dateiendung bekommt die Ausgabedatei automatisch die Endung des
+    # Export-Formats (bla -> bla.csv). Eine vom Nutzer gesetzte Endung hat
+    # Vorrang und bleibt unangetastet — auch wenn sie nicht zum Format passt.
+    local out_base="${AIC_OPT_OUTPUT_FILE##*/}"
+    case "${out_base}" in
+      ?*.*) : ;;
+      *) AIC_OPT_OUTPUT_FILE="${AIC_OPT_OUTPUT_FILE}.${output_format}" ;;
+    esac
+  fi
+
+  # Eingabe-Pipeline: Roh-IPs -> Dedupe -> Whitelist-Filter -> Klassen-Filter.
+  # Skip-Gruende (DUPLIKAT/WHITELIST/PRIVATE/LOOPBACK/… /INVALID) laufen ueber
+  # AIC_SKIP_FILE. Nur public IPs erreichen den Runner (und den Key-Zwang).
+  # AIC_INPUT_COUNT_FILE zaehlt die Kandidaten VOR Dedupe/Validierung (F3).
+  local skipfile ipfile inputcount
+  skipfile="$(mktemp)"; export AIC_SKIP_FILE="${skipfile}"
+  ipfile="$(mktemp)"
+  inputcount="$(mktemp)"; printf '0' > "${inputcount}"
+  export AIC_INPUT_COUNT_FILE="${inputcount}"
+  aic_read_inputs | aic_dedupe | aic_filter_excluded | aic_filter_classify > "${ipfile}"
+
+  # F1 — Kein Input -> Help statt Stille: Wurde ueberhaupt kein IP-Kandidat
+  # eingelesen (weder pruefbar noch uebersprungen), liegt keine echte Eingabe
+  # vor. Eigenstaendige Aktionen (--help, --clear-cache, --cache-stats,
+  # interaktive Ersteinrichtung) sind oben bereits behandelt und erreichen diese
+  # Stelle nicht. Meldung + Help + Exit 2.
+  local input_total; input_total="$(cat "${inputcount}" 2>/dev/null)"
+  [[ "${input_total}" =~ ^[0-9]+$ ]] || input_total=0
+  if [ "${input_total}" -eq 0 ]; then
+    printf 'Keine IPs uebergeben.\n' >&2
+    aic_usage
+    rm -f "${skipfile}" "${ipfile}" "${inputcount}"
+    return 2
+  fi
+
+  # Nur wenn tatsaechlich IPs zu pruefen sind: Key sicherstellen + Lauf starten.
+  # Der Runner rendert die Terminal-Tabelle selbst (aic_finalize_run ->
+  # aic_collect_results -> aic_output). Bei --output-file exportieren wir danach
+  # aus demselben AIC_RUN_DIR (dieselbe sortierte Zeilenliste).
+  if [ -s "${ipfile}" ]; then
+    # F2: Key-Liste aufloesen (Rotation). AIC_RUN_KEYS[] steuert die Rotation im
+    # Runner; der erste Key wird als <key>-Parameter uebergeben (Signatur bleibt).
+    if ! aic_ensure_api_keys; then
+      rm -f "${skipfile}" "${ipfile}" "${inputcount}"
+      return 2
+    fi
+    export AIC_NO_CACHE
+    aic_run_checks_from_file "${ipfile}" "${AIC_RUN_KEYS[0]}"
+  else
+    # Keine zu pruefenden IPs (alles uebersprungen): reine Skip-/Leerausgabe.
+    AIC_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aic-run.XXXXXX")"
+    export AIC_RUN_DIR
+    aic_output
+  fi
+
+  # Datei-Export (nur bei --output-file). Fehler -> Exit 2.
+  if [ -n "${AIC_OPT_OUTPUT_FILE:-}" ]; then
+    if ! aic_export "${output_format}" "${AIC_OPT_OUTPUT_FILE}"; then
+      [ -n "${AIC_RUN_DIR:-}" ] && [ -d "${AIC_RUN_DIR}" ] && rm -rf "${AIC_RUN_DIR}"
+      rm -f "${skipfile}" "${ipfile}" "${inputcount}"
+      return 2
+    fi
+  fi
+
+  # Befundbasierten Exit-Code aus den Ergebnis-JSONs ableiten, SOLANGE das
+  # Lauf-Tempdir noch existiert (Prioritaet 3 vor 1; 0 wenn alles sauber oder
+  # nichts zu pruefen war). Usage-/Key-Fehler (Exit 2) sind bereits ueber
+  # fruehe `return 2` behandelt und erreichen diese Stelle nicht.
+  local finding_code
+  finding_code="$(aic_derive_finding_code)"
+
+  [ -n "${AIC_RUN_DIR:-}" ] && [ -d "${AIC_RUN_DIR}" ] && rm -rf "${AIC_RUN_DIR}"
+  rm -f "${skipfile}" "${ipfile}" "${inputcount}"
+  return "${finding_code}"
+}
+
+# Alias fuer den Source-Guard.
+main() { aic_main "$@"; }
+
+# Source-Guard: main nur bei direkter Ausfuehrung, nicht beim Sourcen (bats).
+# Die if-Form (statt `&&`) sorgt dafuer, dass das Sourcen mit Exit 0 endet und
+# `set -e` im sourcenden Kontext nicht ausgeloest wird.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

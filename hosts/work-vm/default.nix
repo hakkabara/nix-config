@@ -41,6 +41,8 @@
     ../../modules/nixos/maintenance.nix
     ../../modules/nixos/storage/disko.nix
     ../../modules/nixos/security/sops.nix
+    # Enabled with the key document in nix-internal.
+    ../../modules/nixos/security/api-keys.nix
     ../../modules/nixos/accounts/primary.nix
   ];
 

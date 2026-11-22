@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# tests/mocks/curl — Mock fuer curl in den bats-Tests.
+#
+# Bildet die HTTP-Realitaet nach, ohne je das Netz zu beruehren:
+#   * Header werden CRLF-terminiert (echte \r\n) ausgegeben,
+#     mit absichtlich GEMISCHTER Schreibweise (X-RateLimit-Limit,
+#     x-ratelimit-remaining, X-RATELIMIT-RESET), damit das Tool
+#     case-insensitiv parsen MUSS.
+#   * Der Body stammt aus tests/mocks/fixtures/<scenario>.json,
+#     gesteuert ueber AIC_MOCK_SCENARIO.
+#   * Jeder Aufruf wird zeilenweise (Argumente) nach AIC_MOCK_LOG
+#     protokolliert — Basis fuer die 0-Live-Call-Assertion.
+#
+# Das Tool ruft curl im Muster `curl -sS -D - ... -w '\n%{http_code}\n'`
+# (oder aehnlich) auf: erst Header, dann Body, dann HTTP-Code. Der Mock
+# unterstuetzt beide gaengigen Varianten (Header via -i/-D -, Code via -w).
+
+set -u
+
+log="${AIC_MOCK_LOG:-/dev/null}"
+fixtures="${AIC_MOCK_FIXTURES:-$(dirname "$0")/fixtures}"
+scenario="${AIC_MOCK_SCENARIO:-clean}"
+
+# --- Aufruf protokollieren (eine Zeile pro CALL). Unter Parallelitaet (xargs -P)
+# schreiben mehrere Mock-Prozesse gleichzeitig in dasselbe Log: die komplette
+# Zeile wird deshalb in EINEM printf-Aufruf (ein write()) geschrieben, damit
+# Zeilen sich nicht verschraenken oder verloren gehen (POSIX: writes <= PIPE_BUF
+# an eine im O_APPEND geoeffnete Datei sind atomar).
+line="CALL"
+for a in "$@"; do line+=" $(printf '%q' "$a")"; done
+printf '%s\n' "$line" >> "$log" 2>/dev/null || true
+
+# --- SEC2: curl liest bei `--config -` weitere Optionen von stdin. Das Tool
+# uebergibt den Key-Header ausschliesslich hierueber (nie als argv), damit er
+# nicht in der Prozessliste steht. Der Mock konsumiert die stdin-Config (sonst
+# bliebe die Pipe ungelesen) und extrahiert den Key in cfg_key — OHNE ihn ins Log
+# zu schreiben (die Log-Zeile bleibt argv-only, der Key taucht dort NICHT auf).
+uses_config=0
+for a in "$@"; do
+  case "$a" in --config|-K) uses_config=1 ;; esac
+done
+cfg_key=""
+if [ "$uses_config" -eq 1 ] && [ ! -t 0 ]; then
+  while IFS= read -r cfgline || [ -n "$cfgline" ]; do
+    case "$cfgline" in
+      *[Hh]eader*Key:*)
+        # Zeile der Form: header = "Key: <wert>"  ->  <wert> extrahieren.
+        cfg_key="${cfgline#*Key:}"
+        cfg_key="${cfg_key%\"}"
+        cfg_key="${cfg_key# }"
+        ;;
+    esac
+  done
+fi
+
+# --- Realitaets-Check wie echtes curl: ohne URL-Argument Exit 2 ("no URL
+# specified"). Verhindert, dass ein leeres/fehlendes $AIC_API_URL im Aufrufer
+# (z. B. nicht exportiert in xargs-Kindern) von einem zu nachgiebigen Mock
+# verschluckt wird — genau so blieb der Live-Fan-Out-Bug unentdeckt.
+has_url=0
+for a in "$@"; do
+  case "$a" in http://*|https://*) has_url=1; break ;; esac
+done
+if [ "$has_url" -eq 0 ]; then
+  printf 'curl: no URL specified!\n' >&2
+  exit 2
+fi
+
+# --- Szenario -> HTTP-Status + Fixture-Datei + Rate-Limit-Werte
+http_code=200
+fixture=""
+rl_limit=1000
+rl_remaining=995
+rl_reset=1752278400   # fixer Epoch-Wert fuer deterministische Reset-Tests
+retry_after=""
+
+case "$scenario" in
+  clean)      http_code=200; fixture="check-clean.json"; rl_remaining=995 ;;
+  suspect)    http_code=200; fixture="check-suspect.json"; rl_remaining=994 ;;
+  malicious)  http_code=200; fixture="check-malicious.json"; rl_remaining=993 ;;
+  null)       http_code=200; fixture="check-null.json"; rl_remaining=992 ;;
+  ipv6)       http_code=200; fixture="check-ipv6.json"; rl_remaining=991 ;;
+  err401)     http_code=401; fixture="error-401.json"; rl_remaining=990 ;;
+  err402)     http_code=402; fixture="error-402.json"; rl_remaining=990 ;;
+  err422)     http_code=422; fixture="error-422.json"; rl_remaining=990 ;;
+  err429)     http_code=429; fixture="error-429.json"; rl_remaining=0; retry_after=3600 ;;
+  badjson)    http_code=200; fixture="bad.json"; rl_remaining=989 ;;
+  lowquota)   http_code=200; fixture="check-clean.json"; rl_remaining=2 ;;
+  *)          http_code=200; fixture="check-clean.json" ;;
+esac
+
+body=""
+if [ -n "$fixture" ] && [ -f "${fixtures}/${fixture}" ]; then
+  body="$(cat "${fixtures}/${fixture}")"
+fi
+
+# --- Ausgabe: Header (CRLF, gemischte Schreibweise), dann Body.
+# printf '%b' interpretiert die \r\n als echte CRLF.
+emit_headers() {
+  printf 'HTTP/1.1 %s\r\n' "$http_code"
+  printf 'Content-Type: application/json\r\n'
+  printf 'X-RateLimit-Limit: %s\r\n' "$rl_limit"
+  printf 'x-ratelimit-remaining: %s\r\n' "$rl_remaining"
+  printf 'X-RATELIMIT-RESET: %s\r\n' "$rl_reset"
+  if [ -n "$retry_after" ]; then
+    printf 'Retry-After: %s\r\n' "$retry_after"
+  fi
+  printf '\r\n'
+}
+
+# Erkennen, ob Header mit ausgegeben werden sollen (-i, --include, -D -),
+# ob Header in eine Datei geschrieben werden (-D <datei>) und ob ein
+# -w/--write-out-Format angefragt ist (der HTTP-Code-Trick des Tools).
+want_headers=0
+header_file=""
+write_out=""
+prev=""
+for a in "$@"; do
+  case "$prev" in
+    -D|--dump-header)
+      # -D - bedeutet "Header nach stdout" (mit Body vermengt);
+      # -D <datei> schreibt die Header CRLF-terminiert in die Datei.
+      if [ "$a" = "-" ]; then
+        want_headers=1
+      else
+        header_file="$a"
+      fi
+      ;;
+    -w|--write-out)
+      write_out="$a"
+      ;;
+  esac
+  prev="$a"
+done
+
+# Header in Datei ausleiten (getrennt vom Body) — die vom Tool bevorzugte
+# Variante `curl -D <tmp> -w '%{http_code}'`.
+if [ -n "$header_file" ]; then
+  emit_headers > "$header_file" 2>/dev/null || true
+fi
+
+# Header mit dem Body vermengt ausgeben (Variante -i/-D -).
+if [ "$want_headers" -eq 1 ]; then
+  emit_headers
+fi
+
+printf '%s' "$body"
+
+# -w/--write-out: nur die von diesem Tool genutzten Platzhalter ersetzen.
+if [ -n "$write_out" ]; then
+  out="$write_out"
+  out="${out//\%\{http_code\}/$http_code}"
+  # Literale \n im Format als echten Zeilenumbruch interpretieren.
+  printf '%b' "$out"
+fi
+
+exit 0

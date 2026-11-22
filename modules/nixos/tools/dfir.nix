@@ -11,6 +11,7 @@ let
   cfg = config.hakkabara.tools.dfir;
 
   customTools = {
+    abuseipdbCheck = pkgsDfir.abuseipdb-check;
     chainsawRules = pkgsDfir.chainsaw-rules;
     cryptnetUrlCacheParser = pkgsDfir.cryptnet-url-cache-parser;
     inherit (pkgsDfir) dexray;
