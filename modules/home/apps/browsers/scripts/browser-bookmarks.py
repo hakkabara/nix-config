@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import shutil
 import stat
@@ -17,7 +18,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 PROGRAM_NAME = os.environ.get(
     "BROWSER_BOOKMARK_PROGRAM_NAME",
@@ -315,6 +316,25 @@ def extract_toolbar(document: Folder) -> Folder:
 
 def parse_bookmark_html(data: str) -> Folder:
     return extract_toolbar(parse_document(data))
+
+
+def collect_all(document: Folder) -> Folder:
+    """Whole export as one toolbar tree.
+
+    The toolbar's own entries stay at the top; every other top-level entry
+    (Bookmarks Menu, Other Bookmarks, loose bookmarks) follows as is, so a
+    folder becomes a subfolder of the toolbar.
+    """
+    try:
+        toolbar = extract_toolbar(document)
+    except FbmError:
+        toolbar = None
+
+    root = Folder(name="Bookmarks Toolbar", personal_toolbar=True)
+    if toolbar is not None:
+        root.children.extend(toolbar.children)
+    root.children.extend(child for child in document.children if child is not toolbar)
+    return root
 
 
 def validate_bookmark_html(data: str) -> BookmarkSummary:
@@ -726,7 +746,10 @@ def validate_import_source(path: str | Path) -> Path:
     return resolved
 
 
-def load_import_candidate(path: str | Path) -> ImportCandidate:
+def load_import_candidate(
+    path: str | Path,
+    include_all: bool = False,
+) -> ImportCandidate:
     source = validate_import_source(path)
 
     try:
@@ -742,7 +765,10 @@ def load_import_candidate(path: str | Path) -> ImportCandidate:
     except UnicodeDecodeError as error:
         raise FbmError("import file is not valid UTF-8") from error
 
-    root = parse_bookmark_html(plaintext)
+    if include_all:
+        root = collect_all(parse_document(plaintext))
+    else:
+        root = parse_bookmark_html(plaintext)
 
     # Canonicalize the special Gecko toolbar root name so the repository
     # representation stays stable even when Firefox exports a localized name.
@@ -855,11 +881,12 @@ def command_remove(args) -> None:
 
 
 def command_import(args) -> None:
-    candidate = load_import_candidate(args.file)
+    candidate = load_import_candidate(args.file, include_all=args.all)
 
     print("Browser bookmark import candidate:")
     print(f"  Source:    {candidate.path}")
-    print("  Scope:     Bookmarks Toolbar only")
+    scope = "whole export, below the toolbar" if args.all else "Bookmarks Toolbar only"
+    print(f"  Scope:     {scope}")
     print(f"  Folders:   {candidate.summary.folder_count}")
     print(f"  Bookmarks: {candidate.summary.bookmark_count}")
     print()
@@ -890,6 +917,62 @@ def command_import(args) -> None:
         print(f"  {candidate.path}")
 
     print("Run nix-switch to refresh the runtime secret.")
+
+
+def chrome_nodes(folder: Folder) -> list[dict]:
+    nodes = []
+    for child in folder.children:
+        if isinstance(child, Folder):
+            nodes.append({"name": child.name, "children": chrome_nodes(child)})
+        else:
+            nodes.append({"name": child.title, "url": child.url})
+    return nodes
+
+
+def command_chrome_policy(args) -> None:
+    """Chromium ManagedBookmarks policy from a plaintext bookmark document.
+
+    Meant for the runtime secret (for example /run/secrets/browser/bookmarks),
+    not for the repository file. Prints counts only, never names or URLs.
+    """
+    source = Path(args.input)
+    try:
+        plaintext = source.read_bytes().decode("utf-8-sig")
+    except OSError as error:
+        raise FbmError(f"failed to read bookmark document: {source}") from error
+    except UnicodeDecodeError as error:
+        raise FbmError("bookmark document is not valid UTF-8") from error
+
+    root = parse_bookmark_html(plaintext)
+    policy = {
+        "ManagedBookmarks": [{"toplevel_name": args.toplevel_name}]
+        + chrome_nodes(root)
+    }
+
+    target = Path(args.output)
+    target.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.",
+        suffix=".tmp",
+        dir=target.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(policy, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+        # Chrome reads managed policies as the browsing user.
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, target)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+    summary = summarize_tree(root)
+    print(
+        f"Chrome policy written: {target} "
+        f"({summary.folder_count} folders, {summary.bookmark_count} bookmarks)"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1075,7 +1158,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Delete plaintext HTML after successful encrypted replacement.",
     )
+    import_parser.add_argument(
+        "--all",
+        action="store_true",
+        help=(
+            "Import the whole export (toolbar entries on top, every other "
+            "top-level folder below them) instead of the toolbar only."
+        ),
+    )
     import_parser.set_defaults(func=command_import)
+
+    policy_parser = commands.add_parser(
+        "chrome-policy",
+        help="Write a Chromium ManagedBookmarks policy from plaintext HTML.",
+    )
+    policy_parser.add_argument("input", help="Plaintext bookmark document (runtime secret).")
+    policy_parser.add_argument("output", help="Policy JSON file to write (mode 0644).")
+    policy_parser.add_argument(
+        "--toplevel-name",
+        default="Bookmarks",
+        help="Name of the managed folder in the Chromium bookmarks bar.",
+    )
+    policy_parser.set_defaults(func=command_chrome_policy)
 
     return parser
 

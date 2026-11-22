@@ -32,6 +32,8 @@
     ../../modules/nixos/desktop/dms.nix
     ../../modules/nixos/desktop/autologin.nix
     ../../modules/nixos/services/hacktricks.nix
+    # Enabled with the bookmark secret in nix-internal.
+    ../../modules/nixos/desktop/managed-bookmarks.nix
 
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
