@@ -84,6 +84,21 @@ in
       description = "Restrict Teams to chat and downloads and remove direct media permissions.";
     };
 
+    filesystemAccess = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [
+        "home"
+        "/data"
+      ];
+      description = ''
+        Extra Flatpak filesystem permissions (flatpak --filesystem syntax,
+        e.g. "home", "/data:ro") on top of the chat-only sandbox, for drag
+        and drop from the file manager. Granting "home" lifts the default
+        "!home". Everything listed is reachable by the Teams web content.
+      '';
+    };
+
     settings = lib.mkOption {
       type = lib.types.attrsOf lib.types.anything;
       default = { };
@@ -112,11 +127,13 @@ in
             "dri"
           ];
 
-          filesystems = [
-            "!home"
-            "!xdg-run/pipewire-0"
-            "xdg-download"
-          ];
+          filesystems =
+            lib.optional (!lib.elem "home" cfg.filesystemAccess) "!home"
+            ++ [
+              "!xdg-run/pipewire-0"
+              "xdg-download"
+            ]
+            ++ cfg.filesystemAccess;
 
           sockets = [
             "!pulseaudio"

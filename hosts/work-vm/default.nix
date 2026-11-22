@@ -141,6 +141,14 @@
         enable = true;
         user = "mko";
         chatOnly = true;
+
+        # Drag and drop from Thunar. Deliberate user decision (2026-11-22):
+        # full read/write on home and /data, accepting that a compromised
+        # Teams client could read ~/.ssh, tokens and all customer data.
+        filesystemAccess = [
+          "home"
+          "/data"
+        ];
       };
 
       # Graphical file manager next to Yazi (Mod+Ctrl+E): no thumbnails, no
