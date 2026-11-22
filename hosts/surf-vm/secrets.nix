@@ -139,6 +139,46 @@
         mode = "0400";
       };
 
+      # --------------------------------------------------------
+      # Immich CLI
+      # --------------------------------------------------------
+
+      "immich/url" = {
+        sopsFile = ../../secrets/surf-vm/immich.yaml;
+        key = "url";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+      "immich/api-key" = {
+        sopsFile = ../../secrets/surf-vm/immich.yaml;
+        key = "api-key";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+      # --------------------------------------------------------
+      # Claude Code subscription token (claude setup-token)
+      # --------------------------------------------------------
+
+      "claude/oauth-token" = {
+        sopsFile = ../../secrets/surf-vm/claude.yaml;
+        key = "oauth-token";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
+      "claude/oauth-token-expires" = {
+        sopsFile = ../../secrets/surf-vm/claude.yaml;
+        key = "oauth-token-expires";
+
+        owner = "hakkabara";
+        mode = "0400";
+      };
+
     };
 
   };

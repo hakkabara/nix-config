@@ -2,7 +2,12 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  pkgsUnstableUnfree,
+  ...
+}:
 
 {
   imports = [
@@ -21,6 +26,7 @@
     ../../modules/nixos/apps/flameshot-plasma.nix
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
+    ../../modules/nixos/apps/miniserve-firewall.nix
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/accounts/primary.nix
@@ -129,6 +135,12 @@
       apps = {
         pihole.enable = true;
 
+        # `immich` wrapper with server URL and API key from sops.
+        immich = {
+          urlFile = config.sops.secrets."immich/url".path;
+          apiKeyFile = config.sops.secrets."immich/api-key".path;
+        };
+
         miniserve = {
           enable = true;
           profile = "surf-vm";
@@ -140,8 +152,27 @@
 
         claude = {
           enable = true;
-          code.enable = true;
-          omc.enable = true;
+
+          code = {
+            enable = true;
+
+            # The API rejects outdated clients; stable lags behind.
+            package = pkgsUnstableUnfree.claude-code;
+
+            # Own subscription token for the SurfVM (claude setup-token),
+            # read from sops at runtime; it never enters the store.
+            oauthToken = {
+              file = config.sops.secrets."claude/oauth-token".path;
+              expiresFile = config.sops.secrets."claude/oauth-token-expires".path;
+            };
+
+            # Allowlist sandbox in chat mode, as on the WorkVM: Claude starts
+            # only below ~/claude-code, sees only that project and runs nothing.
+            isolation = {
+              enable = true;
+              projectRoots = [ "~/claude-code" ];
+            };
+          };
         };
       };
 
@@ -393,6 +424,12 @@
     "flakes"
   ];
 
+  hakkabara.apps.miniserveFirewall = {
+    enable = true;
+    port = 8443;
+    user = "hakkabara";
+  };
+
   hakkabara.desktop.autologin = {
     enable = true;
     user = "hakkabara";
@@ -405,9 +442,8 @@
     # Enable networking
     networkmanager.enable = true;
 
-    firewall.allowedTCPPorts = [
-      8443
-    ];
+    # Inbound stays closed. The `share` command (miniserve) opens its port
+    # only while it runs, see hakkabara.apps.miniserveFirewall.
   };
 
   # Set your time zone.

@@ -167,7 +167,19 @@ in
         echo "$URL" | wl-copy
 
 
+        # Hosts with a closed inbound firewall provide a sudo-allowed helper
+        # that opens the share port only while miniserve runs.
+        FIREWALL_HELPER="/run/current-system/sw/bin/miniserve-firewall"
+        if [ -x "$FIREWALL_HELPER" ]; then
+          sudo -n "$FIREWALL_HELPER" open
+        fi
+
+
         cleanup() {
+
+          if [ -x "$FIREWALL_HELPER" ]; then
+            sudo -n "$FIREWALL_HELPER" close || true
+          fi
 
           echo "$(date -Is) STOP id=$SHARE_ID" >> "$LOGFILE"
 
@@ -201,7 +213,8 @@ in
         ''}
 
 
-        exec ${pkgs.miniserve}/bin/miniserve "''${ARGS[@]}"
+        # No exec: the EXIT trap must run to close the port again.
+        ${pkgs.miniserve}/bin/miniserve "''${ARGS[@]}"
       '';
     };
   };

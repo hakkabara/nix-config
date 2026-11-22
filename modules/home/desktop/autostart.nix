@@ -2,17 +2,6 @@
 
 {
   xdg.configFile = {
-    "autostart/equibop.desktop".text = ''
-      [Desktop Entry]
-      Type=Application
-      Name=Equibop
-      Comment=Start Equibop
-      Exec=${pkgs.equibop}/bin/equibop
-      Terminal=false
-      Hidden=false
-      StartupNotify=false
-      X-GNOME-Autostart-enabled=true
-    '';
 
     "autostart/obsidian.desktop".text = ''
       [Desktop Entry]
@@ -50,18 +39,6 @@
       X-GNOME-Autostart-enabled=true
     '';
 
-    "autostart/element.desktop".text = ''
-      [Desktop Entry]
-      Type=Application
-      Name=Element
-      Comment=Start Element
-      Exec=${pkgs.element-desktop}/bin/element-desktop
-      Terminal=false
-      Hidden=false
-      StartupNotify=false
-      X-GNOME-Autostart-enabled=true
-    '';
-
     "autostart/signal.desktop".text = ''
       [Desktop Entry]
       Type=Application
@@ -74,17 +51,6 @@
       X-GNOME-Autostart-enabled=true
     '';
 
-    "autostart/telegram.desktop".text = ''
-      [Desktop Entry]
-      Type=Application
-      Name=Telegram
-      Comment=Start Telegram
-      Exec=${pkgs.telegram-desktop}/bin/Telegram
-      Terminal=false
-      Hidden=false
-      StartupNotify=false
-      X-GNOME-Autostart-enabled=true
-    '';
     "autostart/bitwarden.desktop".text = ''
       [Desktop Entry]
       Type=Application
