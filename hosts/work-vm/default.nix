@@ -19,6 +19,7 @@
     ../../modules/nixos/features/wireshark.nix
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/apps/teams.nix
+    ../../modules/nixos/apps/thunar.nix
     ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -133,20 +134,29 @@
       python2.enable = true;
     };
 
-    # Teams inside the VM is intentionally limited to chat/downloads.
-    # Calls and meetings are handled on the Windows host.
-    apps.teams = {
-      enable = true;
-      user = "mko";
-      chatOnly = true;
-    };
+    apps = {
+      # Teams inside the VM is intentionally limited to chat/downloads.
+      # Calls and meetings are handled on the Windows host.
+      teams = {
+        enable = true;
+        user = "mko";
+        chatOnly = true;
+      };
 
-    # Remote support clients. All are started manually when needed;
-    # no permanent RMM daemon is enabled.
-    apps.remoteDesktop = {
-      rustdesk.enable = true;
-      anydesk.enable = true;
-      teamviewer.enable = true;
+      # Graphical file manager next to Yazi: no thumbnails, no automount,
+      # scripts open instead of running (modules/nixos/apps/thunar.nix).
+      thunar = {
+        enable = true;
+        user = "mko";
+      };
+
+      # Remote support clients. All are started manually when needed;
+      # no permanent RMM daemon is enabled.
+      remoteDesktop = {
+        rustdesk.enable = true;
+        anydesk.enable = true;
+        teamviewer.enable = true;
+      };
     };
 
     # Wireshark GUI with privileged dumpcap wrapper for non-root captures.

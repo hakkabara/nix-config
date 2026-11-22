@@ -249,7 +249,12 @@ in
               spawn "floorp-xwayland-glx" "--name" "floorp";
           }
 
-          Mod+E hotkey-overlay-title="File Manager (Yazi)" {
+          Mod+E hotkey-overlay-title="File Manager (Thunar)" {
+              spawn "thunar";
+          }
+
+          // Mod+Shift+E is quit, so the terminal file manager moves to Ctrl.
+          Mod+Ctrl+E hotkey-overlay-title="File Manager (Yazi)" {
               spawn "kitty" "-e" "yazi";
           }
 
