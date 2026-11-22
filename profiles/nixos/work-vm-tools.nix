@@ -139,6 +139,7 @@
           "abuseipdbCheck"
           "peassNg"
           "pspy"
+          "sliver"
           "zeekPcap"
           "gptfdisk"
           "imhex"

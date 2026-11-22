@@ -15,6 +15,8 @@ let
     # Privilege-escalation payloads to upload to targets (also under /data/tools).
     peassNg = pkgsDfir.peass-ng;
     inherit (pkgsDfir) pspy;
+    # Sliver C2 (operator server/client); ~350 MB closure.
+    inherit (pkgsDfir) sliver;
     chainsawRules = pkgsDfir.chainsaw-rules;
     cryptnetUrlCacheParser = pkgsDfir.cryptnet-url-cache-parser;
     inherit (pkgsDfir) dexray;
