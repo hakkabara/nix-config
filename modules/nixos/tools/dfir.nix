@@ -12,6 +12,9 @@ let
 
   customTools = {
     abuseipdbCheck = pkgsDfir.abuseipdb-check;
+    # Privilege-escalation payloads to upload to targets (also under /data/tools).
+    peassNg = pkgsDfir.peass-ng;
+    inherit (pkgsDfir) pspy;
     chainsawRules = pkgsDfir.chainsaw-rules;
     cryptnetUrlCacheParser = pkgsDfir.cryptnet-url-cache-parser;
     inherit (pkgsDfir) dexray;
