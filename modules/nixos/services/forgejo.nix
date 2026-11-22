@@ -198,7 +198,7 @@ in
                 - name: <name>          # becomes <admin>/<name>
                   enable: true          # optional, default true
                   description: "..."    # optional
-                  deployKey: true       # optional, attach repositories.deployKey
+                  deployKey: false      # optional, skip repositories.deployKey
                   mirror:               # optional, omit for a plain repository
                     url: https://...
                     interval: 1h        # optional, Go duration, minimum 10m
@@ -237,8 +237,8 @@ in
           example = "/persist/deployment/ssh/id_ed25519.pub";
           description = ''
             Runtime path of a public SSH key that is added as read-only
-            deploy key to every repository marked `deployKey: true` in the
-            SOPS document. Used by the DeployVM build tooling
+            deploy key to every enabled repository, except those marked
+            `deployKey: false` in the SOPS document. Used by the DeployVM build tooling
             (hakkabara.tools.deployment.sshKey).
           '';
         };

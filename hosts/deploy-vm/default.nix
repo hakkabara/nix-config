@@ -190,7 +190,7 @@
         sopsFile = ../../secrets/deploy-vm/forgejo-repositories.yaml;
 
         # Read-only access for deploy-repo-sync / deploy-build; attached to
-        # the repositories marked "deployKey: true" in the document.
+        # every repository unless marked "deployKey: false" in the document.
         deployKey.publicKeyFile = "/persist/deployment/ssh/id_ed25519.pub";
       };
     };

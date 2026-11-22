@@ -117,7 +117,8 @@ done
 
 # Read-only deploy key of the DeployVM build tooling (systemd credential
 # "deploy-key.pub", see repositories.deployKey). It is attached to every
-# enabled repository marked "deployKey: true". A deploy key with the same
+# enabled repository unless it is marked "deployKey: false": deploy-build
+# fetches nix-internal and all of its inputs from here. A deploy key with the same
 # title but different key material is replaced, so a regenerated key takes
 # over on the next run.
 deploy_key_file="${CREDENTIALS_DIRECTORY}/deploy-key.pub"
@@ -126,7 +127,7 @@ if [ -s "$deploy_key_file" ]; then
     deploy_key=$(cut -d " " -f 1,2 "$deploy_key_file")
 
     yq --output-format=json '.repositories // []' "$CREDENTIALS_DIRECTORY/repositories" |
-        jq --raw-output '.[] | select(.enable != false) | select(.deployKey == true) | .name' |
+        jq --raw-output '.[] | select(.enable != false) | select(.deployKey != false) | .name' |
         while read -r name; do
             if [[ ! $name =~ ^[A-Za-z0-9._-]+$ ]]; then
                 echo "Invalid repository name in the SOPS document: $name" >&2
