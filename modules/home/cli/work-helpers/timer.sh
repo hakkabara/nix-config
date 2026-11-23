@@ -11,6 +11,26 @@ Usage:
 USAGE
 }
 
+# Wall-clock time of a timer's next elapse.  Timers from --on-active run on
+# the monotonic clock and leave NextElapseUSecRealtime empty, so convert
+# NextElapseUSecMonotonic (microseconds since boot) via /proc/uptime.
+next_elapse() {
+  local unit="$1" real mono up
+  real="$(systemctl --user show "$unit" -P NextElapseUSecRealtime 2>/dev/null || true)"
+  if [ -n "$real" ]; then
+    date -d "$real" '+%a %H:%M:%S'
+    return
+  fi
+  mono="$(systemctl --user show "$unit" -P NextElapseUSecMonotonic 2>/dev/null || true)"
+  mono="$(systemd-analyze timespan "$mono" 2>/dev/null | awk '/μs:/ {print $2}')"
+  if [ -z "$mono" ]; then
+    echo "?"
+    return
+  fi
+  up="$(awk '{printf "%d", $1 * 1000000}' /proc/uptime)"
+  date -d "@$(((mono - up) / 1000000 + $(date +%s)))" '+%a %H:%M:%S'
+}
+
 start_timer() {
   local kind="$1" spec="$2"
   shift 2
@@ -41,9 +61,7 @@ start_timer() {
     -- "$(command -v notify-send)" --urgency=critical --app-name=Timer \
     --icon=alarm-symbolic "Timer" "$message"
 
-  local next
-  next="$(systemctl --user show "$id.timer" -P NextElapseUSecRealtime 2>/dev/null || true)"
-  echo "$id  ${next:-?}  $message"
+  echo "$id  $(next_elapse "$id.timer")  $message"
 }
 
 list_timers() {
@@ -51,7 +69,7 @@ list_timers() {
   while read -r unit; do
     [ -n "$unit" ] || continue
     found=1
-    next="$(systemctl --user show "$unit" -P NextElapseUSecRealtime)"
+    next="$(next_elapse "$unit")"
     desc="$(systemctl --user show "$unit" -P Description)"
     printf '%s  %s  %s\n' "${unit%.timer}" "$next" "$desc"
   done < <(systemctl --user list-units --plain --no-legend --type=timer 'timer-*' | awk '{print $1}')
