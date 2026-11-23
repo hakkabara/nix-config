@@ -118,6 +118,33 @@ let
       ${lib.escapeShellArg (lib.concatStringsSep ", " (lib.attrValues cfg.network.peers))}
   '';
 
+  # Control side: after a reboot of either VM the link comes back, but the
+  # remote player list can stay empty (the peer does not resend it), so the
+  # media widget shows nothing. Ask every reachable peer with an empty list
+  # for its players; a peer that really plays nothing just answers empty.
+  playerRefresh = pkgs.writeShellApplication {
+    name = "kdeconnect-media-refresh";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.systemd
+      package
+    ];
+    text = ''
+      while true; do
+        for id in $(kdeconnect-cli -a --id-only 2>/dev/null); do
+          path="/modules/kdeconnect/devices/$id/mprisremote"
+          list="$(busctl --user get-property org.kde.kdeconnect "$path" \
+            org.kde.kdeconnect.device.mprisremote playerList 2>/dev/null || true)"
+          if [[ "$list" == "as 0" ]]; then
+            busctl --user call org.kde.kdeconnect "$path" \
+              org.kde.kdeconnect.device.mprisremote requestPlayerList >/dev/null 2>&1 || true
+          fi
+        done
+        sleep 20
+      done
+    '';
+  };
+
   ports = "1714:1764";
   egressChain = "kdeconnect-egress";
 
@@ -204,6 +231,18 @@ in
         ExecStart = "${package}/bin/kdeconnectd --replace";
         Restart = "on-failure";
         RestartSec = 5;
+      };
+    };
+
+    systemd.user.services.kdeconnect-media-refresh = lib.mkIf (cfg.autostart && cfg.control.enable) {
+      description = "Re-request KDE Connect remote player lists when empty";
+      wantedBy = [ "graphical-session.target" ];
+      partOf = [ "graphical-session.target" ];
+      after = [ "kdeconnectd.service" ];
+      serviceConfig = {
+        ExecStart = lib.getExe playerRefresh;
+        Restart = "on-failure";
+        RestartSec = 10;
       };
     };
 
