@@ -417,6 +417,10 @@
           # VPN status and connect menu in the bar.
           bar.vpnWidget.enable = true;
 
+          # Music widget only on the 1440p main monitor; the second monitor
+          # gets a mirrored bar without it.
+          bar.mainOutputOnly.enable = true;
+
           controlCenter = {
             enable = true;
 

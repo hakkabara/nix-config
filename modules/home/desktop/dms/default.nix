@@ -82,6 +82,16 @@ let
     }
   );
 
+  barFollow = pkgs.writeShellApplication {
+    name = "dms-bar-follow";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.jq
+    ];
+    # niri comes from the session PATH (same binary as the compositor).
+    text = builtins.readFile ./bar-follow.sh;
+  };
+
   applyTokyoNightTheme = pkgs.writeShellScript "dms-apply-tokyo-night-theme" ''
     config_dir="$HOME/.config/DankMaterialShell"
     config_file="$config_dir/settings.json"
@@ -268,6 +278,20 @@ let
 in
 {
   options.hakkabara.desktop.dms = {
+    bar.mainOutputOnly = {
+      enable = lib.mkEnableOption ''
+        a mirrored DMS bar on secondary monitors without the listed widgets.
+        The main monitor is the active output with the most pixels, so the
+        assignment survives VMware swapping Virtual-1 and Virtual-2
+      '';
+
+      widgets = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ "music" ];
+        description = "DMS bar widget ids shown only on the main monitor.";
+      };
+    };
+
     bar.vpnWidget.enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -377,6 +401,25 @@ in
     xdg.dataFile."wallpapers/nix-config" = lib.mkIf cfg.wallpapers.enable {
       source = wallpaperSource;
       recursive = true;
+    };
+
+    systemd.user.services.dms-bar-follow = lib.mkIf cfg.bar.mainOutputOnly.enable {
+      Unit = {
+        Description = "Keep the DMS main bar on the largest monitor";
+        After = [ "graphical-session.target" ];
+        PartOf = [ "graphical-session.target" ];
+      };
+
+      Service = {
+        ExecStart = lib.getExe barFollow;
+        Environment = [
+          "DMS_BAR_MAIN_ONLY_WIDGETS=${lib.concatStringsSep "," cfg.bar.mainOutputOnly.widgets}"
+        ];
+        Restart = "always";
+        RestartSec = 5;
+      };
+
+      Install.WantedBy = [ "graphical-session.target" ];
     };
 
     home.activation = {
