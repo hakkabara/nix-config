@@ -71,7 +71,6 @@ let
     runtimeInputs = [
       pkgs.coreutils
       pkgs.libnotify
-      pkgs.systemd
     ];
     text = ''
       flag="''${XDG_STATE_HOME:-$HOME/.local/state}/kdeconnect-media/private"
@@ -99,8 +98,8 @@ let
         exit 0
       fi
 
-      # Players are re-announced on start, so the new state applies at once.
-      systemctl --user restart kdeconnectd.service
+      # Both patched plugins watch the flag directory and re-announce the
+      # metadata at once; the connection to the peers stays up.
       notify-send -a "KDE Connect" -i kdeconnect "Medien privat: $state" || true
       echo "Medien privat: $state"
     '';
@@ -153,7 +152,6 @@ in
       default = true;
       description = ''
         Start kdeconnectd with the graphical session (systemd user unit).
-        media-privacy restarts this unit, so keep it enabled when using it.
       '';
     };
 

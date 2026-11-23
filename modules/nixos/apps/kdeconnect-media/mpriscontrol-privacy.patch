@@ -1,15 +1,39 @@
 --- a/plugins/mpriscontrol/mpriscontrolplugin.cpp
 +++ b/plugins/mpriscontrol/mpriscontrolplugin.cpp
-@@ -10,6 +10,8 @@
+@@ -10,6 +10,10 @@
  #include <QDBusMessage>
  #include <QDBusReply>
  #include <QDBusServiceWatcher>
++#include <QDir>
 +#include <QFile>
++#include <QFileSystemWatcher>
 +#include <QStandardPaths>
  #include <qdbusconnectioninterface.h>
  
  #include <KPluginFactory>
-@@ -410,6 +412,17 @@
+@@ -47,6 +51,21 @@
+         // The string doesn't matter, it just needs to be empty/non-empty
+         serviceOwnerChanged(service, QLatin1String(""), QStringLiteral("1"));
+     }
++
++    // Privacy mode (media-privacy) applies live: when the flag appears or
++    // disappears, resend the metadata of every player, so the peers switch
++    // between "Privat" and the real title without a reconnect.
++    const QString privacyDir = QStandardPaths::writableLocation(QStandardPaths::GenericStateLocation) + QStringLiteral("/kdeconnect-media");
++    QDir().mkpath(privacyDir);
++    auto *privacyWatcher = new QFileSystemWatcher({privacyDir}, this);
++    connect(privacyWatcher, &QFileSystemWatcher::directoryChanged, this, [this]() {
++        for (auto it = playerList.constBegin(); it != playerList.constEnd(); ++it) {
++            NetworkPacket np(PACKET_TYPE_MPRIS);
++            mprisPlayerMetadataToNetworkPacket(np, it.value().mediaPlayer2PlayerInterface()->metadata());
++            np.set(QStringLiteral("player"), it.key());
++            sendPacket(np);
++        }
++    });
+ }
+ 
+ // Copied from the mpris2 dataengine in the plasma-workspace repository
+@@ -410,6 +429,17 @@
          }
      }
  

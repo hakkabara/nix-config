@@ -39,3 +39,32 @@
      }
      return metadata;
  }
+--- a/plugins/mprisremote/mprisremoteplugin.cpp
++++ b/plugins/mprisremote/mprisremoteplugin.cpp
+@@ -9,6 +9,8 @@
+ #include <KPluginFactory>
+ 
+ #include <QDebug>
++#include <QDir>
++#include <QFileSystemWatcher>
+ #include <QStandardPaths>
+ 
+ #include <core/device.h>
+@@ -27,6 +29,17 @@
+             Q_EMIT propertiesChanged();
+         }
+     });
++
++    // Privacy mode (media-privacy) applies live: re-announce the metadata of
++    // all remote players when the flag appears or disappears.
++    const QString privacyDir = QStandardPaths::writableLocation(QStandardPaths::GenericStateLocation) + QStringLiteral("/kdeconnect-media");
++    QDir().mkpath(privacyDir);
++    auto *privacyWatcher = new QFileSystemWatcher({privacyDir}, this);
++    connect(privacyWatcher, &QFileSystemWatcher::directoryChanged, this, [this]() {
++        for (MprisRemotePlayer *player : std::as_const(m_players)) {
++            Q_EMIT player->trackInfoChanged();
++        }
++    });
+ }
+ 
+ void MprisRemotePlugin::receivePacket(const NetworkPacket &np)
