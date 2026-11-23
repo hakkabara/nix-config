@@ -138,7 +138,7 @@
     # Hide what plays here from the WorkVM, keep play/pause/next there.
     programs.plasma.hotkeys.commands.media-privacy = {
       name = "Media privacy";
-      key = "Meta+Ctrl+M";
+      key = "Meta+Alt+M";
       command = "media-privacy toggle";
       logs.enabled = false;
     };

@@ -387,15 +387,16 @@
           };
         };
 
-        # The hotplug selector is a small Kitty window; without this rule Niri
-        # would tile it as a full-height column.
         # Hide what plays on the SurfVM, keep play/pause/next.
+        # Mod+Ctrl+M is taken by the VMware console; Super+Alt passes through.
         niri.extraBinds = ''
-          Mod+Ctrl+M hotkey-overlay-title="Media privacy" {
+          Mod+Alt+M hotkey-overlay-title="Media privacy" {
               spawn "media-privacy" "toggle";
           }
         '';
 
+        # The hotplug selector is a small Kitty window; without this rule Niri
+        # would tile it as a full-height column.
         niri.extraConfig = ''
           window-rule {
               match app-id=r#"^hakkabara-monitor-selector$"#
