@@ -15,7 +15,7 @@ from pathlib import Path
 # Layers worth a page; the bilateral home-row-mod finger layers, the empty
 # mouse speed layers and Typing (Base without mods) are left out.
 PAGES = ["HRM_WinLinx", "Cursor", "Symbol", "Mouse", "Lower", "Magic", "Gaming", "Autoshift"]
-TITLES = {"HRM_WinLinx": "Base"}
+TITLES = {"HRM_WinLinx": "Base", "MouseSlow": "Slow", "MouseFast": "Fast", "MouseWarp": "Warp"}
 
 W, H = 1400, 730
 P = 62  # key pitch (px) on layer pages
@@ -77,7 +77,7 @@ NAMES = {
     **{f"N{i}": str(i) for i in range(10)},
     **{f"KP_N{i}": f"KP{i}" for i in range(10)},
     "SPACE": "␣", "RET": "⏎", "ENTER": "⏎", "KP_ENTER": "KP ⏎",
-    "BSPC": "⌫", "DEL": "Del", "TAB": "⇥", "ESC": "Esc", "INS": "Ins",
+    "BSPC": "⌫", "DEL": "⌦", "TAB": "⇥", "ESC": "Esc", "INS": "Insert",
     "LEFT": "←", "RIGHT": "→", "UP": "↑", "DOWN": "↓",
     "LEFT_ARROW": "←", "RIGHT_ARROW": "→", "UP_ARROW": "↑", "DOWN_ARROW": "↓",
     "PG_UP": "PgUp", "PG_DN": "PgDn", "HOME": "Home", "END": "End",
@@ -90,12 +90,23 @@ NAMES = {
     "KP_SLASH": "KP /", "KP_MULTIPLY": "KP *", "KP_MINUS": "KP -", "KP_PLUS": "KP +", "KP_DOT": "KP .",
     "C_PP": "⏯", "C_NEXT": "⏭", "C_PREV": "⏮", "C_MUTE": "Mute",
     "C_VOL_UP": "Vol +", "C_VOL_DN": "Vol −", "C_BRI_UP": "☀ +", "C_BRI_DN": "☀ −",
-    "LCLK": "L-Klick", "RCLK": "R-Klick", "MCLK": "M-Klick", "MB4": "Zurück", "MB5": "Vor",
-    "MOVE_UP": "Maus ↑", "MOVE_DOWN": "Maus ↓", "MOVE_LEFT": "Maus ←", "MOVE_RIGHT": "Maus →",
-    "SCRL_UP": "Rad ↑", "SCRL_DOWN": "Rad ↓", "SCRL_LEFT": "Rad ←", "SCRL_RIGHT": "Rad →",
+    "LCLK": "Left click", "RCLK": "Right click", "MCLK": "Middle click", "MB4": "Back", "MB5": "Forward",
+    "MOVE_UP": "Mouse ↑", "MOVE_DOWN": "Mouse ↓", "MOVE_LEFT": "Mouse ←", "MOVE_RIGHT": "Mouse →",
+    "SCRL_UP": "Scroll ↑", "SCRL_DOWN": "Scroll ↓", "SCRL_LEFT": "Scroll ←", "SCRL_RIGHT": "Scroll →",
+}
+# Key faces as in the TailorKey documentation: a glyph gets its name as a
+# small caption, a shortcut shows the action with the keys underneath.
+CAPTIONS = {
+    "⏎": "Enter", "⌫": "Backspace", "␣": "Space", "⇥": "Tab", "⇧": "Shift", "⌦": "Delete",
+    "⏯": "Play", "⏭": "Next", "⏮": "Prev",
+}
+ACTIONS = {
+    "Ctrl+X": "Cut", "Ctrl+C": "Copy", "Ctrl+V": "Paste", "Ctrl+Z": "Undo", "Ctrl+Y": "Redo",
+    "Ctrl+A": "Select all", "Ctrl+F": "Find", "Ctrl+G": "Find next", "Ctrl+⇧+G": "Find prev",
+    "Ctrl+H": "Replace", "⇧+Win+S": "Screenshot", "⇧+⇥": "Back tab",
 }
 # Plain names for running text (the glyphs alone are too terse there).
-WORDS = {"␣": "Space", "⏎": "Enter", "⌫": "Backspace", "⇥": "Tab", "⇧": "Shift"}
+WORDS = {**CAPTIONS, "⌦": "Delete"}
 SHIFTED = {
     "N1": "!", "N2": "@", "N3": "#", "N4": "$", "N5": "%", "N6": "^", "N7": "&", "N8": "*",
     "N9": "(", "N0": ")", "MINUS": "_", "EQUAL": "+", "LBKT": "{", "RBKT": "}", "BSLH": "|",
@@ -103,8 +114,8 @@ SHIFTED = {
 }
 MODS = {"LC": "Ctrl", "RC": "Ctrl", "LS": "⇧", "RS": "⇧", "LA": "Alt", "RA": "AltGr", "LG": "Win", "RG": "Win"}
 MACROS = {
-    "cur_SELECT_LINE": "Zeile wählen", "cur_SELECT_WORD": "Wort wählen",
-    "cur_EXTEND_LINE": "Zeile +", "cur_EXTEND_WORD": "Wort +", "cur_SELECT_NONE": "Auswahl weg",
+    "cur_SELECT_LINE": "Select line", "cur_SELECT_WORD": "Select word",
+    "cur_EXTEND_LINE": "Extend line", "cur_EXTEND_WORD": "Extend word", "cur_SELECT_NONE": "Select none",
     "symb_dotdot": "../", "caps_word": "CapsWord", "bootloader": "Boot", "reset": "Reset",
 }
 
@@ -119,7 +130,8 @@ def key(p):
         inner = sub[0]
         if v in ("LS", "RS") and not inner.get("params") and inner.get("value") in SHIFTED:
             return SHIFTED[inner["value"]]
-        return f"{MODS[v]}+{key(inner)}"
+        rest = key(inner)
+        return rest if rest.startswith(MODS[v] + "+") else f"{MODS[v]}+{rest}"
     if v.startswith("RGB_"):
         return v[4:].title()
     return NAMES.get(v, v.replace("_", " ").title() if len(v) > 3 else v)
@@ -186,6 +198,15 @@ def binding(b, names):
     if p:
         tap += " " + " ".join(key(x) for x in p)
     return tap, "", "macro"
+
+
+def face(tap):
+    """Split a tap label into (main, caption) for the key face."""
+    if tap in ACTIONS:
+        return ACTIONS[tap], tap
+    if tap in CAPTIONS:
+        return tap, CAPTIONS[tap]
+    return tap, ""
 
 
 def esc(text):
@@ -263,17 +284,22 @@ def layer_page(page_no, tabs, subtitle, keys, highlight):
         color = {
             "trans": C["faint"], "layer": C["layer"], "mouse": C["mouse"], "sys": C["sys"], "macro": C["macro"],
         }.get(kind, C["fg"])
-        longest = max((len(w) for w in tap.split(" ")), default=0)
-        if len(tap) <= 2:
-            fs, lines = 21, [tap]
-        elif len(tap) <= 5:
-            fs, lines = 15, [tap]
+        main, caption = face(tap)
+        longest = max((len(w) for w in main.split(" ")), default=0)
+        if len(main) <= 2:
+            fs, lines = 21, [main]
+        elif len(main) <= 5:
+            fs, lines = 15, [main]
         else:
             fs = 11 if longest <= 8 else 9
-            lines = wrap(tap, 8)[:3]
-        top = cy - (len(lines) - 1) * fs * 0.58 - (6 if hold else 0)
+            lines = wrap(main, 8)[: 2 if caption else 3]
+        # Stack: main lines, caption, then the hold label at the bottom edge.
+        block = len(lines) * fs * 1.16 + (11 if caption else 0)
+        top = cy - block / 2 - (7 if hold else 0)
         for n, line in enumerate(lines):
-            out.append(text(cx, top + n * fs * 1.16 + fs * 0.36, line, fs, color, "middle"))
+            out.append(text(cx, top + n * fs * 1.16 + fs * 0.86, line, fs, color, "middle"))
+        if caption:
+            out.append(text(cx, top + len(lines) * fs * 1.16 + 9.5, caption, 9, C["dim"], "middle"))
         if hold:
             # Rotated thumb keys: keep the hold label inside the diamond.
             hy = cy + (17 if rot else size / 2 - 6)
@@ -393,7 +419,7 @@ def main():
                       "lines": [f"Magic halten + „{label(idx)}“ tippen", note]})
     arrows = {"←", "→", "↑", "↓"}
     layer_notes = {
-        "Cursor": "Pfeile, Auswahl, Copy/Paste, Undo",
+        "Cursor": "Pfeile, Auswahl, Cut/Copy/Paste, Undo, Find",
         "Symbol": "Klammern und Sonderzeichen",
         "Mouse": "Mauszeiger, Klicks, Scrollrad",
         "Lower": "Media-Tasten, Nummernblock, F11/F12",
