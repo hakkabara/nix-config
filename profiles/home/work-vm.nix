@@ -106,7 +106,7 @@
               open-floating true
               open-focused true
               default-column-width { fixed 1400; }
-              default-window-height { fixed 660; }
+              default-window-height { fixed 730; }
           }
         '';
       };

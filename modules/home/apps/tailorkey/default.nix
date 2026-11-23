@@ -40,7 +40,15 @@ let
       if pkill -f -- "${pages}/01-"; then
         exit 0
       fi
-      exec imv-wayland -s shrink -c 'bind <Escape> quit' ${pages}/*.png
+      # Pages are exactly 1400x730 and share the background colour, so no
+      # bars show even if the compositor picks another size. 1-9 and 0 jump
+      # to a page.
+      args=(-s shrink -b 1a1b26 -W 1400 -H 730 -c 'bind <Escape> quit')
+      for n in 1 2 3 4 5 6 7 8 9; do
+        args+=(-c "bind $n goto $n")
+      done
+      args+=(-c 'bind 0 goto 10')
+      exec imv-wayland "''${args[@]}" ${pages}/*.png
     '';
   };
 in

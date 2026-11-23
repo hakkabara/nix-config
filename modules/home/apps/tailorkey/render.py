@@ -1,7 +1,9 @@
-"""Render a Glove80 Layout Editor (my.moergo.com) JSON export as one SVG per layer.
+"""Render a Glove80 Layout Editor (my.moergo.com) export as cheat-sheet pages.
 
 Usage: render.py layout.json OUTDIR
-Writes NN-<layer>.svg for the layers in PAGES plus NN-combos.svg.
+Writes NN-<name>.svg: one page per layer in PAGES, then the hotkey pages
+(layer holds, mode switches and combos as small boards, in the style of
+the TailorKey hotkey page: light key = hold, green key = tap).
 """
 
 import html
@@ -10,96 +12,100 @@ import re
 import sys
 from pathlib import Path
 
-# Layers worth a page (by name); the bilateral home-row-mod finger layers and
-# the empty mouse speed layers are internal to TailorKey.
-PAGES = ["HRM_WinLinx", "Cursor", "Symbol", "Mouse", "Lower", "Magic", "Gaming", "Autoshift", "Typing"]
+# Layers worth a page; the bilateral home-row-mod finger layers, the empty
+# mouse speed layers and Typing (Base without mods) are left out.
+PAGES = ["HRM_WinLinx", "Cursor", "Symbol", "Mouse", "Lower", "Magic", "Gaming", "Autoshift"]
 TITLES = {"HRM_WinLinx": "Base"}
 
-U = 64  # key pitch in px
-KW = 0.92 * U  # key size
+W, H = 1400, 730
+P = 62  # key pitch (px) on layer pages
+MIRROR = 19.14  # x of a left key centre + x of its mirrored right key centre
+BOARD_W = 19.6
 
-# Glove80 key index -> (column, row) on a 0..20 grid; the right half mirrors
-# the left one.  Column stagger follows the key well (middle finger highest).
-STAGGER = {0: 0.45, 1: 0.45, 2: 0.15, 3: 0.0, 4: 0.15, 5: 0.3}
+C = {
+    "bg": "#1a1b26", "panel": "#1f2030", "fg": "#c0caf5", "dim": "#6b7399", "faint": "#3b4261",
+    "hold": "#e0af68", "layer": "#7aa2f7", "mouse": "#9ece6a", "sys": "#f7768e", "macro": "#bb9af7",
+    "accent": "#ff9e64", "tap": "#9ece6a", "held": "#c0caf5",
+}
+# Finger tints (fill, border): calm, low saturation on the dark background.
+FINGERS = {
+    "pinky": ("#2b2640", "#6a5a9c", "Kleiner Finger"),
+    "ring": ("#1f2e49", "#4a76b8", "Ringfinger"),
+    "middle": ("#1c3639", "#3f9a94", "Mittelfinger"),
+    "index": ("#2a3524", "#78a456", "Zeigefinger"),
+    "thumb": ("#3a2e23", "#b98a4c", "Daumen"),
+}
+FINGER_OF_COL = {0: "pinky", 1: "pinky", 2: "ring", 3: "middle", 4: "index", 5: "index"}
 
 
-def _pos():
-    p = {}
+def _geometry():
+    """Key index -> (centre x, centre y, rotation deg, finger), in key units.
 
-    def left(idx, col, row):
-        p[idx] = (col, row + STAGGER.get(col, 0))
+    Follows the real Glove80 outline: only the two pinky columns sit half a
+    key lower, the F row spans columns 0-4, the thumb keys fan out rotated.
+    """
+    g = {}
 
-    def right(idx, col, row):
-        x, y = col, row + STAGGER.get(col, 0)
-        p[idx] = (19.6 - x, y)
+    def put(left_idx, right_idx, col, row):
+        y = row + (0.48 if col < 2 else 0.0) + 0.43
+        x = col + 0.43
+        finger = FINGER_OF_COL[col]
+        g[left_idx] = (x, y, 0, finger)
+        g[right_idx] = (MIRROR - x, y, 0, finger)
 
-    for i in range(5):  # F row: columns 1..5
-        left(i, i + 1, 0)
-        right(9 - i, i + 1, 0)
-    for r, base in ((1, 10), (2, 22), (3, 34)):
+    for i in range(5):
+        put(i, 9 - i, i, 0)
+    for row, base in ((1, 10), (2, 22), (3, 34)):
         for i in range(6):
-            left(base + i, i, r)
-            right(base + 11 - i, i, r)
+            put(base + i, base + 11 - i, i, row)
     for i in range(6):
-        left(46 + i, i, 4)
-        right(63 - i, i, 4)
-    for i in range(5):  # bottom row: columns 0..4
-        left(64 + i, i, 5)
-        right(79 - i, i, 5)
-    # thumb clusters: upper 52-54 / 55-57, lower 69-71 / 72-74
-    thumbs_l = {52: (6.5, 4.75), 53: (7.6, 5.05), 54: (8.7, 5.45), 69: (6.3, 5.95), 70: (7.4, 6.3), 71: (8.5, 6.7)}
-    for k, (x, y) in thumbs_l.items():
-        p[k] = (x, y)
-    mirror = {55: 54, 56: 53, 57: 52, 72: 71, 73: 70, 74: 69}
-    for k, src in mirror.items():
-        x, y = thumbs_l[src]
-        p[k] = (19.6 - x, y)
-    return p
+        put(46 + i, 63 - i, i, 4)
+    for i in range(5):
+        put(64 + i, 79 - i, i, 5)
+    thumbs = {52: (6.36, 5.36), 53: (7.38, 6.02), 54: (8.38, 6.83), 69: (5.48, 6.07), 70: (6.6, 6.74), 71: (7.67, 7.55)}
+    mirror = {52: 57, 53: 56, 54: 55, 69: 74, 70: 73, 71: 72}
+    for idx, (x, y) in thumbs.items():
+        g[idx] = (x, y, 28, "thumb")
+        g[mirror[idx]] = (MIRROR - x, y, -28, "thumb")
+    return g
 
 
-POS = _pos()
-
-
-def where(idx):
-    """Human description of a key position."""
-    side = "links" if POS[idx][0] < 10 else "rechts"
-    if idx in (52, 53, 54, 69, 70, 71, 55, 56, 57, 72, 73, 74):
-        return f"Daumen {side}"
-    if idx in range(64, 80):
-        return f"unterste Reihe {side}"
-    return side
+GEO = _geometry()
+THUMBS = {52, 53, 54, 55, 56, 57, 69, 70, 71, 72, 73, 74}
 
 NAMES = {
     **{f"N{i}": str(i) for i in range(10)},
     **{f"KP_N{i}": f"KP{i}" for i in range(10)},
-    "SPACE": "␣ Space", "RET": "⏎ Enter", "ENTER": "⏎ Enter", "KP_ENTER": "KP ⏎",
-    "BSPC": "⌫ Bksp", "DEL": "Del", "TAB": "⇥ Tab", "ESC": "Esc", "INS": "Ins",
+    "SPACE": "␣", "RET": "⏎", "ENTER": "⏎", "KP_ENTER": "KP ⏎",
+    "BSPC": "⌫", "DEL": "Del", "TAB": "⇥", "ESC": "Esc", "INS": "Ins",
     "LEFT": "←", "RIGHT": "→", "UP": "↑", "DOWN": "↓",
     "LEFT_ARROW": "←", "RIGHT_ARROW": "→", "UP_ARROW": "↑", "DOWN_ARROW": "↓",
     "PG_UP": "PgUp", "PG_DN": "PgDn", "HOME": "Home", "END": "End",
-    "LSHFT": "⇧ Shift", "RSHFT": "⇧ Shift", "LCTRL": "Ctrl", "RCTRL": "Ctrl",
+    "LSHFT": "⇧", "RSHFT": "⇧", "LCTRL": "Ctrl", "RCTRL": "Ctrl",
     "LALT": "Alt", "RALT": "AltGr", "LGUI": "Win", "RGUI": "Win",
     "CAPS": "Caps", "K_APP": "Menu", "PRINTSCREEN": "Print", "SCROLLLOCK": "ScrLk",
     "PAUSE_BREAK": "Pause", "KP_NUM": "NumLk",
     "EQUAL": "=", "MINUS": "-", "BSLH": "\\", "FSLH": "/", "SEMI": ";", "SQT": "'",
     "SINGLE_QUOTE": "'", "GRAVE": "`", "COMMA": ",", "DOT": ".", "LBKT": "[", "RBKT": "]",
     "KP_SLASH": "KP /", "KP_MULTIPLY": "KP *", "KP_MINUS": "KP -", "KP_PLUS": "KP +", "KP_DOT": "KP .",
-    "C_PP": "⏯ Play", "C_NEXT": "⏭ Next", "C_PREV": "⏮ Prev", "C_MUTE": "Mute",
-    "C_VOL_UP": "Vol +", "C_VOL_DN": "Vol −", "C_BRI_UP": "Hell +", "C_BRI_DN": "Hell −",
+    "C_PP": "⏯", "C_NEXT": "⏭", "C_PREV": "⏮", "C_MUTE": "Mute",
+    "C_VOL_UP": "Vol +", "C_VOL_DN": "Vol −", "C_BRI_UP": "☀ +", "C_BRI_DN": "☀ −",
     "LCLK": "L-Klick", "RCLK": "R-Klick", "MCLK": "M-Klick", "MB4": "Zurück", "MB5": "Vor",
     "MOVE_UP": "Maus ↑", "MOVE_DOWN": "Maus ↓", "MOVE_LEFT": "Maus ←", "MOVE_RIGHT": "Maus →",
     "SCRL_UP": "Rad ↑", "SCRL_DOWN": "Rad ↓", "SCRL_LEFT": "Rad ←", "SCRL_RIGHT": "Rad →",
 }
+# Plain names for running text (the glyphs alone are too terse there).
+WORDS = {"␣": "Space", "⏎": "Enter", "⌫": "Backspace", "⇥": "Tab", "⇧": "Shift"}
 SHIFTED = {
     "N1": "!", "N2": "@", "N3": "#", "N4": "$", "N5": "%", "N6": "^", "N7": "&", "N8": "*",
     "N9": "(", "N0": ")", "MINUS": "_", "EQUAL": "+", "LBKT": "{", "RBKT": "}", "BSLH": "|",
     "SEMI": ":", "SQT": '"', "SINGLE_QUOTE": '"', "GRAVE": "~", "COMMA": "<", "DOT": ">", "FSLH": "?",
 }
-MODS = {"LC": "Ctrl", "RC": "Ctrl", "LS": "Shift", "RS": "Shift", "LA": "Alt", "RA": "AltGr", "LG": "Win", "RG": "Win"}
+MODS = {"LC": "Ctrl", "RC": "Ctrl", "LS": "⇧", "RS": "⇧", "LA": "Alt", "RA": "AltGr", "LG": "Win", "RG": "Win"}
 MACROS = {
     "cur_SELECT_LINE": "Zeile wählen", "cur_SELECT_WORD": "Wort wählen",
     "cur_EXTEND_LINE": "Zeile +", "cur_EXTEND_WORD": "Wort +", "cur_SELECT_NONE": "Auswahl weg",
-    "symb_dotdot": "../", "caps_word": "CapsWord", "bootloader": "Bootloader", "reset": "Reset",
+    "symb_dotdot": "../", "caps_word": "CapsWord", "bootloader": "Boot", "reset": "Reset",
 }
 
 
@@ -120,27 +126,27 @@ def key(p):
 
 
 def clean(name):
-    name = name.lstrip("&")
-    name = re.sub(r"_v\d+[A-Z]?_TKZ$", "", name)
+    name = re.sub(r"_v\d+[A-Z]?_TKZ$", "", name.lstrip("&"))
     return MACROS.get(name, name.replace("_", " "))
 
 
-def binding(b, layer_names):
+def binding(b, names):
     """Return (tap, hold, kind) for one key binding."""
     v = b["value"]
     p = b.get("params") or []
-    lname = lambda i: TITLES.get(layer_names[i], layer_names[i]) if isinstance(i, int) and i < len(layer_names) else str(i)
+
+    def lname(i):
+        return TITLES.get(names[i], names[i]) if isinstance(i, int) and i < len(names) else str(i)
+
     if v == "&trans":
         return "▽", "", "trans"
     if v == "&none":
         return "", "", "none"
     if v == "&kp":
         return key(p[0]), "", "kp"
-    if v in ("&mt",):
+    if v == "&mt":
         return key(p[1]), key(p[0]), "hold"
-    if v == "&lt":
-        return key(p[1]), lname(p[0]["value"]), "layer"
-    if v in ("&thumb_v2_TKZ", "&space_v3_TKZ"):
+    if v in ("&lt", "&thumb_v2_TKZ", "&space_v3_TKZ"):
         return key(p[1]), lname(p[0]["value"]), "layer"
     if v.startswith("&HRM_") and len(p) == 2:
         return key(p[1]), key(p[0]), "hold"
@@ -174,77 +180,176 @@ def binding(b, layer_names):
         return key(p[0]), "auto-⇧", "kp"
     if v == "&mod_tab_chord_v2_TKZ":
         return key(p[0]) + "+Tab", "", "kp"
-    # macros and other custom behaviours
+    if v == "&caps_word":
+        return "CapsWord", "", "macro"
     tap = clean(v)
     if p:
         tap += " " + " ".join(key(x) for x in p)
     return tap, "", "macro"
 
 
-COLORS = {
-    "bg": "#1a1b26", "key": "#24283b", "key_dim": "#1f2335", "border": "#3b4261",
-    "fg": "#c0caf5", "dim": "#565f89", "hold": "#e0af68", "layer": "#7aa2f7",
-    "mouse": "#9ece6a", "sys": "#f7768e", "macro": "#bb9af7", "act": "#ff9e64",
-}
+def esc(text):
+    return html.escape(str(text))
 
 
-def wrap(text, width=9):
-    words = text.split(" ")
+def wrap(text, width):
     lines, cur = [], ""
-    for w in words:
-        if cur and len(cur) + 1 + len(w) > width:
+    for word in text.split(" "):
+        if cur and len(cur) + 1 + len(word) > width:
             lines.append(cur)
-            cur = w
+            cur = word
         else:
-            cur = f"{cur} {w}".strip()
+            cur = f"{cur} {word}".strip()
     lines.append(cur)
-    return lines[:3]
+    return lines
 
 
-def svg_page(title, subtitle, keys, highlight, notes):
-    width, height = int(21.3 * U), int(9.9 * U)
-    ox, oy = 0.5 * U, 1.35 * U
-    out = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
-        f'<rect width="100%" height="100%" fill="{COLORS["bg"]}"/>',
-        f'<style>text{{font-family:"DejaVu Sans",sans-serif;fill:{COLORS["fg"]}}}</style>',
-        f'<text x="{ox}" y="{0.6 * U}" font-size="28" font-weight="bold">{html.escape(title)}</text>',
-        f'<text x="{ox}" y="{1.0 * U}" font-size="16" fill="{COLORS["dim"]}" style="fill:{COLORS["dim"]}">{html.escape(subtitle)}</text>',
-    ]
+def text(x, y, s, size, color, anchor="start", weight="normal"):
+    return (
+        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" text-anchor="{anchor}" '
+        f'font-weight="{weight}" style="fill:{color}">{esc(s)}</text>'
+    )
+
+
+def header(page_no, tabs, subtitle):
+    """Tab strip with the page keys (1-9, 0) and the line how to reach the layer."""
+    out = [f'<rect x="0" y="0" width="{W}" height="58" fill="{C["panel"]}"/>']
+    x = 24
+    for n, name in enumerate(tabs, start=1):
+        label = f"{n % 10} {name}"
+        width = 22 + len(label) * 8.6
+        active = n == page_no
+        if active:
+            out.append(f'<rect x="{x:.1f}" y="13" width="{width:.1f}" height="32" rx="16" fill="{C["layer"]}"/>')
+        out.append(text(x + width / 2, 34.5, label, 15, C["bg"] if active else C["dim"], "middle", "bold" if active else "normal"))
+        x += width + 8
+    out.append(text(W / 2, 92, subtitle, 17, C["fg"], "middle"))
+    return out
+
+
+def footer(items, hint="1–9, 0 = Seite · ← → blättern · Esc schließt"):
+    """Legend chips (colour, label) on the left, the key hint on the right."""
+    out, x, y = [], 28, H - 26
+    for color, label in items:
+        out.append(f'<rect x="{x}" y="{y - 12}" width="16" height="16" rx="4" fill="{color[0]}" stroke="{color[1]}"/>')
+        out.append(text(x + 23, y + 1, label, 13, C["dim"]))
+        x += 36 + len(label) * 7.4
+    out.append(text(W - 28, y + 1, hint, 13, C["dim"], "end"))
+    return out
+
+
+def key_shape(cx, cy, size, rot, fill, stroke, sw=1.2, radius=None):
+    r = radius if radius is not None else size * 0.16
+    rect = (
+        f'<rect x="{-size / 2:.1f}" y="{-size / 2:.1f}" width="{size:.1f}" height="{size:.1f}" '
+        f'rx="{r:.1f}" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>'
+    )
+    return f'<g transform="translate({cx:.1f},{cy:.1f}) rotate({rot})">{rect}</g>'
+
+
+def layer_page(page_no, tabs, subtitle, keys, highlight):
+    ox = (W - BOARD_W * P) / 2
+    oy = 118
+    out = header(page_no, tabs, subtitle)
+    size = P * 0.9
     for idx, (tap, hold, kind) in enumerate(keys):
-        cx, cy = POS[idx]
-        x, y = ox + cx * U, oy + cy * U
-        fill = COLORS["key_dim"] if kind in ("none", "trans") else COLORS["key"]
-        stroke = COLORS["act"] if idx in highlight else COLORS["border"]
-        sw = 3 if idx in highlight else 1
-        out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{KW:.1f}" height="{KW:.1f}" rx="7" fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>')
-        color = {"trans": COLORS["dim"], "layer": COLORS["layer"], "mouse": COLORS["mouse"], "sys": COLORS["sys"], "macro": COLORS["macro"]}.get(kind, COLORS["fg"])
-        lines = wrap(tap)
-        size = 15 if max((len(line) for line in lines), default=0) <= 6 else 11
-        top = y + KW / 2 - (len(lines) - 1) * size * 0.6 - (6 if hold else 0)
+        ux, uy, rot, finger = GEO[idx]
+        cx, cy = ox + ux * P, oy + uy * P
+        fill, stroke, _ = FINGERS[finger]
+        if kind == "none":
+            fill, stroke = "#1c1d2a", "#2a2c40"
+        hot = idx in highlight
+        out.append(key_shape(cx, cy, size, rot, fill, C["accent"] if hot else stroke, 3 if hot else 1.2))
+        color = {
+            "trans": C["faint"], "layer": C["layer"], "mouse": C["mouse"], "sys": C["sys"], "macro": C["macro"],
+        }.get(kind, C["fg"])
+        longest = max((len(w) for w in tap.split(" ")), default=0)
+        if len(tap) <= 2:
+            fs, lines = 21, [tap]
+        elif len(tap) <= 5:
+            fs, lines = 15, [tap]
+        else:
+            fs = 11 if longest <= 8 else 9
+            lines = wrap(tap, 8)[:3]
+        top = cy - (len(lines) - 1) * fs * 0.58 - (6 if hold else 0)
         for n, line in enumerate(lines):
-            out.append(f'<text x="{x + KW / 2:.1f}" y="{top + n * size * 1.15 + size * 0.35:.1f}" font-size="{size}" text-anchor="middle" style="fill:{color}">{html.escape(line)}</text>')
+            out.append(text(cx, top + n * fs * 1.16 + fs * 0.36, line, fs, color, "middle"))
         if hold:
-            out.append(f'<text x="{x + KW / 2:.1f}" y="{y + KW - 6:.1f}" font-size="10" text-anchor="middle" style="fill:{COLORS["layer"] if kind == "layer" else COLORS["hold"]}">{html.escape(hold)}</text>')
-    ny = oy + 7.75 * U
-    for n, line in enumerate(notes[:4]):
-        out.append(f'<text x="{ox}" y="{ny + n * 22:.1f}" font-size="15" style="fill:{COLORS["dim"]}">{html.escape(line)}</text>')
-    out.append("</svg>")
-    return "\n".join(out)
+            # Rotated thumb keys: keep the hold label inside the diamond.
+            hy = cy + (17 if rot else size / 2 - 6)
+            out.append(text(cx, hy, hold, 10, C["layer"] if kind == "layer" else C["hold"], "middle"))
+    legend = [((FINGERS[f][0], FINGERS[f][1]), FINGERS[f][2]) for f in ("pinky", "ring", "middle", "index", "thumb")]
+    out += footer(legend)
+    out.append(text(28, H - 52, "klein unten = beim Halten (gelb Mod, blau Layer) · ▽ durchgereicht · dunkel = keine Funktion", 13, C["dim"]))
+    return out
+
+
+def mini_board(x, y, pitch, held, tapped):
+    """Small outline board: light = hold, green = tap, as on the TailorKey page."""
+    out = []
+    for idx, (ux, uy, rot, _) in GEO.items():
+        if idx in held:
+            fill, stroke = C["held"], C["held"]
+        elif idx in tapped:
+            fill, stroke = C["tap"], C["tap"]
+        else:
+            fill, stroke = "none", C["faint"]
+        out.append(key_shape(x + ux * pitch, y + uy * pitch, pitch * 0.82, rot, fill, stroke, 1))
+    return out
+
+
+def hotkey_page(page_no, tabs, cards):
+    out = header(page_no, tabs, "Hotkeys: Layer, Modi und Combos")
+    pitch = 16
+    card_w, card_h = 330, 268
+    gap = (W - 4 * card_w) / 5
+    for n, card in enumerate(cards):
+        col, row = n % 4, n // 4
+        x = gap + col * (card_w + gap)
+        y = 116 + row * (card_h + 14)
+        out.append(f'<rect x="{x:.1f}" y="{y}" width="{card_w}" height="{card_h}" rx="14" fill="{C["panel"]}"/>')
+        out.append(text(x + 16, y + 30, card["title"], 17, C["fg"], weight="bold"))
+        out += mini_board(x + (card_w - BOARD_W * pitch) / 2, y + 44, pitch, card["held"], card["tapped"])
+        for i, line in enumerate(card["lines"][:3]):
+            out.append(text(x + 16, y + 208 + i * 19, line, 13, C["dim"] if i else C["fg"]))
+    out += footer([((C["held"], C["held"]), "halten"), ((C["tap"], C["tap"]), "tippen / gleichzeitig drücken")])
+    return out
+
+
+def svg(body):
+    return "\n".join(
+        [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
+            f'<rect width="100%" height="100%" fill="{C["bg"]}"/>',
+            '<style>text{font-family:"DejaVu Sans",sans-serif}</style>',
+            *body,
+            "</svg>",
+        ]
+    )
+
+
+def word(label):
+    return WORDS.get(label, label)
 
 
 def main():
     src, outdir = Path(sys.argv[1]), Path(sys.argv[2])
     outdir.mkdir(parents=True, exist_ok=True)
     d = json.loads(src.read_text())
-    names = d["layer_names"]
-    layers = d["layers"]
-    base = [binding(b, names) for b in layers[0]]
-    label = lambda i: base[i][0] or base[i][1]
+    names, layers = d["layer_names"], d["layers"]
+    rendered = [[binding(b, names) for b in layer] for layer in layers]
 
-    # How each layer is reached: keys on the base layer that hold/toggle it,
-    # Magic-layer &to entries, and combos.
-    reach = {i: [] for i in range(len(names))}
+    def label(idx, layer=0):
+        tap, hold, _ = rendered[layer][idx]
+        return word(tap or hold)
+
+    def side(idx):
+        where = "links" if GEO[idx][0] < MIRROR / 2 else "rechts"
+        return f"Daumen {where}" if idx in THUMBS else where
+
+    # How each layer is reached.
+    reach = {i: [] for i in range(len(names))}  # layer -> [(key indexes, text)]
+    holds = {}  # layer -> base key index that holds it
     for idx, b in enumerate(layers[0]):
         v, p = b["value"], b.get("params") or []
         target = None
@@ -255,55 +360,93 @@ def main():
         elif v == "&magic":
             target = names.index("Magic")
         if isinstance(target, int):
-            tap = base[idx][0]
-            what = f"{tap}-Taste" if tap else f"{base[idx][1]}-Taste"
-            reach[target].append((idx, f"Halten: {what} ({where(idx)})"))
+            holds[target] = idx
+            reach[target].append(([idx], f"{label(idx)}-Taste halten ({side(idx)})"))
     magic = names.index("Magic")
+    modes = []  # (target layer, key index on the Magic layer)
     for idx, b in enumerate(layers[magic]):
         if b["value"] == "&to":
-            t = b["params"][0]["value"]
-            reach[t].append((idx, f"Magic halten + Taste der Position „{label(idx)}“ (dauerhaft)"))
-    combos = []
+            target = b["params"][0]["value"]
+            modes.append((target, idx))
+            reach[target].append(([idx], f"Magic halten + „{label(idx)}“ tippen (bleibt aktiv)"))
     for c in d.get("combos", []):
-        tap = binding(c["binding"], names)[0]
-        keys = " + ".join(
-            f"{label(k)} ({where(k)})" if where(k).startswith("Daumen") else label(k) for k in c["keyPositions"]
-        )
-        combos.append(f"{keys}  →  {tap}")
         b = c["binding"]
         if b["value"] in ("&tog", "&to"):
-            reach[b["params"][0]["value"]].append((c["keyPositions"][0], f"Combo {keys} (umschalten)"))
+            target = b["params"][0]["value"]
+            a, z = c["keyPositions"]
+            how = (
+                f"Combo: {label(a, target)} + {label(z, target)} gleichzeitig (ein/aus) · "
+                f"auf der Grundebene sind das {label(a)} + {label(z)}"
+            )
+            reach[target].append(([a, z], how))
 
-    n = 0
-    for name in PAGES:
-        if name not in names:
-            continue
+    # Hotkey cards.
+    cards = []
+    mode_titles = {
+        "HRM_WinLinx": ("Home-Row-Mods an", "Zurück zur Grundebene"),
+        "Typing": ("Mods + Autoshift aus", "Typing-Layer: Home-Row ohne Mods"),
+        "Autoshift": ("Autoshift an", "Länger halten = Großbuchstabe/Shift"),
+    }
+    for target, idx in modes:
+        title, note = mode_titles.get(names[target], (TITLES.get(names[target], names[target]), ""))
+        cards.append({"title": title, "held": {holds[magic]}, "tapped": {idx},
+                      "lines": [f"Magic halten + „{label(idx)}“ tippen", note]})
+    arrows = {"←", "→", "↑", "↓"}
+    layer_notes = {
+        "Cursor": "Pfeile, Auswahl, Copy/Paste, Undo",
+        "Symbol": "Klammern und Sonderzeichen",
+        "Mouse": "Mauszeiger, Klicks, Scrollrad",
+        "Lower": "Media-Tasten, Nummernblock, F11/F12",
+    }
+    for name, note in layer_notes.items():
         li = names.index(name)
-        keys = [binding(b, names) for b in layers[li]]
-        how = reach.get(li, [])
-        subtitle = " · ".join(h for _, h in how) if how else ("Grundebene" if li == 0 else "")
-        if li == 0:
-            subtitle = "Grundebene · unten klein: beim Halten (Mod/Layer)"
-        highlight = {i for i, _ in how} if li != 0 else set()
-        notes = []
-        if li == 0:
-            notes = ["Gelb = Halten (Home-Row-Mods), Blau = Layer, ▽ = durchgereicht, leer = keine Funktion",
-                     "Esc schließt · ←/→ blättert · Combos auf der letzten Seite"]
-        n += 1
-        title = f"{n}/{len(PAGES) + 1}  {TITLES.get(name, name)}"
-        (outdir / f"{n:02d}-{name}.svg").write_text(svg_page(title, subtitle, keys, highlight, notes))
+        if li not in holds:
+            continue
+        tapped = {i for i, (tap, _, kind) in enumerate(rendered[li]) if tap in arrows or (name != "Cursor" and kind == "mouse")}
+        if name == "Lower":
+            tapped = {i for i, b in enumerate(layers[li]) if b["value"] == "&kp" and str(b["params"][0]["value"]).startswith("C_")}
+        cards.append({"title": f"{name}-Layer", "held": {holds[li]}, "tapped": tapped,
+                      "lines": [f"{label(holds[li])}-Taste halten ({side(holds[li])})", note]})
+    combo_titles = [
+        ("alt_tab", "Task Switcher (Alt+Tab)", "Halten, mit Pfeilen wählen"),
+        ("ctrl_tab", "Tab Switcher (Ctrl+Tab)", "Browser-/Editor-Tabs"),
+        ("win_tab", "Task View (Win+Tab)", "niri: Übersicht"),
+        ("meh", "Meh (Alt+Ctrl+Shift)", "Modifier für eigene Kürzel"),
+        ("gaming", "Gaming-Layer ein/aus", ""),
+        ("caps_lock", "Caps Lock", "links oder rechts"),
+        ("caps_word", "Caps Word", "links oder rechts · ein Wort groß"),
+        ("F11", "F11", ""),
+        ("F12", "F12", ""),
+    ]
+    for needle, title, note in combo_titles:
+        hits = [c for c in d.get("combos", []) if needle in c["name"]]
+        if not hits:
+            continue
+        tapped = {k for c in hits for k in c["keyPositions"]}
+        a, z = hits[0]["keyPositions"]
+        first = f"{label(a)} + {label(z)} gleichzeitig"
+        if needle == "gaming":
+            target = hits[0]["binding"]["params"][0]["value"]
+            first = f"{label(a, target)} + {label(z, target)} gleichzeitig"
+            note = f"auf der Grundebene: {label(a)} + {label(z)}"
+        cards.append({"title": title, "held": set(), "tapped": tapped, "lines": [first, note]})
 
-    # combos page
-    width, height = int(21.3 * U), int(9.9 * U)
-    lines = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
-             f'<rect width="100%" height="100%" fill="{COLORS["bg"]}"/>',
-             f'<style>text{{font-family:"DejaVu Sans",sans-serif;fill:{COLORS["fg"]}}}</style>',
-             f'<text x="{0.5 * U}" y="{0.6 * U}" font-size="28" font-weight="bold">{len(PAGES) + 1}/{len(PAGES) + 1}  Combos (gleichzeitig drücken)</text>']
-    for i, c in enumerate(combos):
-        lines.append(f'<text x="{0.5 * U}" y="{1.4 * U + i * 30}" font-size="20">{html.escape(c)}</text>')
-    lines.append(f'<text x="{0.5 * U}" y="{1.4 * U + (len(combos) + 1) * 30}" font-size="15" style="fill:{COLORS["dim"]}">{html.escape(d.get("title", ""))}</text>')
-    lines.append("</svg>")
-    (outdir / f"{len(PAGES) + 1:02d}-combos.svg").write_text("\n".join(lines))
+    hot_pages = [cards[i:i + 8] for i in range(0, len(cards), 8)]
+    layer_names = [n for n in PAGES if n in names]
+    tabs = [TITLES.get(n, n) for n in layer_names] + [f"Hotkeys {i + 1}" for i in range(len(hot_pages))]
+
+    for no, name in enumerate(layer_names, start=1):
+        li = names.index(name)
+        how = reach.get(li, [])
+        if li == 0:
+            subtitle, highlight = "Grundebene mit Home-Row-Mods", set()
+        else:
+            subtitle = "  ·  ".join(t for _, t in how) or name
+            highlight = {k for keys, _ in how for k in keys}
+        (outdir / f"{no:02d}-{name}.svg").write_text(svg(layer_page(no, tabs, subtitle, rendered[li], highlight)))
+    for i, page in enumerate(hot_pages):
+        no = len(layer_names) + i + 1
+        (outdir / f"{no:02d}-hotkeys{i + 1}.svg").write_text(svg(hotkey_page(no, tabs, page)))
 
 
 if __name__ == "__main__":
