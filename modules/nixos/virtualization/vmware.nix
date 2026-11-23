@@ -7,6 +7,29 @@
 
 let
   cfg = config.hakkabara.vmware;
+
+  # When VMware asked for one or two displays, next to the compositor's
+  # connector changes (niri or KWin), from the system and user journal.
+  topoHistory = pkgs.writeShellApplication {
+    name = "topo-history";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.systemd
+    ];
+    text = ''
+      since="''${1:--3d}"
+      {
+        journalctl --since "$since" --no-pager -o short-iso _COMM=vmtoolsd 2>/dev/null |
+          grep -o '^[^ ]* .*DisplayTopology_Set [0-9]*' |
+          sed -E 's/^([^ ]+) .*DisplayTopology_Set ([0-9]+)$/\1  VMware fordert \2 Monitor(e)/'
+        journalctl --user --since "$since" --no-pager -o short-iso 2>/dev/null |
+          grep -E 'disconnecting connector|new connector: Virtual|WATCHER: dual' |
+          sed -E 's/^([^ ]+) .*(disconnecting connector: "[^"]+"|new connector: Virtual-[0-9]|WATCHER: dual [a-z]+ edge).*/\1  \2/'
+      } | sort
+    '';
+  };
 in
 {
   options.hakkabara.vmware = {
@@ -30,9 +53,11 @@ in
     };
 
     debugLogging = lib.mkEnableOption ''
-      debug logging of vmtoolsd (vmsvc and vmusr) to the journal. Meant only
-      for a diagnosis session: debug output is large and can contain
-      sensitive data
+      debug logging of the vmtoolsd system service (vmsvc) to the journal,
+      plus the `topo-history` command. vmsvc receives VMware's display
+      topology requests; the chatty user agent (vmusr: clipboard, polls)
+      stays at its default level. Meant for a diagnosis period only: debug
+      output can contain sensitive data
     '';
 
     sharedFolders = {
@@ -131,8 +156,6 @@ in
         log = true
         vmsvc.level = debug
         vmsvc.handler = syslog
-        vmusr.level = debug
-        vmusr.handler = syslog
       '';
     };
 
@@ -161,8 +184,10 @@ in
     };
 
     # Xorg userspace driver is unnecessary on headless appliance VMs.
-    environment.systemPackages = lib.optionals cfg.graphics.enable [
-      pkgs.xf86-video-vmware
-    ];
+    environment.systemPackages =
+      lib.optionals cfg.graphics.enable [
+        pkgs.xf86-video-vmware
+      ]
+      ++ lib.optional cfg.debugLogging topoHistory;
   };
 }
