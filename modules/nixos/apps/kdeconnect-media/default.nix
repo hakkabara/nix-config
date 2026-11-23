@@ -238,7 +238,13 @@ in
       description = "Re-request KDE Connect remote player lists when empty";
       wantedBy = [ "graphical-session.target" ];
       partOf = [ "graphical-session.target" ];
-      after = [ "kdeconnectd.service" ];
+      # Without the explicit order after the target, systemd orders the
+      # target after this unit (it wants it), which closes a cycle through
+      # kdeconnectd (after the target) and the start job is dropped at login.
+      after = [
+        "graphical-session.target"
+        "kdeconnectd.service"
+      ];
       serviceConfig = {
         ExecStart = lib.getExe playerRefresh;
         Restart = "on-failure";
