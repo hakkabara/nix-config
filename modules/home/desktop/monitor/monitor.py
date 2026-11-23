@@ -12,7 +12,7 @@ import tty
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-VERSION = "4.10.0"
+VERSION = "4.11.0"
 WATCHER_UNIT = "hakkabara-monitor-watcher.service"
 
 
@@ -439,6 +439,75 @@ def niri_layout(cfg, left, right, positions, dry=False):
         run(command)
 
 
+# vmwgfx moves a display to a new host position (screen target root) only
+# during a modeset of that display.  niri modesets just the output that was
+# newly connected, so an output that stayed on keeps its old root: VMware
+# then shows both screens overlapping and maps the pointer wrongly (start
+# fullscreen on the right host monitor, extend to the left one).  Switching
+# such an output off and on forces the modeset.
+REROOT_OFF_SECONDS = 1.0
+
+
+def load_roots(runtime_dir):
+    """Host positions the outputs were last rooted at, as far as known.
+
+    name -> {"pos": [x, y] or None, "single": bool}.  "single" marks an
+    output that went through a one-screen phase since: VMware roots a single
+    screen at 0,0, but only if its mode changed meanwhile.  An output without
+    entry was not on before and gets rooted when niri connects it.
+    """
+    try:
+        data = json.loads(runtime_file(runtime_dir, "host-roots.json").read_text())
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_roots(runtime_dir, roots):
+    atomic_json(runtime_file(runtime_dir, "host-roots.json"), roots)
+
+
+def reroot_candidates(roots, positions):
+    """Outputs whose host position may differ from the driver's root."""
+    names = []
+    for name, hint in positions.items():
+        entry = roots.get(name)
+        if not isinstance(entry, dict):
+            continue
+        pos = tuple(entry["pos"]) if entry.get("pos") else None
+        if entry.get("single"):
+            stale = tuple(hint) != (0, 0) or pos not in (None, (0, 0))
+        else:
+            stale = pos != tuple(hint)
+        if stale:
+            names.append(name)
+    return names
+
+
+def roots_after_single(roots, active_names):
+    """Roots once only `active_names` are left on (see load_roots)."""
+    return {
+        name: {"pos": (roots.get(name) or {}).get("pos"), "single": True}
+        for name in active_names
+    }
+
+
+def niri_reroot(names, dry=False):
+    """Force a modeset of each output, one at a time (never both off)."""
+    for name in names:
+        if dry:
+            print(f"DRY-RUN: niri msg output {name} off; on  (modeset for new host position)")
+            continue
+        run(["niri", "msg", "output", name, "off"])
+        time.sleep(REROOT_OFF_SECONDS)
+        run(["niri", "msg", "output", name, "on"])
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            if any(o.name == name for o in active(niri_outputs())):
+                break
+            time.sleep(0.1)
+
+
 def verify_layout(cfg, left, right, positions, primary_name=None, tries=8):
     for _ in range(tries):
         now = {o.name: o for o in active(get_outputs(cfg))}
@@ -523,11 +592,15 @@ def apply_layout(cfg, profile=None, swap=False, snapshot=None, dry=False, runtim
     )
     if runtime_dir and not dry:
         suppress(runtime_dir, 5)
+    reroot = []
+    if align == "vmware-host" and backend_name(cfg) == "niri" and runtime_dir:
+        reroot = reroot_candidates(load_roots(runtime_dir), positions)
     if backend_name(cfg) == "niri":
         niri_layout(cfg, left, right, positions, dry)
     else:
         plasma_layout(cfg, left, right, positions, primary_name, dry)
     if dry:
+        niri_reroot(reroot, dry=True)
         return
     if not verify_layout(cfg, left, right, positions, primary_name):
         if align == "vmware-host":
@@ -546,6 +619,22 @@ def apply_layout(cfg, profile=None, swap=False, snapshot=None, dry=False, runtim
             print("ERROR: applied layout verification failed; reverting to safe single", file=sys.stderr)
             apply_single(cfg, runtime_dir=runtime_dir)
             raise RuntimeError("layout verification failed")
+    if align == "vmware-host" and backend_name(cfg) == "niri" and runtime_dir:
+        if reroot:
+            # The off/on events are our own; keep the watcher from reading
+            # them as a new hotplug edge.
+            suppress(runtime_dir, 5 + len(reroot) * (REROOT_OFF_SECONDS + 3))
+            niri_reroot(reroot)
+            print(f"Re-rooted for VMware host position: {', '.join(reroot)}")
+            if not verify_layout(cfg, left, right, positions, primary_name):
+                niri_layout(cfg, left, right, positions)
+                if not verify_layout(cfg, left, right, positions, primary_name):
+                    raise RuntimeError("host layout verification failed after re-root; outputs left on")
+            suppress(runtime_dir, 2)
+        save_roots(
+            runtime_dir,
+            {name: {"pos": list(pos), "single": False} for name, pos in positions.items()},
+        )
     if runtime_dir:
         mark_approved(runtime_dir, get_outputs(cfg))
 
@@ -583,6 +672,7 @@ def render_help(cfg):
 |   monitor swap            Generic two-output layout, swapped          |
 |   monitor auto            Detect profile and apply it                  |
 |   monitor choose          Open the interactive selector               |
+|   monitor reroot          Re-root outputs (VMware overlap fix)        |
 |   monitor help            Show this help                              |
 |   monitor version         Show helper version                         |
 |   monitor watcher status  Show watcher service state                  |
@@ -1062,6 +1152,15 @@ def watcher(cfg, runtime_dir):
     previous_connected = len(connected(initial))
     if previous_active <= 1:
         clear_approved(runtime_dir)
+    # Outputs that are on at start were rooted by niri's own first modeset.
+    start_hints = vmware_suggested_positions() if cfg.get("followHostLayout") else {}
+    if previous_active >= 2 and all(o.name in start_hints for o in active(initial)):
+        save_roots(
+            runtime_dir,
+            {o.name: {"pos": list(start_hints[o.name]), "single": False} for o in active(initial)},
+        )
+    else:
+        save_roots(runtime_dir, roots_after_single({}, [o.name for o in active(initial)]))
 
     event_proc, source_label = start_event_source(cfg)
     prime_event_source(event_proc)
@@ -1102,6 +1201,10 @@ def watcher(cfg, runtime_dir):
             if current_connected <= 1:
                 if previous_connected > 1 or previous_active > 1:
                     clear_approved(runtime_dir)
+                roots = load_roots(runtime_dir)
+                single_roots = roots_after_single(roots, [o.name for o in active(outs)])
+                if single_roots != roots:
+                    save_roots(runtime_dir, single_roots)
                 previous_active = current_active
                 previous_connected = current_connected
                 continue
@@ -1370,6 +1473,26 @@ def self_test():
     assert hints_cover({"Virtual-1": (1920, 0), "Virtual-2": (0, 0)}, pair)
     assert not hints_cover({"Virtual-1": (0, 0)}, pair)
     assert not hints_cover({"Virtual-1": (0, 0)}, pair[:1])
+    # Re-root: start on the right host monitor, extend to the left one.
+    right_start = {"Virtual-1": (1920, 0), "Virtual-2": (0, 0)}
+    left_start = {"Virtual-1": (0, 0), "Virtual-2": (1920, 0)}
+    one = roots_after_single({}, ["Virtual-1"])
+    assert one == {"Virtual-1": {"pos": None, "single": True}}
+    assert reroot_candidates(one, right_start) == ["Virtual-1"]
+    # Start on the left: the output that stayed on keeps 0,0, nothing to do.
+    assert reroot_candidates(one, left_start) == []
+    # Both freshly applied: nothing stale until VMware swaps the hints.
+    applied = {name: {"pos": list(pos), "single": False} for name, pos in right_start.items()}
+    assert reroot_candidates(applied, right_start) == []
+    assert reroot_candidates(applied, left_start) == ["Virtual-1", "Virtual-2"]
+    # Back to one screen and out again on the same side: the root may have
+    # been reset to 0,0 by a mode change meanwhile, so re-root again.
+    back = roots_after_single(applied, ["Virtual-1"])
+    assert back == {"Virtual-1": {"pos": [1920, 0], "single": True}}
+    assert reroot_candidates(back, right_start) == ["Virtual-1"]
+    # ... and out on the other side: the old non-zero root may still be set.
+    assert reroot_candidates(back, left_start) == ["Virtual-1"]
+    assert reroot_candidates({}, right_start) == []
     event_env = event_source_environment(cfg)
     assert event_env.get("QT_FORCE_STDERR_LOGGING") == "1"
     print("SELF-TEST: PASS")
@@ -1410,6 +1533,7 @@ def main():
     choose.add_argument("--snapshot")
     choose.add_argument("--detected")
     sub.add_parser("watch")
+    sub.add_parser("reroot")
 
     parser.set_defaults(snapshot=None, detected=None, dry_run=False, align=None, swap=False)
     args = parser.parse_args()
@@ -1427,6 +1551,17 @@ def main():
         return
     if args.cmd == "version":
         print(VERSION)
+        return
+    if args.cmd == "reroot":
+        # Manual fix for screens VMware shows overlapping: modeset every
+        # active output so the driver takes over the current host positions.
+        names = [o.name for o in active(get_outputs(cfg))]
+        if backend_name(cfg) != "niri" or len(names) < 2:
+            raise RuntimeError("reroot needs niri with two active outputs")
+        suppress(runtime, 5 + len(names) * (REROOT_OFF_SECONDS + 3))
+        niri_reroot(names)
+        suppress(runtime, 2)
+        print(f"Re-rooted: {', '.join(names)}")
         return
     if args.cmd == "popup-test":
         current = get_outputs(cfg)
