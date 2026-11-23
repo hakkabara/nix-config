@@ -340,6 +340,10 @@
   home-manager.users.mko = _: {
     imports = [
       ../../users/mko
+      # Same uBlock Origin lists and rules (managed storage) and the same
+      # Dark Reader import file as on the other workstations.
+      # TwitchAdSolutions stays off here; the file only carries its settings.
+      ../../users/hakkabara/browser-extensions.nix
       ../../profiles/home/work-vm.nix
       ../../modules/home/desktop/monitor
     ];
