@@ -1,0 +1,29 @@
+--- a/plugins/mpriscontrol/mpriscontrolplugin.cpp
++++ b/plugins/mpriscontrol/mpriscontrolplugin.cpp
+@@ -10,6 +10,8 @@
+ #include <QDBusMessage>
+ #include <QDBusReply>
+ #include <QDBusServiceWatcher>
++#include <QFile>
++#include <QStandardPaths>
+ #include <qdbusconnectioninterface.h>
+ 
+ #include <KPluginFactory>
+@@ -410,6 +412,17 @@
+         }
+     }
+ 
++    // Privacy mode (media-privacy): keep the player controllable on the
++    // peers, but do not send what is playing.
++    if (QFile::exists(QStandardPaths::writableLocation(QStandardPaths::GenericStateLocation)
++                      + QStringLiteral("/kdeconnect-media/private"))) {
++        title = QStringLiteral("Privat");
++        artist.clear();
++        album.clear();
++        albumArtUrl.clear();
++        fileUrl.clear();
++    }
++
+     np.set(QStringLiteral("title"), title);
+     np.set(QStringLiteral("artist"), artist);
+     np.set(QStringLiteral("album"), album);

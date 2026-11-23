@@ -27,7 +27,7 @@
     ../../modules/nixos/input/eurkey.nix
     ../../modules/nixos/apps/steam.nix
     ../../modules/nixos/apps/miniserve-firewall.nix
-    ../../modules/nixos/apps/kdeconnect-media.nix
+    ../../modules/nixos/apps/kdeconnect-media
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/security/sops.nix
     ../../modules/nixos/accounts/primary.nix
@@ -134,6 +134,14 @@
       ../../modules/home/desktop/autostart.nix
       ../../modules/home/apps/flameshot/plasma.nix
     ];
+
+    # Hide what plays here from the WorkVM, keep play/pause/next there.
+    programs.plasma.hotkeys.commands.media-privacy = {
+      name = "Media privacy";
+      key = "Meta+Ctrl+M";
+      command = "media-privacy toggle";
+      logs.enabled = false;
+    };
 
     # KWallet is intentionally disabled on the SurfVM.
     # With graphical autologin there is no login password available
@@ -457,9 +465,13 @@
   # shows and controls them. Only the media plugin is installed.
   hakkabara.apps.kdeconnectMedia = {
     enable = true;
-    role = "player";
-    interface = "ens33";
-    peerAddress = config.hakkabara.networking.deploymentLan.hosts.work-vm.address;
+    share.enable = true;
+    # Interim: deployment LAN. A dedicated KDE Connect network only needs
+    # a new interface and peer addresses here and on the peers.
+    network = {
+      interface = "ens33";
+      peers.work-vm = config.hakkabara.networking.deploymentLan.hosts.work-vm.address;
+    };
   };
 
   hakkabara.desktop.autologin = {

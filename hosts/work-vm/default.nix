@@ -20,7 +20,7 @@
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/apps/teams.nix
     ../../modules/nixos/apps/thunar.nix
-    ../../modules/nixos/apps/kdeconnect-media.nix
+    ../../modules/nixos/apps/kdeconnect-media
     ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
     ../../modules/nixos/virtualization/vmware.nix
@@ -140,9 +140,13 @@
       # the shell's media widget. Only the media plugin is installed.
       kdeconnectMedia = {
         enable = true;
-        role = "remote";
-        interface = "ens37";
-        peerAddress = config.hakkabara.networking.deploymentLan.hosts.surf-vm.address;
+        control.enable = true;
+        # Interim: deployment LAN. A dedicated KDE Connect network only
+        # needs a new interface and peer addresses here and on the peers.
+        network = {
+          interface = "ens37";
+          peers.surf-vm = config.hakkabara.networking.deploymentLan.hosts.surf-vm.address;
+        };
       };
 
       # Teams inside the VM is intentionally limited to chat/downloads.
@@ -385,6 +389,13 @@
 
         # The hotplug selector is a small Kitty window; without this rule Niri
         # would tile it as a full-height column.
+        # Hide what plays on the SurfVM, keep play/pause/next.
+        niri.extraBinds = ''
+          Mod+Ctrl+M hotkey-overlay-title="Media privacy" {
+              spawn "media-privacy" "toggle";
+          }
+        '';
+
         niri.extraConfig = ''
           window-rule {
               match app-id=r#"^hakkabara-monitor-selector$"#

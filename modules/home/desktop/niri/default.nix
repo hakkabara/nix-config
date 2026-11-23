@@ -70,6 +70,12 @@ in
 
     dmsIntegration.enable = lib.mkEnableOption "DankMaterialShell IPC key bindings";
 
+    extraBinds = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      description = "Additional Niri key bindings placed inside the binds block.";
+    };
+
     extraConfig = lib.mkOption {
       type = lib.types.lines;
       default = "";
@@ -470,6 +476,7 @@ in
           Mod+Shift+E { quit; }
 
           ${dmsBinds}
+          ${cfg.extraBinds}
       }
 
       ${cfg.extraConfig}

@@ -1,0 +1,41 @@
+--- a/plugins/mprisremote/mprisremoteplayermediaplayer2player.cpp
++++ b/plugins/mprisremote/mprisremoteplayermediaplayer2player.cpp
+@@ -9,6 +9,8 @@
+ #include "mprisremoteplugin.h"
+ 
+ #include <QDBusMessage>
++#include <QFile>
++#include <QStandardPaths>
+ 
+ MprisRemotePlayerMediaPlayer2Player::MprisRemotePlayerMediaPlayer2Player(MprisRemotePlayer *parent, MprisRemotePlugin *plugin)
+     : QDBusAbstractAdaptor{parent}
+@@ -49,6 +51,14 @@
+     if (m_parent->length() > 0) {
+         metadata[QStringLiteral("mpris:length")] = QVariant::fromValue<qlonglong>(m_parent->length() * qlonglong(1000));
+     }
++    // Privacy mode (media-privacy): keep the remote player controllable,
++    // but do not show what is playing.
++    if (QFile::exists(QStandardPaths::writableLocation(QStandardPaths::GenericStateLocation)
++                      + QStringLiteral("/kdeconnect-media/private"))) {
++        metadata[QStringLiteral("xesam:title")] = QStringLiteral("Privat");
++        return metadata;
++    }
++
+     if (!m_parent->title().isEmpty()) {
+         metadata[QStringLiteral("xesam:title")] = m_parent->title();
+     }
+@@ -60,6 +70,14 @@
+     }
+     if (!m_parent->localAlbumArtUrl().isEmpty()) {
+         metadata[QStringLiteral("mpris:artUrl")] = m_parent->localAlbumArtUrl().toString();
++    } else {
++        // The player side only transfers local (file://) cover art. Pass
++        // remote https covers (Spotify) through so the local shell can
++        // fetch them itself.
++        const QUrl remoteArtUrl{m_parent->albumArtUrl()};
++        if (remoteArtUrl.isValid() && remoteArtUrl.scheme() == QStringLiteral("https")) {
++            metadata[QStringLiteral("mpris:artUrl")] = remoteArtUrl.toString();
++        }
+     }
+     return metadata;
+ }
