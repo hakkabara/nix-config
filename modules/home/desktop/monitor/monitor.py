@@ -12,7 +12,7 @@ import tty
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-VERSION = "4.9.0"
+VERSION = "4.10.0"
 WATCHER_UNIT = "hakkabara-monitor-watcher.service"
 
 
@@ -530,9 +530,22 @@ def apply_layout(cfg, profile=None, swap=False, snapshot=None, dry=False, runtim
     if dry:
         return
     if not verify_layout(cfg, left, right, positions, primary_name):
-        print("ERROR: applied layout verification failed; reverting to safe single", file=sys.stderr)
-        apply_single(cfg, runtime_dir=runtime_dir)
-        raise RuntimeError("layout verification failed")
+        if align == "vmware-host":
+            # VMware may still be cycling modes (seen: 1718x920 -> 3203x1424
+            # -> 2560x1440).  Switching an output off here makes VMware drop
+            # it entirely, so never fall back to safe single: re-apply once
+            # and otherwise leave both outputs on for the next event.
+            time.sleep(1)
+            if backend_name(cfg) == "niri":
+                niri_layout(cfg, left, right, positions)
+            else:
+                plasma_layout(cfg, left, right, positions, primary_name)
+            if not verify_layout(cfg, left, right, positions, primary_name):
+                raise RuntimeError("host layout verification failed; outputs left on")
+        else:
+            print("ERROR: applied layout verification failed; reverting to safe single", file=sys.stderr)
+            apply_single(cfg, runtime_dir=runtime_dir)
+            raise RuntimeError("layout verification failed")
     if runtime_dir:
         mark_approved(runtime_dir, get_outputs(cfg))
 
@@ -755,6 +768,31 @@ def hints_cover(hints, outs):
     """True when VMware suggests a position for every connected output."""
     names = {o.name for o in connected(outs)}
     return len(names) == 2 and names <= set(hints)
+
+
+# VMware updates connector and suggested X/Y a moment apart, and after a
+# Windows unlock it can take a few seconds.
+HOST_HINT_TIMEOUT = 5.0
+
+
+def host_layout_drifted(outs):
+    """True when VMware now suggests positions the active outputs do not have."""
+    hints = vmware_suggested_positions()
+    enabled = active(outs)
+    if len(enabled) != 2 or not all(o.name in hints for o in enabled):
+        return False
+    return any(abs(o.x - hints[o.name][0]) > 2 or abs(o.y - hints[o.name][1]) > 2 for o in enabled)
+
+
+def ensure_outputs_on(cfg):
+    """Turn every connected output on; never switches one off."""
+    for out in connected(get_outputs(cfg)):
+        if out.enabled:
+            continue
+        if backend_name(cfg) == "niri":
+            run(["niri", "msg", "output", out.name, "on"], check=False)
+        else:
+            run(["kscreen-doctor", f"output.{out.name}.enable"], check=False)
 
 
 def wait_for_host_hints(cfg, timeout):
@@ -1071,6 +1109,12 @@ def watcher(cfg, runtime_dir):
             # A dual layout explicitly applied/approved by this helper must stay
             # untouched; otherwise its own KScreen events would reopen the menu.
             if current_active == 2 and approved_matches(runtime_dir, outs):
+                if cfg.get("followHostLayout") and host_layout_drifted(outs):
+                    try:
+                        apply_layout(cfg, None, False, runtime_dir=runtime_dir)
+                        print("WATCHER: VMware host layout changed; re-applied", flush=True)
+                    except Exception as exc:
+                        print(f"WATCHER: ERROR host layout re-apply failed: {exc}", flush=True)
                 previous_active = 2
                 previous_connected = current_connected
                 continue
@@ -1092,7 +1136,7 @@ def watcher(cfg, runtime_dir):
             # an output here (safe single) makes VMware drop it entirely, so
             # with a host layout available apply it directly: no prompt.
             if reason is not None and cfg.get("followHostLayout"):
-                live = wait_for_host_hints(cfg, min(settle, 1.0))
+                live = wait_for_host_hints(cfg, HOST_HINT_TIMEOUT)
                 if live is not None:
                     try:
                         apply_layout(cfg, None, False, snapshot=live, runtime_dir=runtime_dir)
@@ -1103,7 +1147,15 @@ def watcher(cfg, runtime_dir):
                     previous_active = len(active(after))
                     previous_connected = len(connected(after))
                     continue
-                print("WATCHER: no VMware host layout; falling back to selector", flush=True)
+                # Without hints keep every connected output on (niri places
+                # them automatically) instead of safe single: disabling one
+                # makes VMware drop it.  The next event retries.
+                ensure_outputs_on(cfg)
+                print("WATCHER: no VMware host layout yet; outputs kept on, waiting for next event", flush=True)
+                after = get_outputs(cfg)
+                previous_active = len(active(after))
+                previous_connected = len(connected(after))
+                continue
 
             if reason is not None:
                 snapshot = outs
