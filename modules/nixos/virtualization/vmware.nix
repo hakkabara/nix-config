@@ -29,6 +29,12 @@ in
       '';
     };
 
+    debugLogging = lib.mkEnableOption ''
+      debug logging of vmtoolsd (vmsvc and vmusr) to the journal. Meant only
+      for a diagnosis session: debug output is large and can contain
+      sensitive data
+    '';
+
     sharedFolders = {
       enable = lib.mkEnableOption "VMware shared folders";
 
@@ -108,11 +114,25 @@ in
       "vmwgfx"
     ];
 
+    # vmware-user (vmtoolsd -n vmusr) gets /dev/uinput from its suid wrapper
+    # to inject input on Wayland; without the module it logs "could not open
+    # uinput device" and runs without it.
+    boot.kernelModules = lib.optionals cfg.graphics.enable [ "uinput" ];
+
     # Dynamic guest resolution handling is irrelevant on headless guests.
     environment.etc = lib.mkIf cfg.graphics.enable {
       "vmware-tools/tools.conf".text = ''
         [resolutionKMS]
         enable=true
+      ''
+      + lib.optionalString cfg.debugLogging ''
+
+        [logging]
+        log = true
+        vmsvc.level = debug
+        vmsvc.handler = syslog
+        vmusr.level = debug
+        vmusr.handler = syslog
       '';
     };
 

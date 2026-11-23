@@ -122,6 +122,9 @@
 
     vmware = {
       enable = true;
+      # TEMPORARY: diagnosis of the second monitor lost on Windows unlock.
+      # Turn off again once the unlock sequence is captured.
+      debugLogging = true;
       sharedFolders = {
         enable = true;
         mountPoint = "/data/share";
