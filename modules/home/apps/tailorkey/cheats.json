@@ -1,0 +1,311 @@
+{
+  "pages": [
+    {
+      "key": "v",
+      "tab": "Vim",
+      "title": "Vim: Grundlagen (gelten auch in Neovim)",
+      "columns": [
+        [
+          {
+            "title": "Modi",
+            "rows": [
+              ["i  a", "Einfügen vor / nach dem Cursor"],
+              ["I  A", "Einfügen am Zeilenanfang / -ende"],
+              ["o  O", "Neue Zeile darunter / darüber"],
+              ["v  V  Ctrl+v", "Visual: Zeichen / Zeile / Block"],
+              ["gv", "Letzte Auswahl wiederholen"],
+              ["Esc", "Zurück in den Normal-Modus"]
+            ]
+          },
+          {
+            "title": "Bewegen",
+            "rows": [
+              ["h j k l", "Links, runter, hoch, rechts"],
+              ["w  b  e", "Wort vor / zurück / Wortende"],
+              ["0  ^  $", "Zeile: Anfang / 1. Zeichen / Ende"],
+              ["gg  G", "Erste / letzte Zeile"],
+              ["{n}G  :{n}", "Zu Zeile n"],
+              ["{  }", "Absatz zurück / vor"],
+              ["%", "Zur passenden Klammer"],
+              ["f{c}  F{c}", "Zum Zeichen c vor / zurück"],
+              ["t{c}  T{c}", "Bis kurz vor / hinter c"],
+              [";  ,", "Zeichensuche wiederholen"],
+              ["Ctrl+d  Ctrl+u", "Halbe Seite runter / hoch"],
+              ["Ctrl+o  Ctrl+i", "Sprungliste zurück / vor"],
+              ["zz  zt  zb", "Zeile mittig / oben / unten"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Ändern",
+            "rows": [
+              ["x", "Zeichen löschen"],
+              ["dd  yy  cc", "Zeile löschen / kopieren / ändern"],
+              ["dw  cw  yw", "Dasselbe bis zum nächsten Wort"],
+              ["D  C", "Bis Zeilenende löschen / ändern"],
+              ["p  P", "Einfügen nach / vor dem Cursor"],
+              ["u  Ctrl+r", "Rückgängig / Wiederholen"],
+              [".", "Letzte Änderung wiederholen"],
+              ["r{c}", "Ein Zeichen durch c ersetzen"],
+              ["J", "Nächste Zeile anhängen"],
+              [">>  <<", "Zeile ein- / ausrücken"],
+              ["=", "Neu einrücken (z. B. =ip)"],
+              ["gU  gu  g~", "Groß / klein / tauschen"],
+              ["Ctrl+a  Ctrl+x", "Zahl erhöhen / verringern"]
+            ]
+          },
+          {
+            "title": "Textobjekte (nach d, c, y, v)",
+            "rows": [
+              ["iw  aw", "Wort / Wort mit Leerzeichen"],
+              ["ip  ap", "Absatz"],
+              ["i\"  a\"  i'", "In / mit Anführungszeichen"],
+              ["i(  i[  i{  i<", "In der Klammer (a… = mit ihr)"],
+              ["it  at", "XML-/HTML-Tag"],
+              ["ciw", "Beispiel: Wort ersetzen"],
+              ["di(  ya\"", "Klammer leeren, mit \" kopieren"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Suchen und Ersetzen",
+            "rows": [
+              ["/text  ?text", "Vorwärts / rückwärts suchen"],
+              ["n  N", "Nächster / voriger Treffer"],
+              ["*  #", "Wort unter dem Cursor suchen"],
+              [":noh", "Treffer-Markierung aus"],
+              [":%s/alt/neu/g", "In der ganzen Datei ersetzen"],
+              [":%s/alt/neu/gc", "Dasselbe mit Rückfrage"]
+            ]
+          },
+          {
+            "title": "Dateien und Fenster",
+            "rows": [
+              [":w  :q  :wq", "Speichern / schließen / beides"],
+              [":q!  :qa", "Ohne Speichern / alles schließen"],
+              [":e datei", "Datei öffnen"],
+              [":sp  :vsp", "Fenster teilen: unten / rechts"],
+              ["Ctrl+w h/j/k/l", "Fenster wechseln"],
+              ["Ctrl+w c  o", "Fenster zu / nur dieses"],
+              [":bn  :bp  :bd", "Buffer vor / zurück / schließen"]
+            ]
+          },
+          {
+            "title": "Register, Makros, Marken",
+            "rows": [
+              ["\"ay  \"ap", "In Register a kopieren / einfügen"],
+              ["\"+y  \"+p", "System-Zwischenablage"],
+              [":reg", "Register anzeigen"],
+              ["qa … q", "Makro a aufnehmen"],
+              ["@a  @@", "Makro a abspielen / wiederholen"],
+              ["ma  'a", "Marke a setzen / anspringen"]
+            ]
+          }
+        ]
+      ]
+    },
+    {
+      "key": "n",
+      "tab": "LazyVim",
+      "title": "LazyVim (Neovim): Spc = Leertaste als Leader, Spc allein zeigt alle Kürzel",
+      "columns": [
+        [
+          {
+            "title": "Dateien und Suche",
+            "rows": [
+              ["Spc Spc", "Datei finden"],
+              ["Spc /", "Im Projekt suchen (grep)"],
+              ["Spc ,", "Offene Buffer"],
+              ["Spc e", "Datei-Explorer"],
+              ["Spc f r", "Zuletzt geöffnet"],
+              ["Spc f n", "Neue Datei"],
+              ["Spc s w", "Wort unter dem Cursor suchen"],
+              ["Spc s r", "Suchen und Ersetzen im Projekt"],
+              ["Spc s R", "Letzte Suche fortsetzen"],
+              ["Spc s k", "Alle Tastenkürzel durchsuchen"],
+              ["Spc s h", "Hilfe durchsuchen"],
+              ["s", "Flash: zu sichtbarem Text springen"]
+            ]
+          },
+          {
+            "title": "Buffer und Tabs",
+            "rows": [
+              ["Shift+h  Shift+l", "Voriger / nächster Buffer"],
+              ["Spc b b", "Zum letzten Buffer"],
+              ["Spc b d", "Buffer schließen"],
+              ["Spc b o", "Andere Buffer schließen"],
+              ["Spc Tab Tab", "Neuer Tab"],
+              ["Spc Tab d", "Tab schließen"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Fenster",
+            "rows": [
+              ["Ctrl+h/j/k/l", "Fenster wechseln (auch Zellij)"],
+              ["Alt+h/j/k/l", "Fenstergröße ändern"],
+              ["Spc -", "Fenster teilen: unten"],
+              ["Spc |", "Fenster teilen: rechts"],
+              ["Spc w d", "Fenster schließen"],
+              ["Spc w m", "Fenster maximieren (Zoom)"],
+              ["Ctrl+/", "Terminal ein / aus"]
+            ]
+          },
+          {
+            "title": "Code (LSP)",
+            "rows": [
+              ["gd  gr", "Definition / Referenzen"],
+              ["gI  gy", "Implementierung / Typ"],
+              ["K", "Dokumentation zum Symbol"],
+              ["Spc c a", "Code Action"],
+              ["Spc c r", "Umbenennen"],
+              ["Spc c f", "Formatieren"],
+              ["Spc c d", "Diagnose der Zeile"],
+              ["]d  [d", "Nächste / vorige Diagnose"],
+              ["]e  [e", "Nächster / voriger Fehler"],
+              ["Spc x x", "Alle Diagnosen (Trouble)"],
+              ["Spc s s", "Symbole der Datei"],
+              ["gcc  gc", "Zeile / Auswahl kommentieren"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Git",
+            "rows": [
+              ["Spc g s", "Status"],
+              ["Spc g d", "Diff (Hunks)"],
+              ["Spc g b", "Blame der Zeile"],
+              ["Spc g l", "Log"],
+              ["Spc g f", "Verlauf der Datei"]
+            ]
+          },
+          {
+            "title": "Umschalter",
+            "rows": [
+              ["Spc u w", "Zeilenumbruch"],
+              ["Spc u l", "Zeilennummern"],
+              ["Spc u L", "Relative Zeilennummern"],
+              ["Spc u s", "Rechtschreibprüfung"],
+              ["Spc u f", "Auto-Format"],
+              ["Spc u d", "Diagnosen"],
+              ["Spc u z", "Zen-Modus"]
+            ]
+          },
+          {
+            "title": "Sonstiges",
+            "rows": [
+              ["Ctrl+s", "Speichern"],
+              ["Esc", "Treffer-Markierung aus"],
+              ["Spc l", "Lazy: Plugins verwalten"],
+              ["Spc c m", "Mason: LSP-Server und Tools"],
+              ["Spc n", "Benachrichtigungen"],
+              ["Spc q q", "Alles beenden"]
+            ]
+          }
+        ]
+      ]
+    },
+    {
+      "key": "l",
+      "tab": "lnav",
+      "title": "lnav: Logs lesen, filtern und abfragen",
+      "columns": [
+        [
+          {
+            "title": "Navigation",
+            "rows": [
+              ["Space  b", "Seite vor / zurück"],
+              ["j  k", "Zeile runter / hoch"],
+              ["g  G", "Anfang / Ende"],
+              ["h  l", "Halbe Seite nach links / rechts"],
+              ["e  E", "Nächster / voriger Fehler"],
+              ["w  W", "Nächste / vorige Warnung"],
+              ["n  N", "Nächster / voriger Suchtreffer"],
+              ["f  F", "Nächste / vorige Datei"],
+              ["o  O", "Gleiche opid vor / zurück"],
+              ["s  S", "Log-Rate bricht ein: vor / zurück"],
+              ["{  }", "Voriger / nächster Abschnitt"]
+            ]
+          },
+          {
+            "title": "Zeit",
+            "rows": [
+              ["d  D", "24 Stunden vor / zurück"],
+              ["0  Shift+0", "Nächster / voriger Tag"],
+              ["1–6  Shift+1–6", "Zehn-Minuten-Marke vor / zurück"],
+              ["7  8", "Minute zurück / vor"],
+              ["r  R", "Letzten Zeitsprung wiederholen"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Eingabe",
+            "rows": [
+              ["/", "Suche (regulärer Ausdruck)"],
+              [";", "SQL-Abfrage"],
+              [":", "Befehl"],
+              ["|", "lnav-Skript ausführen"],
+              ["Ctrl+]", "Eingabe abbrechen"],
+              ["Tab", "Filter und Dateiliste bearbeiten"]
+            ]
+          },
+          {
+            "title": "Befehle",
+            "keyWidth": 232,
+            "rows": [
+              [":filter-in <regex>", "Nur Treffer zeigen"],
+              [":filter-out <regex>", "Treffer ausblenden"],
+              [":delete-filter <regex>", "Filter löschen"],
+              [":toggle-filtering", "Filter an / aus"],
+              [":set-min-log-level error", "Ab Level zeigen"],
+              [":hide-lines-before <zeit>", "Älteres ausblenden"],
+              [":hide-lines-after <zeit>", "Neueres ausblenden"],
+              [":goto <zeit|zeile|N%>", "Dorthin springen"],
+              [":highlight <regex>", "Farblich markieren"],
+              [":write-to <datei>", "Markierte speichern"],
+              [":pipe-to <befehl>", "Markierte an Befehl"],
+              [":reset-session", "Filter usw. zurück"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Ansichten",
+            "rows": [
+              ["?", "Hilfe"],
+              ["q", "Vorige Ansicht / beenden"],
+              ["t", "Text-Ansicht"],
+              ["i", "Histogramm"],
+              ["v", "SQL-Ergebnis"],
+              ["P", "Pretty-Print"],
+              ["p", "Parser-Ergebnis der Zeile"],
+              ["T", "Verstrichene Zeit ab Lesezeichen"],
+              ["z  Z", "Zoom bzw. Filter-Kontext +/-"],
+              ["x", "Ausgeblendete Felder zeigen"],
+              ["Ctrl+w", "Zeilenumbruch"],
+              ["Ctrl+l", "Lo-Fi: ohne Deko, zum Kopieren"],
+              ["Ctrl+x", "Cursor-Modus"],
+              ["Ctrl+f", "Alle Filter an / aus"],
+              ["=", "Laden neuer Daten pausieren"],
+              ["X", "Aktuelle Datei schließen"]
+            ]
+          },
+          {
+            "title": "Lesezeichen",
+            "rows": [
+              ["m  M", "Zeile / Bereich markieren"],
+              ["J  K", "Nächste / vorige Zeile dazu"],
+              ["u  U", "Nächstes / voriges Lesezeichen"],
+              ["c  C", "Markierte kopieren / Marken weg"]
+            ]
+          }
+        ]
+      ]
+    }
+  ]
+}

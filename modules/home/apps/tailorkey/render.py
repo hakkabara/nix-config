@@ -1,9 +1,11 @@
 """Render a Glove80 Layout Editor (my.moergo.com) export as cheat-sheet pages.
 
-Usage: render.py layout.json OUTDIR
+Usage: render.py layout.json OUTDIR [cheats.json]
 Writes NN-<name>.svg: one page per layer in PAGES, then the hotkey pages
 (layer holds, mode switches and combos as small boards, in the style of
-the TailorKey hotkey page: light key = hold, green key = tap).
+the TailorKey hotkey page: light key = hold, green key = tap), then one
+NN-cheat-<key>.svg per page of cheats.json (shortcut tables of programs;
+<key> is the letter that jumps to the page in the viewer).
 """
 
 import html
@@ -225,19 +227,23 @@ def wrap(text, width):
     return lines
 
 
-def text(x, y, s, size, color, anchor="start", weight="normal"):
+def text(x, y, s, size, color, anchor="start", weight="normal", mono=False):
+    # Inline style: it has to win over the page-wide font rule, and the key
+    # columns need their double spaces kept.
+    family = ";font-family:'DejaVu Sans Mono',monospace;white-space:pre" if mono else ""
+    space = ' xml:space="preserve"' if mono else ""
     return (
         f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" text-anchor="{anchor}" '
-        f'font-weight="{weight}" style="fill:{color}">{esc(s)}</text>'
+        f'font-weight="{weight}"{space} style="fill:{color}{family}">{esc(s)}</text>'
     )
 
 
 def header(page_no, tabs, subtitle):
-    """Tab strip with the page keys (1-9, 0) and the line how to reach the layer."""
+    """Tab strip of (page key, name) and the line how to reach the layer."""
     out = [f'<rect x="0" y="0" width="{W}" height="58" fill="{C["panel"]}"/>']
     x = 24
-    for n, name in enumerate(tabs, start=1):
-        label = f"{n % 10} {name}"
+    for n, (page_key, name) in enumerate(tabs, start=1):
+        label = f"{page_key} {name}"
         width = 22 + len(label) * 8.6
         active = n == page_no
         if active:
@@ -248,8 +254,12 @@ def header(page_no, tabs, subtitle):
     return out
 
 
-def footer(items, hint="1–9, 0 = Seite · ← → blättern · Esc schließt"):
+HINT = ["1–9, 0 = Seite · ← → blättern · Esc schließt"]
+
+
+def footer(items, hint=None):
     """Legend chips (colour, label) on the left, the key hint on the right."""
+    hint = hint or HINT[0]
     out, x, y = [], 28, H - 26
     for color, label in items:
         out.append(f'<rect x="{x}" y="{y - 12}" width="16" height="16" rx="4" fill="{color[0]}" stroke="{color[1]}"/>')
@@ -342,6 +352,35 @@ def hotkey_page(page_no, tabs, cards):
     return out
 
 
+def cheat_page(page_no, tabs, page):
+    """Shortcut tables of a program: three columns of titled sections."""
+    out = header(page_no, tabs, page["title"])
+    cols = page["columns"]
+    margin, gap, top, bottom = 28, 22, 112, H - 46
+    col_w = (W - 2 * margin - (len(cols) - 1) * gap) / len(cols)
+    row_h, head_h, pad, sect_gap = 20, 32, 10, 10
+    for c, sections in enumerate(cols):
+        x, y = margin + c * (col_w + gap), top
+        for section in sections:
+            rows = section["rows"]
+            key_w = section.get("keyWidth", 150)
+            height = head_h + len(rows) * row_h + pad
+            out.append(f'<rect x="{x:.1f}" y="{y}" width="{col_w:.1f}" height="{height}" rx="12" fill="{C["panel"]}"/>')
+            out.append(text(x + 14, y + 22, section["title"], 14, C["layer"], weight="bold"))
+            for r, (keys, what) in enumerate(rows):
+                # Fail the build instead of drawing over the next column.
+                if len(keys) * 7.9 > key_w - 6 or len(what) * 7.3 > col_w - key_w - 34:
+                    raise SystemExit(f'cheats: row too wide on page "{page["tab"]}": {keys!r} / {what!r}')
+                ry = y + head_h + r * row_h + 13
+                out.append(text(x + 14, ry, keys, 13, C["hold"], mono=True))
+                out.append(text(x + 14 + key_w, ry, what, 13, C["fg"]))
+            y += height + sect_gap
+        if y - sect_gap > bottom:
+            raise SystemExit(f'cheats: column {c + 1} of page "{page["tab"]}" is too long')
+    out += footer([])
+    return out
+
+
 def svg(body):
     return "\n".join(
         [
@@ -362,6 +401,7 @@ def main():
     src, outdir = Path(sys.argv[1]), Path(sys.argv[2])
     outdir.mkdir(parents=True, exist_ok=True)
     d = json.loads(src.read_text())
+    cheats = json.loads(Path(sys.argv[3]).read_text())["pages"] if len(sys.argv) > 3 else []
     names, layers = d["layer_names"], d["layers"]
     rendered = [[binding(b, names) for b in layer] for layer in layers]
 
@@ -459,7 +499,13 @@ def main():
 
     hot_pages = [cards[i:i + 8] for i in range(0, len(cards), 8)]
     layer_names = [n for n in PAGES if n in names]
-    tabs = [TITLES.get(n, n) for n in layer_names] + [f"Hotkeys {i + 1}" for i in range(len(hot_pages))]
+    names_in_order = [TITLES.get(n, n) for n in layer_names] + [f"Hotkeys {i + 1}" for i in range(len(hot_pages))]
+    # Pages 1-10 are reached with 1-9 and 0, cheat pages with their letter.
+    tabs = [(str(n % 10), name) for n, name in enumerate(names_in_order, start=1)]
+    tabs += [(page["key"], page["tab"]) for page in cheats]
+    if cheats:
+        letters = ", ".join(page["key"] for page in cheats)
+        HINT[0] = f"1–9, 0, {letters} = Seite · ← → blättern · Esc schließt"
 
     for no, name in enumerate(layer_names, start=1):
         li = names.index(name)
@@ -473,6 +519,9 @@ def main():
     for i, page in enumerate(hot_pages):
         no = len(layer_names) + i + 1
         (outdir / f"{no:02d}-hotkeys{i + 1}.svg").write_text(svg(hotkey_page(no, tabs, page)))
+    for i, page in enumerate(cheats):
+        no = len(names_in_order) + i + 1
+        (outdir / f"{no:02d}-cheat-{page['key']}.svg").write_text(svg(cheat_page(no, tabs, page)))
 
 
 if __name__ == "__main__":

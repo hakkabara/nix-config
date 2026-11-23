@@ -89,9 +89,6 @@
 
     vmware = {
       enable = true;
-      # TEMPORARY: compare the display topology VMware requests on Windows
-      # unlock with the WorkVM. Turn off again after the capture.
-      debugLogging = true;
       sharedFolders.enable = true;
       waylandClipboard.enable = true;
     };
