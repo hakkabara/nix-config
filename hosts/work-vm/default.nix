@@ -411,6 +411,9 @@
         dms = {
           alwaysOn.enable = true;
 
+          # Wallpaper picker and cycling start in the repo's wallpapers.
+          wallpapers.enable = true;
+
           # VPN status and connect menu in the bar.
           bar.vpnWidget.enable = true;
 

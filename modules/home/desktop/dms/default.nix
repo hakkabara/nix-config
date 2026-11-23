@@ -172,6 +172,54 @@ let
     mv "$tmp_file" "$config_file"
     chmod 600 "$config_file"
   '';
+  # Git-managed wallpapers, same store-backed layout as the Plasma rice
+  # module (one symlink per image, so a changed image gets a new path).
+  wallpaperSource = ../../../../assets/wallpapers;
+  wallpaperDir = "${config.xdg.dataHome}/wallpapers/nix-config";
+
+  # DMS has no separate "wallpaper folder" setting: the wallpaper picker
+  # opens the folder of the current wallpaper, cycling uses its own folder.
+  # Point both at the managed folder, but only where nothing is set yet (or
+  # the chosen file no longer exists), so a selection made in DMS survives.
+  # DMS watches session.json and reloads it while running.
+  applyWallpaperDefaults = pkgs.writeShellScript "dms-apply-wallpaper-defaults" ''
+    session_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/dms"
+    session_file="$session_dir/session.json"
+    tmp_file="$session_file.tmp"
+    default_wallpaper=${lib.escapeShellArg "${wallpaperDir}/${cfg.wallpapers.default}"}
+    wallpaper_dir=${lib.escapeShellArg wallpaperDir}
+
+    mkdir -p "$session_dir"
+
+    if [ -f "$session_file" ]; then
+      ${pkgs.jq}/bin/jq empty "$session_file" >/dev/null 2>&1 || {
+        echo "dms: session.json is not valid JSON, wallpaper defaults skipped" >&2
+        exit 0
+      }
+      current="$(${pkgs.jq}/bin/jq -r '.wallpaperPath // ""' "$session_file")"
+    else
+      echo '{}' > "$session_file"
+      current=""
+    fi
+
+    set_wallpaper=false
+    if [ -z "$current" ] || { [ "''${current#/}" != "$current" ] && [ ! -e "$current" ]; }; then
+      set_wallpaper=true
+    fi
+
+    ${pkgs.jq}/bin/jq \
+      --arg wallpaper "$default_wallpaper" \
+      --arg dir "$wallpaper_dir" \
+      --argjson setWallpaper "$set_wallpaper" \
+      '
+        (if $setWallpaper then .wallpaperPath = $wallpaper else . end)
+        | (if ((.wallpaperCyclingFolderPath // "") == "") then .wallpaperCyclingFolderPath = $dir else . end)
+      ' "$session_file" > "$tmp_file"
+
+    mv "$tmp_file" "$session_file"
+    chmod 600 "$session_file"
+  '';
+
   applyAlwaysOnPolicy = pkgs.writeShellScript "dms-apply-always-on-policy" ''
     config_dir="$HOME/.config/DankMaterialShell"
     config_file="$config_dir/settings.json"
@@ -294,6 +342,20 @@ in
 
     alwaysOn.enable = lib.mkEnableOption "always-on DMS desktop policy";
 
+    wallpapers = {
+      enable = lib.mkEnableOption "Nix-managed DMS wallpaper folder (assets/wallpapers)";
+
+      default = lib.mkOption {
+        type = lib.types.str;
+        default = "kde-neon-rain-4k.png";
+        description = ''
+          File in assets/wallpapers used as wallpaper while DMS has none
+          selected (or the selected file is gone). A choice made in DMS is
+          kept.
+        '';
+      };
+    };
+
     clipboardHistoryPersistence.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -302,7 +364,20 @@ in
   };
 
   config = {
+    assertions = [
+      {
+        assertion =
+          !cfg.wallpapers.enable || builtins.pathExists (wallpaperSource + "/${cfg.wallpapers.default}");
+        message = "hakkabara.desktop.dms.wallpapers.default must name a file in assets/wallpapers.";
+      }
+    ];
+
     xdg.configFile."DankMaterialShell/themes/tokyo-night.json".source = dmsTokyoNightTheme;
+
+    xdg.dataFile."wallpapers/nix-config" = lib.mkIf cfg.wallpapers.enable {
+      source = wallpaperSource;
+      recursive = true;
+    };
 
     home.activation = {
       dmsApplyTokyoNightTheme = lib.hm.dag.entryAfter [
@@ -313,6 +388,12 @@ in
         lib.hm.dag.entryAfter [
           "dmsApplyTokyoNightTheme"
         ] "${applyAlwaysOnPolicy}"
+      );
+
+      dmsApplyWallpaperDefaults = lib.mkIf cfg.wallpapers.enable (
+        lib.hm.dag.entryAfter [
+          "linkGeneration"
+        ] "${applyWallpaperDefaults}"
       );
 
       dmsDisableClipboardHistoryPersistence = lib.mkIf (!cfg.clipboardHistoryPersistence.enable) (

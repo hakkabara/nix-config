@@ -106,6 +106,19 @@ let
     '';
   };
 
+  # Discovery also goes by unicast to every peer (KDE Connect "customDevices",
+  # [General] in the QSettings file ~/.config/kdeconnect/config). The UDP
+  # broadcast may leave through another interface and is then dropped by the
+  # egress chain; without this, a daemon restart (media-privacy) would not
+  # find its peer again until the peer itself restarted.
+  setCustomDevices = pkgs.writeShellScript "kdeconnect-media-custom-devices" ''
+    config_file="''${XDG_CONFIG_HOME:-$HOME/.config}/kdeconnect/config"
+    mkdir -p "$(dirname "$config_file")"
+    touch "$config_file"
+    ${pkgs.crudini}/bin/crudini --ini-options=nospace --set "$config_file" General customDevices \
+      ${lib.escapeShellArg (lib.concatStringsSep ", " (lib.attrValues cfg.network.peers))}
+  '';
+
   ports = "1714:1764";
   egressChain = "kdeconnect-egress";
 
@@ -189,6 +202,7 @@ in
       after = [ "graphical-session.target" ];
       serviceConfig = {
         # --replace takes over an instance started by D-Bus activation.
+        ExecStartPre = "${setCustomDevices}";
         ExecStart = "${package}/bin/kdeconnectd --replace";
         Restart = "on-failure";
         RestartSec = 5;
