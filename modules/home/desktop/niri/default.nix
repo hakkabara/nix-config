@@ -50,6 +50,18 @@ let
     Super+Alt+L hotkey-overlay-title="Lock Session" {
         spawn "dms" "ipc" "call" "lock" "lock";
     }
+
+    // Media and volume keys (Glove80/TailorKey media layer, keyboards).
+    // Niri binds nothing by default. DMS drives the same active MPRIS
+    // player as its bar widget, so keys and widget always agree.
+    XF86AudioPlay allow-when-locked=true { spawn "dms" "ipc" "call" "mpris" "playPause"; }
+    XF86AudioPause allow-when-locked=true { spawn "dms" "ipc" "call" "mpris" "playPause"; }
+    XF86AudioStop allow-when-locked=true { spawn "dms" "ipc" "call" "mpris" "stop"; }
+    XF86AudioNext allow-when-locked=true { spawn "dms" "ipc" "call" "mpris" "next"; }
+    XF86AudioPrev allow-when-locked=true { spawn "dms" "ipc" "call" "mpris" "previous"; }
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "dms" "ipc" "call" "audio" "increment" "3"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "dms" "ipc" "call" "audio" "decrement" "3"; }
+    XF86AudioMute allow-when-locked=true { spawn "dms" "ipc" "call" "audio" "mute"; }
   '';
 in
 {

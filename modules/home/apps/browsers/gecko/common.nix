@@ -210,6 +210,15 @@ in
 
       whatsappProfile.enable = lib.mkEnableOption "dedicated Floorp WhatsApp profile";
 
+      bookmarksBar.autoHide = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Collapse the bookmarks toolbar and reveal it only when the toolbar
+          area is focused or hovered. When false it stays visible.
+        '';
+      };
+
       graphics.xwaylandGlx.enable = lib.mkEnableOption ''
         XWayland/GLX rendering with forced hardware WebRender for Floorp.
         This is useful for virtual GPUs such as VMware SVGA where the

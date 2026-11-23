@@ -13,6 +13,12 @@
   ];
 
   hakkabara = {
+    # `timer 25m …` reminders and local `meeting` notes (~/Notes/meetings).
+    cli.workHelpers = {
+      timer.enable = lib.mkDefault true;
+      meeting.enable = lib.mkDefault true;
+    };
+
     apps = {
       keepassxc.enable = lib.mkDefault true;
       copyq.enable = lib.mkDefault true;
@@ -51,6 +57,9 @@
           profileDisplayName = lib.mkDefault "Work";
           profileId = lib.mkDefault 0;
           whatsappProfile.enable = lib.mkDefault false;
+
+          # Bookmarks toolbar always visible instead of hover-to-reveal.
+          bookmarksBar.autoHide = lib.mkDefault false;
 
           # Native Wayland: under xwayland-satellite, Floorp popups
           # (menus, dropdowns, extension panels) do not take clicks.

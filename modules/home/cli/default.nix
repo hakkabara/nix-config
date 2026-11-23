@@ -11,6 +11,7 @@ in
 {
   imports = [
     ./sshelf.nix
+    ./work-helpers
   ];
 
   options.hakkabara.cli = {

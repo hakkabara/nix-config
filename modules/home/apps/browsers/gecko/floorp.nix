@@ -107,10 +107,10 @@ let
       };
 
       uiCustomization = {
-        # Keep the bookmarks toolbar enabled, but let Floorp
-        # reveal it only when the toolbar area is focused/hovered.
+        # Keep the bookmarks toolbar enabled; with autoHide Floorp
+        # reveals it only when the toolbar area is focused/hovered.
         bookmarkBar = {
-          focusExpand = true;
+          focusExpand = cfg.floorp.bookmarksBar.autoHide;
           position = "top";
         };
 
