@@ -51,7 +51,17 @@
     ../../modules/nixos/accounts/primary.nix
   ];
 
-  networking.hostName = "work-vm";
+  networking = {
+    hostName = "work-vm";
+
+    # Name for the REMnux/LLM VM on the host-only lab network (static there
+    # via netplan), e.g. http://llm.lab.internal:3080 for the DSH web UI.
+    # The NFS mount further down keeps the plain address.
+    hosts."192.168.36.5" = [
+      "llm.lab.internal"
+      "llm"
+    ];
+  };
 
   # Keep the normal NixOS system/package set on 26.05 stable.
   # Only explicitly selected fast-moving packages come from pkgsUnstable.
