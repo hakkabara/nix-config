@@ -58,8 +58,7 @@ start_timer() {
     --description="$message" \
     --timer-property=AccuracySec=1s \
     "${when[@]}" \
-    -- "$(command -v notify-send)" --urgency=critical --app-name=Timer \
-    --icon=alarm-symbolic "Timer" "$message"
+    -- "$(readlink -f "$0")" --fire "$message"
 
   echo "$id  $(next_elapse "$id.timer")  $message"
 }
@@ -90,7 +89,20 @@ stop_timer() {
   fi
 }
 
+# Runs inside the transient service when the timer elapses: notification
+# plus a short, quiet sound (TIMER_SOUND empty = silent).
+fire() {
+  notify-send --urgency=critical --app-name=Timer --icon=alarm-symbolic "Timer" "$1"
+  if [ -n "${TIMER_SOUND:-}" ]; then
+    pw-play --volume="${TIMER_SOUND_VOLUME:-0.3}" "$TIMER_SOUND" || true
+  fi
+}
+
 case "${1:-}" in
+--fire)
+  shift
+  fire "${1:-Timer}"
+  ;;
 "" | -h | --help | help) usage ;;
 list | ls) list_timers ;;
 stop | rm | cancel)
