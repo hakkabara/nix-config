@@ -24,6 +24,8 @@
       copyq.enable = lib.mkDefault true;
       obsidian.enable = lib.mkDefault true;
       signal.enable = lib.mkDefault true;
+      # `tk` / Mod+Shift+T: Glove80 TailorKey layer overview.
+      tailorkey.enable = lib.mkDefault true;
     };
 
     browsers = {
@@ -87,6 +89,26 @@
         enable = lib.mkDefault true;
         # Keep DMS IPC shortcuts in the generated Niri configuration.
         dmsIntegration.enable = lib.mkDefault true;
+
+        # Glove80/TailorKey layer cheat sheet; the same key closes it.
+        extraBinds = lib.mkIf config.hakkabara.apps.tailorkey.enable ''
+          Mod+Shift+T hotkey-overlay-title="TailorKey-Layer" {
+              spawn "tk";
+          }
+        '';
+
+        # The viewer opens floating; its title carries the store path of the
+        # rendered pages, so other imv windows keep the default rules.
+        extraConfig = lib.mkIf config.hakkabara.apps.tailorkey.enable ''
+          window-rule {
+              match app-id=r#"^imv$"# title=r#"tailorkey-layers"#
+
+              open-floating true
+              open-focused true
+              default-column-width { fixed 1400; }
+              default-window-height { fixed 660; }
+          }
+        '';
       };
 
       # Sidebar of the Open/Save dialog (xdg-desktop-portal). Extend the list

@@ -1,0 +1,68 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+
+let
+  cfg = config.hakkabara.apps.tailorkey;
+
+  # One PNG per useful layer plus a combo page, rendered at build time from
+  # the Glove80 Layout Editor export (my.moergo.com). Fonts are pinned so the
+  # sandboxed rsvg-convert finds DejaVu Sans.
+  pages =
+    pkgs.runCommand "tailorkey-layers"
+      {
+        nativeBuildInputs = [
+          pkgs.python3
+          pkgs.librsvg
+        ];
+        FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+      }
+      ''
+        mkdir -p svg "$out"
+        python3 -I ${./render.py} ${cfg.layout} svg
+        for f in svg/*.svg; do
+          name="$(basename "$f" .svg)"
+          rsvg-convert "$f" -o "$out/$name.png"
+        done
+      '';
+
+  # Toggle: a second call closes the viewer again.
+  tk = pkgs.writeShellApplication {
+    name = "tk";
+    runtimeInputs = [
+      pkgs.imv
+      pkgs.procps
+    ];
+    text = ''
+      if pkill -f -- "${pages}/01-"; then
+        exit 0
+      fi
+      exec imv-wayland -s shrink -c 'bind <Escape> quit' ${pages}/*.png
+    '';
+  };
+in
+{
+  options.hakkabara.apps.tailorkey = {
+    enable = lib.mkEnableOption "TailorKey/Glove80 layer cheat sheet (`tk`)";
+
+    layout = lib.mkOption {
+      type = lib.types.path;
+      default = ./layout.json;
+      description = "Glove80 Layout Editor JSON export to render.";
+    };
+
+    package = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      default = pages;
+      description = "Rendered layer pages (PNG), for window rules and tests.";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    home.packages = [ tk ];
+  };
+}

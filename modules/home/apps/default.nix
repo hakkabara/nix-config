@@ -15,5 +15,6 @@
     ./pihole
     ./miniserve
     ./fluxer.nix
+    ./tailorkey
   ];
 }
