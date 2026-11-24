@@ -306,6 +306,193 @@
           }
         ]
       ]
+    },
+    {
+      "key": "w",
+      "tab": "niri",
+      "source": "niri",
+      "rowHeight": 17,
+      "title": "niri: alle Kürzel mit Mod (Super / Windows-Taste) + … · stammen aus der laufenden Config",
+      "columns": [
+        [
+          {
+            "title": "Fokus und Verschieben",
+            "keyWidth": 190,
+            "rows": [
+              ["←↓↑→ / H J K L", "Fokus bewegen", ["Mod+Left", "Mod+Down", "Mod+Up", "Mod+Right", "Mod+H", "Mod+J", "Mod+K", "Mod+L"]],
+              ["Ctrl+←↓↑→ / HJKL", "Fenster / Spalte verschieben", ["Mod+Ctrl+Left", "Mod+Ctrl+Down", "Mod+Ctrl+Up", "Mod+Ctrl+Right", "Mod+Ctrl+H", "Mod+Ctrl+J", "Mod+Ctrl+K", "Mod+Ctrl+L"]],
+              ["Home  End", "Erste / letzte Spalte", ["Mod+Home", "Mod+End"]],
+              ["Ctrl+Home  Ctrl+End", "Spalte ganz links / rechts", ["Mod+Ctrl+Home", "Mod+Ctrl+End"]],
+              ["Shift+←↓↑→ / HJKL", "Fokus auf anderen Monitor", ["Mod+Shift+Left", "Mod+Shift+Down", "Mod+Shift+Up", "Mod+Shift+Right", "Mod+Shift+H", "Mod+Shift+J", "Mod+Shift+K", "Mod+Shift+L"]],
+              ["Shift+Ctrl+←↓↑→ / HJKL", "Spalte auf anderen Monitor", ["Mod+Shift+Ctrl+Left", "Mod+Shift+Ctrl+Down", "Mod+Shift+Ctrl+Up", "Mod+Shift+Ctrl+Right", "Mod+Shift+Ctrl+H", "Mod+Shift+Ctrl+J", "Mod+Shift+Ctrl+K", "Mod+Shift+Ctrl+L"]]
+            ]
+          },
+          {
+            "title": "Workspaces",
+            "keyWidth": 190,
+            "rows": [
+              ["PgDn PgUp / U I", "Workspace runter / hoch", ["Mod+Page_Down", "Mod+Page_Up", "Mod+U", "Mod+I"]],
+              ["Ctrl+PgDn PgUp / U I", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+Page_Down", "Mod+Ctrl+Page_Up", "Mod+Ctrl+U", "Mod+Ctrl+I"]],
+              ["Shift+PgDn PgUp / U I", "Workspace selbst verschieben", ["Mod+Shift+Page_Down", "Mod+Shift+Page_Up", "Mod+Shift+U", "Mod+Shift+I"]],
+              ["1 … 9", "Workspace 1–9", ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5", "Mod+6", "Mod+7", "Mod+8", "Mod+9"]],
+              ["Shift+1 … 9", "Fenster auf Workspace 1–9", ["Mod+Shift+1", "Mod+Shift+2", "Mod+Shift+3", "Mod+Shift+4", "Mod+Shift+5", "Mod+Shift+6", "Mod+Shift+7", "Mod+Shift+8", "Mod+Shift+9"]],
+              ["Ctrl+1 … 9", "Spalte auf Workspace 1–9", ["Mod+Ctrl+1", "Mod+Ctrl+2", "Mod+Ctrl+3", "Mod+Ctrl+4", "Mod+Ctrl+5", "Mod+Ctrl+6", "Mod+Ctrl+7", "Mod+Ctrl+8", "Mod+Ctrl+9"]],
+              ["Mausrad", "Workspace runter / hoch", ["Mod+WheelScrollDown", "Mod+WheelScrollUp"]],
+              ["Ctrl+Mausrad", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+WheelScrollDown", "Mod+Ctrl+WheelScrollUp"]],
+              ["Shift+Mausrad / Rad ←→", "Fokus Spalte links / rechts", ["Mod+Shift+WheelScrollDown", "Mod+Shift+WheelScrollUp", "Mod+WheelScrollRight", "Mod+WheelScrollLeft"]],
+              ["Ctrl+Shift+Mausrad", "Spalte verschieben", ["Mod+Ctrl+Shift+WheelScrollDown", "Mod+Ctrl+Shift+WheelScrollUp", "Mod+Ctrl+WheelScrollRight", "Mod+Ctrl+WheelScrollLeft"]]
+            ]
+          },
+          {
+            "title": "Fenster und System",
+            "keyWidth": 190,
+            "rows": [
+              ["Q", "Fenster schließen", ["Mod+Q"]],
+              ["Tab  O", "Übersicht", ["Mod+Tab", "Mod+O"]],
+              ["V", "Fenster schwebend an / aus", ["Mod+V"]],
+              ["Shift+V", "Fokus schwebend ↔ gekachelt", ["Mod+Shift+V"]],
+              ["W", "Spalte als Tabs anzeigen", ["Mod+W"]],
+              ["Esc", "Kürzel-Sperre für RDP/VM", ["Mod+Escape"]],
+              ["Shift+/", "niri-Kurzhilfe", ["Mod+Shift+Slash"]],
+              ["Shift+E", "niri beenden", ["Mod+Shift+E"]]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Spalten und Größe",
+            "keyWidth": 190,
+            "rows": [
+              ["[  ]", "Fenster zur Nachbarspalte", ["Mod+BracketLeft", "Mod+BracketRight"]],
+              [",  .", "In Spalte holen / lösen", ["Mod+Comma", "Mod+Period"]],
+              ["R  Shift+R", "Spaltenbreite vor / zurück", ["Mod+R", "Mod+Shift+R"]],
+              ["Ctrl+Shift+R", "Fensterhöhe: nächste Stufe", ["Mod+Ctrl+Shift+R"]],
+              ["Ctrl+R", "Fensterhöhe zurücksetzen", ["Mod+Ctrl+R"]],
+              ["F", "Spalte maximieren", ["Mod+F"]],
+              ["Shift+F", "Vollbild", ["Mod+Shift+F"]],
+              ["M", "Fenster bis an die Ränder", ["Mod+M"]],
+              ["Ctrl+F", "Spalte auf freie Breite", ["Mod+Ctrl+F"]],
+              ["C  Ctrl+C", "Spalte / alle zentrieren", ["Mod+C", "Mod+Ctrl+C"]],
+              ["Alt+← →", "Breite −10 % / +10 %", ["Mod+Alt+Left", "Mod+Alt+Right"]],
+              ["Alt+↑ ↓", "Höhe −10 % / +10 %", ["Mod+Alt+Up", "Mod+Alt+Down"]],
+              ["AltGr+←→↑↓", "Dasselbe mit AltGr", ["Mod+Mod5+Left", "Mod+Mod5+Right", "Mod+Mod5+Up", "Mod+Mod5+Down"]],
+              ["AltGr+J K L ;", "Breite− Höhe− Höhe+ Breite+", ["Mod+Mod5+J", "Mod+Mod5+K", "Mod+Mod5+L", "Mod+Mod5+Semicolon"]],
+              ["-  =", "Breite −10 % / +10 %", ["Mod+Minus", "Mod+Equal"]],
+              ["Shift+-  Shift+=", "Höhe −10 % / +10 %", ["Mod+Shift+Minus", "Mod+Shift+Equal"]]
+            ]
+          },
+          {
+            "title": "Medientasten (ohne Mod)",
+            "keyWidth": 190,
+            "rows": [
+              ["Play Stop Next Prev", "Player der Leiste steuern", ["XF86AudioPlay", "XF86AudioPause", "XF86AudioStop", "XF86AudioNext", "XF86AudioPrev"]],
+              ["Vol+ Vol− Mute", "Lautstärke", ["XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute"]]
+            ]
+          },
+          {
+            "title": "Weitere aus der Config",
+            "keyWidth": 190,
+            "auto": "rest"
+          }
+        ],
+        [
+          {
+            "title": "Programme und eigene Kürzel",
+            "keyWidth": 190,
+            "auto": "titled"
+          }
+        ]
+      ]
+    },
+    {
+      "key": "b",
+      "tab": "Befehle",
+      "title": "Eigene Befehle und Kürzel im Terminal",
+      "columns": [
+        [
+          {
+            "title": "Arbeiten",
+            "keyWidth": 200,
+            "rows": [
+              ["timer 25m <text>", "Erinnerung in 25 Minuten"],
+              ["timer at 14:30 <text>", "Erinnerung zur Uhrzeit"],
+              ["timer list", "Laufende Timer"],
+              ["timer stop <id>|all", "Timer abbrechen"],
+              ["meeting <titel>", "Neue Meeting-Notiz öffnen"],
+              ["meeting", "Vorhandene Notiz wählen"],
+              ["meeting -l  -d", "Notizen listen / Ordner"],
+              ["tk", "Diese Übersicht"],
+              ["hacktricks  cyberchef", "Wiki / CyberChef lokal"]
+            ]
+          },
+          {
+            "title": "Monitor und Medien",
+            "keyWidth": 200,
+            "rows": [
+              ["monitor status", "Monitore und Watcher"],
+              ["monitor auto", "Layout erkennen und setzen"],
+              ["monitor choose", "Auswahl-Menü"],
+              ["monitor reroot", "Überlappung beheben"],
+              ["media-privacy toggle", "Titel verbergen an / aus"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "SSH und Netz",
+            "keyWidth": 200,
+            "rows": [
+              ["kssh <host>", "SSH mit Kitty (kitten ssh)"],
+              ["sshelf", "SSH-Hosts als Auswahl"],
+              ["sshelf-import-ssh", "Hosts aus der SSH-Config"],
+              ["myip", "Eigene IP-Adressen"],
+              ["netcheck", "Netz-Schnelltest"],
+              ["ports", "Offene Ports (ss -tulpn)"]
+            ]
+          },
+          {
+            "title": "Nix",
+            "keyWidth": 200,
+            "rows": [
+              ["nix-switch", "System bauen und aktivieren"],
+              ["nix-test", "Testen ohne Boot-Eintrag"],
+              ["nix-check", "Lints und Gates"],
+              ["nix-format", "Nix-Dateien formatieren"],
+              ["nix-status", "Stand von Repo und System"],
+              ["nrs  nrt", "nixos-rebuild switch / test"],
+              ["nfc  nfu", "nix flake check / update"]
+            ]
+          }
+        ],
+        [
+          {
+            "title": "Shell-Kürzel",
+            "keyWidth": 200,
+            "rows": [
+              ["gs ga gc gp", "git status/add/commit/push"],
+              ["gl gd gco gb", "git log/diff/checkout/br."],
+              ["d dc dps dpsa", "docker / compose / ps"],
+              ["dcu dcd dcr dcl", "compose up/down/restart/log"],
+              ["dex  dlog", "docker exec -it / logs -f"],
+              ["ll  la", "Dateiliste (eza)"],
+              ["disk  usage", "Platz: duf / dust"],
+              ["journal", "journalctl -xe"],
+              ["kicat <bild>", "Bild im Terminal zeigen"],
+              ["..  ...  ....", "Ordner hoch: 1 / 2 / 3"]
+            ]
+          },
+          {
+            "title": "Browser",
+            "keyWidth": 200,
+            "rows": [
+              ["@g  @ddg  @yt", "Suche in der Adresszeile"],
+              ["@nix  @np  @no", "Nix-Pakete / NixOS-Optionen"],
+              ["@nw  @aw  @gh", "NixOS-/Arch-Wiki, GitHub"],
+              ["darkreader-settings copy", "Dark-Reader-Import"]
+            ]
+          }
+        ]
+      ]
     }
   ]
 }

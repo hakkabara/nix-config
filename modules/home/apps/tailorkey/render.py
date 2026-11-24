@@ -1,11 +1,14 @@
 """Render a Glove80 Layout Editor (my.moergo.com) export as cheat-sheet pages.
 
-Usage: render.py layout.json OUTDIR [cheats.json]
+Usage: render.py layout.json OUTDIR [cheats.json [niri-config.kdl]]
 Writes NN-<name>.svg: one page per layer in PAGES, then the hotkey pages
 (layer holds, mode switches and combos as small boards, in the style of
 the TailorKey hotkey page: light key = hold, green key = tap), then one
 NN-cheat-<key>.svg per page of cheats.json (shortcut tables of programs;
-<key> is the letter that jumps to the page in the viewer).
+<key> is the letter that jumps to the page in the viewer). A page with
+"source": "niri" is checked against and completed from the niri config: every
+bind a row lists must exist, binds with a hotkey-overlay-title and all
+remaining ones are added on their own, so the page cannot drift.
 """
 
 import html
@@ -241,15 +244,18 @@ def text(x, y, s, size, color, anchor="start", weight="normal", mono=False):
 def header(page_no, tabs, subtitle):
     """Tab strip of (page key, name) and the line how to reach the layer."""
     out = [f'<rect x="0" y="0" width="{W}" height="58" fill="{C["panel"]}"/>']
+    labels = [f"{page_key} {name}" for page_key, name in tabs]
+    # Shrink the strip when more pages are added than fit at full size.
+    full = sum(22 + len(label) * 8.6 + 8 for label in labels) - 8
+    k = min(1.0, (W - 48) / full)
     x = 24
-    for n, (page_key, name) in enumerate(tabs, start=1):
-        label = f"{page_key} {name}"
-        width = 22 + len(label) * 8.6
+    for n, label in enumerate(labels, start=1):
+        width = (22 + len(label) * 8.6) * k
         active = n == page_no
         if active:
             out.append(f'<rect x="{x:.1f}" y="13" width="{width:.1f}" height="32" rx="16" fill="{C["layer"]}"/>')
-        out.append(text(x + width / 2, 34.5, label, 15, C["bg"] if active else C["dim"], "middle", "bold" if active else "normal"))
-        x += width + 8
+        out.append(text(x + width / 2, 29 + 5.5 * k, label, round(15 * k, 1), C["bg"] if active else C["dim"], "middle", "bold" if active else "normal"))
+        x += width + 8 * k
     out.append(text(W / 2, 92, subtitle, 17, C["fg"], "middle"))
     return out
 
@@ -352,13 +358,89 @@ def hotkey_page(page_no, tabs, cards):
     return out
 
 
+NIRI_KEYS = {
+    "Return": "Enter", "Escape": "Esc", "Slash": "/", "Comma": ",", "Period": ".", "Semicolon": ";",
+    "Minus": "-", "Equal": "=", "BracketLeft": "[", "BracketRight": "]", "Page_Down": "PgDn",
+    "Page_Up": "PgUp", "Left": "←", "Right": "→", "Up": "↑", "Down": "↓", "Mod5": "AltGr",
+}
+
+
+def parse_niri_binds(config):
+    """Binds of a niri config: {"Mod+Q": {"title": str or None, "action": str}}."""
+    config = re.sub(r"(?m)^\s*//.*$", "", config)
+    start = re.search(r"(?m)^binds\s*\{", config)
+    if not start:
+        return {}
+    depth, pos = 1, start.end()
+    while depth and pos < len(config):
+        depth += {"{": 1, "}": -1}.get(config[pos], 0)
+        pos += 1
+    block = config[start.end():pos - 1]
+    binds = {}
+    for keys, props, body in re.findall(r'([A-Za-z0-9_+]+)((?:\s+[a-z-]+=(?:"[^"]*"|\S+))*)\s*\{([^{}]*)\}', block):
+        title = re.search(r'hotkey-overlay-title="([^"]*)"', props)
+        binds[keys] = {"title": title.group(1) if title else None, "action": " ".join(body.replace(";", " ").split())}
+    return binds
+
+
+def niri_key(bind):
+    """Display form: the leading Mod+ is dropped (the page title says so)."""
+    parts = bind.split("+")
+    if parts[0] == "Mod" and len(parts) > 1:
+        parts = parts[1:]
+    return "+".join(NIRI_KEYS.get(part, part) for part in parts)
+
+
+def niri_page(page, binds):
+    """Fill a "source": "niri" page from the binds of the running config."""
+    covered = set()
+    for sections in page["columns"]:
+        for section in sections:
+            for row in section.get("rows", []):
+                missing = [b for b in row[2] if b not in binds]
+                if missing:
+                    raise SystemExit(f"cheats: niri page lists binds the config does not have: {', '.join(missing)}")
+                covered.update(row[2])
+    titled, rest = {}, []
+    for bind, info in binds.items():
+        if bind in covered:
+            continue
+        if info["title"]:
+            titled.setdefault(info["title"], []).append(niri_key(bind))
+        else:
+            rest.append([niri_key(bind), info["action"]])
+    auto = {"titled": [[" / ".join(keys), title] for title, keys in titled.items()], "rest": rest}
+    columns = []
+    for sections in page["columns"]:
+        column = []
+        for section in sections:
+            rows = auto[section["auto"]] if "auto" in section else [row[:2] for row in section["rows"]]
+            if rows:
+                # Generated rows are cut to the column instead of failing.
+                column.append({**section, "rows": rows, "cut": "auto" in section})
+        columns.append(column)
+    return {**page, "columns": columns}
+
+
+def with_extra_sections(page):
+    """Append the sections other modules contributed, each to the shortest column."""
+    extra = page.get("extraSections") or []
+    if not extra:
+        return page
+    columns = [list(column) for column in page["columns"]]
+    for section in extra:
+        shortest = min(columns, key=lambda column: sum(len(s.get("rows", [])) + 2 for s in column))
+        shortest.append(section)
+    return {**page, "columns": columns}
+
+
 def cheat_page(page_no, tabs, page):
     """Shortcut tables of a program: three columns of titled sections."""
     out = header(page_no, tabs, page["title"])
     cols = page["columns"]
     margin, gap, top, bottom = 28, 22, 112, H - 46
     col_w = (W - 2 * margin - (len(cols) - 1) * gap) / len(cols)
-    row_h, head_h, pad, sect_gap = 20, 32, 10, 10
+    row_h, head_h, pad, sect_gap = page.get("rowHeight", 20), 32, 10, 10
     for c, sections in enumerate(cols):
         x, y = margin + c * (col_w + gap), top
         for section in sections:
@@ -369,6 +451,9 @@ def cheat_page(page_no, tabs, page):
             out.append(text(x + 14, y + 22, section["title"], 14, C["layer"], weight="bold"))
             for r, (keys, what) in enumerate(rows):
                 # Fail the build instead of drawing over the next column.
+                if section.get("cut"):
+                    keys = keys[: int((key_w - 6) / 7.9)]
+                    what = what[: int((col_w - key_w - 34) / 7.3)]
                 if len(keys) * 7.9 > key_w - 6 or len(what) * 7.3 > col_w - key_w - 34:
                     raise SystemExit(f'cheats: row too wide on page "{page["tab"]}": {keys!r} / {what!r}')
                 ry = y + head_h + r * row_h + 13
@@ -402,6 +487,14 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
     d = json.loads(src.read_text())
     cheats = json.loads(Path(sys.argv[3]).read_text())["pages"] if len(sys.argv) > 3 else []
+    # Pages built from a config are left out when that config is not given.
+    niri_binds = parse_niri_binds(Path(sys.argv[4]).read_text()) if len(sys.argv) > 4 else {}
+    cheats = [with_extra_sections(page) for page in cheats]
+    cheats = [
+        niri_page(page, niri_binds) if page.get("source") == "niri" else page
+        for page in cheats
+        if page.get("source") != "niri" or niri_binds
+    ]
     names, layers = d["layer_names"], d["layers"]
     rendered = [[binding(b, names) for b in layer] for layer in layers]
 

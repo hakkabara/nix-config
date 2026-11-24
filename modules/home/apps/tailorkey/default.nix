@@ -8,10 +8,24 @@
 let
   cfg = config.hakkabara.apps.tailorkey;
 
+  # The cheats file plus the sections other modules add to its pages.
+  cheats = pkgs.writeText "tailorkey-cheats.json" (
+    builtins.toJSON {
+      pages = map (
+        page:
+        page
+        // lib.optionalAttrs (cfg.extraSections ? ${page.key}) {
+          extraSections = cfg.extraSections.${page.key};
+        }
+      ) (builtins.fromJSON (builtins.readFile cfg.cheats)).pages;
+    }
+  );
+
   # One PNG per useful layer plus the combo pages, rendered at build time from
   # the Glove80 Layout Editor export (my.moergo.com), followed by one page per
-  # program in the cheats file (Vim, LazyVim, lnav). Fonts are pinned so the
-  # sandboxed rsvg-convert finds DejaVu Sans.
+  # program in the cheats file (Vim, LazyVim, lnav, niri). The niri page is
+  # built from the generated niri config, so own binds show up by themselves.
+  # Fonts are pinned so the sandboxed rsvg-convert finds DejaVu Sans.
   pages =
     pkgs.runCommand "tailorkey-layers"
       {
@@ -23,7 +37,9 @@ let
       }
       ''
         mkdir -p svg "$out"
-        python3 -I ${./render.py} ${cfg.layout} svg ${cfg.cheats}
+        python3 -I ${./render.py} ${cfg.layout} svg ${cheats} ${
+          lib.optionalString (cfg.niriConfig != null) cfg.niriConfig
+        }
         for f in svg/*.svg; do
           name="$(basename "$f" .svg)"
           rsvg-convert "$f" -o "$out/$name.png"
@@ -76,6 +92,44 @@ in
       description = ''
         Shortcut tables of programs, one page each after the layer pages.
         `key` is the letter that jumps to the page.
+      '';
+    };
+
+    extraSections = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf (lib.types.attrsOf lib.types.anything));
+      default = { };
+      example = {
+        b = [
+          {
+            title = "Intern";
+            keyWidth = 200;
+            rows = [
+              [
+                "vpn-up"
+                "VPN verbinden"
+              ]
+            ];
+          }
+        ];
+      };
+      description = ''
+        Sections other modules add to a page of the cheats file, by the
+        page's key (for example `b`, the page of own commands). Each goes to
+        the shortest column.
+      '';
+    };
+
+    niriConfig = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default =
+        let
+          text = (config.xdg.configFile."niri/config.kdl" or { }).text or null;
+        in
+        if text == null then null else pkgs.writeText "niri-config.kdl" text;
+      defaultText = lib.literalExpression "the generated ~/.config/niri/config.kdl, if any";
+      description = ''
+        niri config whose binds fill the niri page; without it that page is
+        left out.
       '';
     };
 
