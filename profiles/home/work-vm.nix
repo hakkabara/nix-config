@@ -89,6 +89,8 @@
         enable = lib.mkDefault true;
         # Keep DMS IPC shortcuts in the generated Niri configuration.
         dmsIntegration.enable = lib.mkDefault true;
+        # Borders follow the wallpaper palette whenever the shell does.
+        dmsIntegration.matugenColors = lib.mkDefault (config.hakkabara.desktop.dms.theme == "dynamic");
 
         # Two monitors side by side: the window under the pointer has the
         # focus as in i3, and Mod+Left/Right walk from one monitor to the

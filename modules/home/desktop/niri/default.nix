@@ -95,6 +95,12 @@ in
 
     dmsIntegration.enable = lib.mkEnableOption "DankMaterialShell IPC key bindings";
 
+    dmsIntegration.matugenColors = lib.mkEnableOption ''
+      border, tab and hint colors from the palette DMS renders with Matugen
+      (~/.config/niri/dms/colors.kdl). The Tokyo Night colors of this module
+      stay in effect while that file does not exist
+    '';
+
     focusFollowsMouse = {
       enable = lib.mkEnableOption "focusing the window under the pointer without a click (as in i3)";
 
@@ -534,6 +540,11 @@ in
       }
 
       ${cfg.extraConfig}
+      ${lib.optionalString cfg.dmsIntegration.matugenColors ''
+        // Last, so it overrides the Tokyo Night colors above. Optional: the
+        // file only exists once DMS has rendered a palette.
+        include optional=true "dms/colors.kdl"
+      ''}
     '';
   };
 }

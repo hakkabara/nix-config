@@ -45,6 +45,10 @@ let
       )
   '';
 
+  # DMS theme id: "custom" loads customThemeFile (Tokyo Night), "dynamic"
+  # lets DMS derive the palette from the current wallpaper with Matugen.
+  dmsThemeName = if cfg.theme == "dynamic" then "dynamic" else "custom";
+
   dmsTokyoNightTheme = pkgs.writeText "dms-tokyo-night.json" (
     builtins.toJSON {
       dark = {
@@ -82,6 +86,10 @@ let
     }
   );
 
+  dankGtkImport = ''
+    @import url("dank-colors.css");
+  '';
+
   barFollow = pkgs.writeShellApplication {
     name = "dms-bar-follow";
     runtimeInputs = [
@@ -105,7 +113,7 @@ let
         --argjson ccWidgetOverrides '${builtins.toJSON cfg.controlCenter.widgets}' \
         --argjson vpnWidget ${lib.boolToString cfg.bar.vpnWidget.enable} \
         '
-          .currentThemeName = "custom"
+          .currentThemeName = "${dmsThemeName}"
           | .customThemeFile = $theme
           | .cornerRadius = 12
           | .animationSpeed = 1
@@ -157,7 +165,7 @@ let
         --arg theme "$HOME/.config/DankMaterialShell/themes/tokyo-night.json" \
         --argjson ccWidgetOverrides '${builtins.toJSON cfg.controlCenter.widgets}' \
         '{
-          currentThemeName: "custom",
+          currentThemeName: "${dmsThemeName}",
           customThemeFile: $theme,
           cornerRadius: 12,
           animationSpeed: 1,
@@ -278,6 +286,22 @@ let
 in
 {
   options.hakkabara.desktop.dms = {
+    theme = lib.mkOption {
+      type = lib.types.enum [
+        "tokyo-night"
+        "dynamic"
+      ];
+      default = "tokyo-night";
+      description = ''
+        Color source of the shell. "tokyo-night" is the fixed Tokyo Night
+        theme. "dynamic" follows the wallpaper: DMS runs Matugen on every
+        wallpaper change and renders its templates, of which Kitty
+        (~/.config/kitty/dank-theme.conf) and GTK
+        (~/.config/gtk-{3,4}.0/dank-colors.css) are wired up here. Programs
+        without a template keep their Tokyo Night colors.
+      '';
+    };
+
     bar.mainOutputOnly = {
       enable = lib.mkEnableOption ''
         a mirrored DMS bar on secondary monitors without the listed widgets.
@@ -396,7 +420,31 @@ in
       }
     ];
 
-    xdg.configFile."DankMaterialShell/themes/tokyo-night.json".source = dmsTokyoNightTheme;
+    xdg.configFile = {
+      "DankMaterialShell/themes/tokyo-night.json".source = dmsTokyoNightTheme;
+    }
+    // lib.optionalAttrs (cfg.theme == "dynamic") {
+      # adw-gtk3 and libadwaita take their palette from named colors; DMS
+      # writes them next to these files. force: DMS or the user may have
+      # left a gtk.css behind, which would otherwise stop the activation.
+      "gtk-3.0/gtk.css" = {
+        text = dankGtkImport;
+        force = true;
+      };
+      "gtk-4.0/gtk.css" = {
+        text = dankGtkImport;
+        force = true;
+      };
+    };
+
+    # Loaded after the Tokyo Night theme file, so Tokyo Night stays the
+    # fallback until DMS has written a palette. Kitty skips a missing include
+    # and reloads on the SIGUSR1 that DMS sends after each change.
+    programs.kitty.extraConfig = lib.mkIf (cfg.theme == "dynamic") (
+      lib.mkAfter ''
+        include dank-theme.conf
+      ''
+    );
 
     xdg.dataFile."wallpapers/nix-config" = lib.mkIf cfg.wallpapers.enable {
       source = wallpaperSource;

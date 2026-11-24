@@ -431,6 +431,10 @@
         dms = {
           alwaysOn.enable = true;
 
+          # Colors follow the wallpaper (Matugen): shell, Kitty, GTK and, via
+          # the work-vm profile, the niri borders.
+          theme = "dynamic";
+
           # Wallpaper picker and cycling start in the repo's wallpapers.
           wallpapers.enable = true;
 
