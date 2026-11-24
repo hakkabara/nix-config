@@ -38,6 +38,7 @@
     ../../modules/nixos/desktop/managed-bookmarks.nix
     # Enabled with the CA secret in nix-internal.
     ../../modules/nixos/desktop/internal-ca.nix
+    ../../modules/nixos/desktop/managed-site-search.nix
 
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix
@@ -128,6 +129,9 @@
         key = "mko-password-hash";
       };
     };
+
+    # Chrome and Chromium get the Firefox/Floorp search shortcuts (@vt, @sh, ...).
+    browsers.managedSiteSearch.enable = true;
 
     # Workstation VM policy: never suspend/hibernate independently.
     workstationVm.enable = true;

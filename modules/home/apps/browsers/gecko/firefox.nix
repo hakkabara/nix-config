@@ -117,7 +117,7 @@ in
 
       settings = browserSettings;
 
-      search = import ./search.nix;
+      search = import ./search.nix { inherit (lib.trivial) release; };
     };
   };
 }

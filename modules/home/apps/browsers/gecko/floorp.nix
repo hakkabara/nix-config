@@ -507,7 +507,7 @@ in
         shared.profileSettings // bookmarkProfileSettings // floorpSettings // xwaylandGlxSettings
       ) cfg.overrides.floorp.settings;
 
-      search = import ./search.nix;
+      search = import ./search.nix { inherit (lib.trivial) release; };
     };
 
     # Dedicated single-purpose Floorp profile for WhatsApp.
