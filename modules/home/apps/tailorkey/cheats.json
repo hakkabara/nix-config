@@ -319,13 +319,14 @@
             "title": "Fokus und Verschieben",
             "keyWidth": 190,
             "rows": [
-              ["←↓↑→ / H J K L", "Fokus bewegen", ["Mod+Left", "Mod+Down", "Mod+Up", "Mod+Right", "Mod+H", "Mod+J", "Mod+K", "Mod+L"]],
+              ["←↓↑→ / H J K L", "Fokus (←→ am Rand: Monitor)", ["Mod+Left", "Mod+Down", "Mod+Up", "Mod+Right", "Mod+H", "Mod+J", "Mod+K", "Mod+L"]],
               ["Ctrl+←→ / H L", "Spalte nach links / rechts", ["Mod+Ctrl+Left", "Mod+Ctrl+Right", "Mod+Ctrl+H", "Mod+Ctrl+L"]],
               ["Ctrl+↑↓ / K J", "Fenster im Stapel ↑ / ↓", ["Mod+Ctrl+Up", "Mod+Ctrl+Down", "Mod+Ctrl+K", "Mod+Ctrl+J"]],
               ["Home  End", "Erste / letzte Spalte", ["Mod+Home", "Mod+End"]],
               ["Ctrl+Home  Ctrl+End", "Spalte ganz links / rechts", ["Mod+Ctrl+Home", "Mod+Ctrl+End"]],
               ["Maus links ziehen", "Fenster verschieben", []],
-              ["Maus rechts ziehen", "Fenstergröße ändern", []]
+              ["Maus rechts ziehen", "Fenstergröße ändern", []],
+              ["Maus aufs Fenster", "Fokus ohne Klick", []]
             ]
           },
           {

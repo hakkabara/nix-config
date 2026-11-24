@@ -90,6 +90,14 @@
         # Keep DMS IPC shortcuts in the generated Niri configuration.
         dmsIntegration.enable = lib.mkDefault true;
 
+        # Two monitors side by side: the window under the pointer has the
+        # focus as in i3, and Mod+Left/Right walk from one monitor to the
+        # other. The pointer follows a keyboard focus change, otherwise it
+        # would pull the focus back to where it still is.
+        focusFollowsMouse.enable = lib.mkDefault true;
+        warpMouseToFocus = lib.mkDefault true;
+        focusAcrossMonitors = lib.mkDefault true;
+
         # Glove80/TailorKey layer cheat sheet; the same key closes it.
         extraBinds = lib.mkIf config.hakkabara.apps.tailorkey.enable ''
           Mod+Shift+T hotkey-overlay-title="TailorKey-Layer" {

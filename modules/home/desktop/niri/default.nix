@@ -16,6 +16,19 @@ let
     else
       ''"floorp"'';
 
+  # Left/right focus: stop at the first/last column, or go on to the monitor
+  # on that side.
+  focusLeft = if cfg.focusAcrossMonitors then "focus-column-or-monitor-left" else "focus-column-left";
+  focusRight =
+    if cfg.focusAcrossMonitors then "focus-column-or-monitor-right" else "focus-column-right";
+
+  inputConfig = lib.optionalString (cfg.focusFollowsMouse.enable || cfg.warpMouseToFocus) ''
+    input {
+        ${lib.optionalString cfg.focusFollowsMouse.enable ''focus-follows-mouse max-scroll-amount="${cfg.focusFollowsMouse.maxScrollAmount}"''}
+        ${lib.optionalString cfg.warpMouseToFocus "warp-mouse-to-focus"}
+    }
+  '';
+
   dmsBinds = lib.optionalString cfg.dmsIntegration.enable ''
     // DankMaterialShell IPC integration.
     //
@@ -82,6 +95,33 @@ in
 
     dmsIntegration.enable = lib.mkEnableOption "DankMaterialShell IPC key bindings";
 
+    focusFollowsMouse = {
+      enable = lib.mkEnableOption "focusing the window under the pointer without a click (as in i3)";
+
+      maxScrollAmount = lib.mkOption {
+        type = lib.types.str;
+        default = "0%";
+        example = "25%";
+        description = ''
+          How far the view may scroll to bring a hovered window fully into
+          view. With "0%" only windows that are already fully visible take
+          the focus, so brushing a half-hidden column at the screen edge
+          does not move the view.
+        '';
+      };
+    };
+
+    warpMouseToFocus = lib.mkEnableOption ''
+      moving the pointer into the window that takes the focus from the
+      keyboard. With focusFollowsMouse the pointer otherwise stays on the old
+      window or monitor and takes the focus back at its next movement
+    '';
+
+    focusAcrossMonitors = lib.mkEnableOption ''
+      going on to the next monitor when the focus is moved left or right
+      (Mod+Left/Right, Mod+H/L) past the first or last column
+    '';
+
     extraBinds = lib.mkOption {
       type = lib.types.lines;
       default = "";
@@ -134,6 +174,8 @@ in
       // Do not edit ~/.config/niri/config.kdl manually.
 
       prefer-no-csd
+
+      ${inputConfig}
 
       // Compact desktop cursor.
       cursor {
@@ -304,15 +346,15 @@ in
           Mod+Q repeat=false { close-window; }
 
           // Focus: arrows and Vim-style H/J/K/L.
-          Mod+Left  { focus-column-left; }
+          Mod+Left  { ${focusLeft}; }
           Mod+Down  { focus-window-down; }
           Mod+Up    { focus-window-up; }
-          Mod+Right { focus-column-right; }
+          Mod+Right { ${focusRight}; }
 
-          Mod+H { focus-column-left; }
+          Mod+H { ${focusLeft}; }
           Mod+J { focus-window-down; }
           Mod+K { focus-window-up; }
-          Mod+L { focus-column-right; }
+          Mod+L { ${focusRight}; }
 
           // Move windows/columns.
           Mod+Ctrl+Left  { move-column-left; }
