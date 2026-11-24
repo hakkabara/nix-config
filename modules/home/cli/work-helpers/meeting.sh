@@ -85,7 +85,8 @@ end:
 
 # $title
 
-**Teilnehmer:** ${MEETING_ATTENDEE:-}
+**Teilnehmer:**
+${MEETING_ATTENDEE:-}
 
 **Agenda:**
 
