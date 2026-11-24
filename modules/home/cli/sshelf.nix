@@ -16,6 +16,8 @@ let
 
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.gnugrep
+      pkgs.gnused
       pkgs.python3
       sshelfPackage
     ];
@@ -146,6 +148,17 @@ let
             XDG_CONFIG_HOME="$real_xdg_config_home" \
             XDG_DATA_HOME="$real_xdg_data_home" \
               sshelf import "$@"
+
+            # sshelf stores ~/... identity files as absolute paths, and ~ was
+            # the temporary home during the import. Point them back at the
+            # real home; this also repairs hosts of earlier imports.
+            hosts_file="$real_xdg_config_home/sshelf/hosts.toml"
+
+            if [ "$#" -eq 0 ] && [ -f "$hosts_file" ] &&
+              grep -q '/tmp/sshelf-import\.[A-Za-z0-9]*/' "$hosts_file"; then
+              sed -i "s|/tmp/sshelf-import\.[A-Za-z0-9]*/|$real_home/|g" "$hosts_file"
+              echo "PASS: identity file paths point at $real_home"
+            fi
     '';
   };
 
