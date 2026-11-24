@@ -1,5 +1,9 @@
 # meeting – create or reopen local meeting notes (Markdown, one file each).
 # Notes stay on the WorkVM (customer content), not in the personal vault.
+#
+# When the editor closes and the note has changed, an empty "end:" field in
+# the front matter is set to the current time and the whole note is copied
+# to the clipboard. An end time typed by hand is kept.
 
 notes_dir="${MEETING_NOTES_DIR:?}"
 
@@ -10,11 +14,42 @@ Usage:
   meeting              pick an existing note (newest first) and open it
   meeting -l           list notes, newest first
   meeting -d           print the notes directory
+
+After the editor closes, a changed note gets its end time (unless "end:" is
+already filled in) and is copied to the clipboard.
 USAGE
 }
 
+# Fill an empty "end:" in the front matter. The time alone, or date and time
+# when the note is closed on another day than its "date:".
+set_end() {
+  local file="$1" day end
+  day="$(sed -n '2,/^---$/ s/^date:[[:space:]]*//p' "$file" | head -n1)"
+  end="$(date +%H:%M)"
+  if [ -n "$day" ] && [ "$day" != "$(date +%Y-%m-%d)" ]; then
+    end="$(date '+%Y-%m-%d %H:%M')"
+  fi
+  sed -i "2,/^---\$/ s/^end:[[:space:]]*\$/end: $end/" "$file"
+}
+
+copy_note() {
+  if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    echo "meeting: no Wayland session, note not copied to the clipboard" >&2
+    return 0
+  fi
+  wl-copy --type text/plain <"$1"
+  echo "meeting: note copied to the clipboard"
+}
+
+# Closing the editor without a change neither stamps nor copies the note.
 open_note() {
-  exec "${EDITOR:-vi}" "$1"
+  local file="$1" before
+  before="$(sha256sum <"$file")"
+  "${EDITOR:-vi}" "$file"
+  [ -e "$file" ] || return 0
+  [ "$(sha256sum <"$file")" != "$before" ] || return 0
+  set_end "$file"
+  copy_note "$file"
 }
 
 list_notes() {
@@ -45,11 +80,12 @@ case "${1:-}" in
 title: "$title"
 date: $(date +%Y-%m-%d)
 start: $(date +%H:%M)
+end:
 ---
 
 # $title
 
-**Teilnehmer:**
+**Teilnehmer:** ${MEETING_ATTENDEE:-}
 
 **Agenda:**
 

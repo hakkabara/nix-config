@@ -33,8 +33,12 @@ let
       pkgs.gnused
       pkgs.fzf
       pkgs.bat
+      pkgs.wl-clipboard
     ];
-    runtimeEnv.MEETING_NOTES_DIR = cfg.meeting.directory;
+    runtimeEnv = {
+      MEETING_NOTES_DIR = cfg.meeting.directory;
+      MEETING_ATTENDEE = cfg.meeting.attendee;
+    };
     text = builtins.readFile ./meeting.sh;
   };
 in
@@ -73,6 +77,14 @@ in
         default = "${config.home.homeDirectory}/Notes/meetings";
         defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/Notes/meetings"'';
         description = "Directory that holds the meeting notes.";
+      };
+
+      attendee = lib.mkOption {
+        type = lib.types.str;
+        default = config.home.username;
+        defaultText = lib.literalExpression "config.home.username";
+        example = "";
+        description = "Name a new note starts its attendee list with; empty for none.";
       };
     };
   };
