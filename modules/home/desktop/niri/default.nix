@@ -29,6 +29,14 @@ let
     }
   '';
 
+  gesturesConfig = lib.optionalString (!cfg.hotCorners.enable) ''
+    gestures {
+        hot-corners {
+            off
+        }
+    }
+  '';
+
   dmsBinds = lib.optionalString cfg.dmsIntegration.enable ''
     // DankMaterialShell IPC integration.
     //
@@ -123,6 +131,16 @@ in
       window or monitor and takes the focus back at its next movement
     '';
 
+    hotCorners.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Whether pushing the pointer into the top-left corner of a monitor
+        opens the overview (niri default). The overview stays reachable
+        through its key bindings when this is off.
+      '';
+    };
+
     focusAcrossMonitors = lib.mkEnableOption ''
       going on to the next monitor when the focus is moved left or right
       (Mod+Left/Right, Mod+H/L) past the first or last column
@@ -182,6 +200,7 @@ in
       prefer-no-csd
 
       ${inputConfig}
+      ${gesturesConfig}
 
       // Compact desktop cursor.
       cursor {

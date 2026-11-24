@@ -100,6 +100,10 @@
         warpMouseToFocus = lib.mkDefault true;
         focusAcrossMonitors = lib.mkDefault true;
 
+        # With hover focus the pointer is in the top-left corner often
+        # enough to open the overview by accident; Mod+Tab and Mod+O stay.
+        hotCorners.enable = lib.mkDefault false;
+
         # Glove80/TailorKey layer cheat sheet; the same key closes it.
         extraBinds = lib.mkIf config.hakkabara.apps.tailorkey.enable ''
           Mod+Shift+T hotkey-overlay-title="TailorKey-Layer" {
