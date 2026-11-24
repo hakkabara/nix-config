@@ -320,41 +320,44 @@
             "keyWidth": 190,
             "rows": [
               ["←↓↑→ / H J K L", "Fokus bewegen", ["Mod+Left", "Mod+Down", "Mod+Up", "Mod+Right", "Mod+H", "Mod+J", "Mod+K", "Mod+L"]],
-              ["Ctrl+←↓↑→ / HJKL", "Fenster / Spalte verschieben", ["Mod+Ctrl+Left", "Mod+Ctrl+Down", "Mod+Ctrl+Up", "Mod+Ctrl+Right", "Mod+Ctrl+H", "Mod+Ctrl+J", "Mod+Ctrl+K", "Mod+Ctrl+L"]],
+              ["Ctrl+←→ / H L", "Spalte nach links / rechts", ["Mod+Ctrl+Left", "Mod+Ctrl+Right", "Mod+Ctrl+H", "Mod+Ctrl+L"]],
+              ["Ctrl+↑↓ / K J", "Fenster im Stapel ↑ / ↓", ["Mod+Ctrl+Up", "Mod+Ctrl+Down", "Mod+Ctrl+K", "Mod+Ctrl+J"]],
               ["Home  End", "Erste / letzte Spalte", ["Mod+Home", "Mod+End"]],
               ["Ctrl+Home  Ctrl+End", "Spalte ganz links / rechts", ["Mod+Ctrl+Home", "Mod+Ctrl+End"]],
+              ["Maus links ziehen", "Fenster verschieben", []],
+              ["Maus rechts ziehen", "Fenstergröße ändern", []]
+            ]
+          },
+          {
+            "title": "Monitore",
+            "keyWidth": 190,
+            "rows": [
               ["Shift+←↓↑→ / HJKL", "Fokus auf anderen Monitor", ["Mod+Shift+Left", "Mod+Shift+Down", "Mod+Shift+Up", "Mod+Shift+Right", "Mod+Shift+H", "Mod+Shift+J", "Mod+Shift+K", "Mod+Shift+L"]],
-              ["Shift+Ctrl+←↓↑→ / HJKL", "Spalte auf anderen Monitor", ["Mod+Shift+Ctrl+Left", "Mod+Shift+Ctrl+Down", "Mod+Shift+Ctrl+Up", "Mod+Shift+Ctrl+Right", "Mod+Shift+Ctrl+H", "Mod+Shift+Ctrl+J", "Mod+Shift+Ctrl+K", "Mod+Shift+Ctrl+L"]]
+              ["Shift+Ctrl+←↓↑→ / HJKL", "Fenster/Spalte auf Monitor", ["Mod+Shift+Ctrl+Left", "Mod+Shift+Ctrl+Down", "Mod+Shift+Ctrl+Up", "Mod+Shift+Ctrl+Right", "Mod+Shift+Ctrl+H", "Mod+Shift+Ctrl+J", "Mod+Shift+Ctrl+K", "Mod+Shift+Ctrl+L"]],
+              ["Tab, dann ziehen", "In Übersicht auf Monitor", []]
             ]
           },
           {
-            "title": "Workspaces",
+            "title": "Stapeln und Tabs",
             "keyWidth": 190,
             "rows": [
-              ["PgDn PgUp / U I", "Workspace runter / hoch", ["Mod+Page_Down", "Mod+Page_Up", "Mod+U", "Mod+I"]],
-              ["Ctrl+PgDn PgUp / U I", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+Page_Down", "Mod+Ctrl+Page_Up", "Mod+Ctrl+U", "Mod+Ctrl+I"]],
-              ["Shift+PgDn PgUp / U I", "Workspace selbst verschieben", ["Mod+Shift+Page_Down", "Mod+Shift+Page_Up", "Mod+Shift+U", "Mod+Shift+I"]],
-              ["1 … 9", "Workspace 1–9", ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5", "Mod+6", "Mod+7", "Mod+8", "Mod+9"]],
-              ["Shift+1 … 9", "Fenster auf Workspace 1–9", ["Mod+Shift+1", "Mod+Shift+2", "Mod+Shift+3", "Mod+Shift+4", "Mod+Shift+5", "Mod+Shift+6", "Mod+Shift+7", "Mod+Shift+8", "Mod+Shift+9"]],
-              ["Ctrl+1 … 9", "Spalte auf Workspace 1–9", ["Mod+Ctrl+1", "Mod+Ctrl+2", "Mod+Ctrl+3", "Mod+Ctrl+4", "Mod+Ctrl+5", "Mod+Ctrl+6", "Mod+Ctrl+7", "Mod+Ctrl+8", "Mod+Ctrl+9"]],
-              ["Mausrad", "Workspace runter / hoch", ["Mod+WheelScrollDown", "Mod+WheelScrollUp"]],
-              ["Ctrl+Mausrad", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+WheelScrollDown", "Mod+Ctrl+WheelScrollUp"]],
-              ["Shift+Mausrad / Rad ←→", "Fokus Spalte links / rechts", ["Mod+Shift+WheelScrollDown", "Mod+Shift+WheelScrollUp", "Mod+WheelScrollRight", "Mod+WheelScrollLeft"]],
-              ["Ctrl+Shift+Mausrad", "Spalte verschieben", ["Mod+Ctrl+Shift+WheelScrollDown", "Mod+Ctrl+Shift+WheelScrollUp", "Mod+Ctrl+WheelScrollRight", "Mod+Ctrl+WheelScrollLeft"]]
+              ["[  ]", "Fenster in Nachbarspalte", []],
+              [",", "Rechtes Fenster dazustapeln", []],
+              [".", "Fenster aus Stapel lösen", []],
+              ["W", "Stapel als Tabs an / aus", []],
+              ["↑↓ / K J", "Im Stapel / Tabs wechseln", []],
+              ["Ctrl+↑↓ / K J", "Im Stapel umsortieren", []]
             ]
           },
           {
-            "title": "Fenster und System",
+            "title": "Ohne Mod",
             "keyWidth": 190,
             "rows": [
-              ["Q", "Fenster schließen", ["Mod+Q"]],
-              ["Tab  O", "Übersicht", ["Mod+Tab", "Mod+O"]],
-              ["V", "Fenster schwebend an / aus", ["Mod+V"]],
-              ["Shift+V", "Fokus schwebend ↔ gekachelt", ["Mod+Shift+V"]],
-              ["W", "Spalte als Tabs anzeigen", ["Mod+W"]],
-              ["Esc", "Kürzel-Sperre für RDP/VM", ["Mod+Escape"]],
-              ["Shift+/", "niri-Kurzhilfe", ["Mod+Shift+Slash"]],
-              ["Shift+E", "niri beenden", ["Mod+Shift+E"]]
+              ["Alt+Tab", "Zuletzt benutzte Fenster", []],
+              ["Alt+Shift+Tab", "Dasselbe rückwärts", []],
+              ["Alt+`", "Fenster derselben App", []],
+              ["Play Stop Next Prev", "Player der Leiste steuern", ["XF86AudioPlay", "XF86AudioPause", "XF86AudioStop", "XF86AudioNext", "XF86AudioPrev"]],
+              ["Vol+ Vol− Mute", "Lautstärke", ["XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute"]]
             ]
           }
         ],
@@ -382,11 +385,17 @@
             ]
           },
           {
-            "title": "Medientasten (ohne Mod)",
+            "title": "Fenster und System",
             "keyWidth": 190,
             "rows": [
-              ["Play Stop Next Prev", "Player der Leiste steuern", ["XF86AudioPlay", "XF86AudioPause", "XF86AudioStop", "XF86AudioNext", "XF86AudioPrev"]],
-              ["Vol+ Vol− Mute", "Lautstärke", ["XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute"]]
+              ["Q", "Fenster schließen", ["Mod+Q"]],
+              ["Tab  O", "Übersicht", ["Mod+Tab", "Mod+O"]],
+              ["V", "Fenster schwebend an / aus", ["Mod+V"]],
+              ["Shift+V", "Fokus schwebend ↔ gekachelt", ["Mod+Shift+V"]],
+              ["W", "Spalte als Tabs anzeigen", ["Mod+W"]],
+              ["Esc", "Kürzel-Sperre für RDP/VM", ["Mod+Escape"]],
+              ["Shift+/", "niri-Kurzhilfe", ["Mod+Shift+Slash"]],
+              ["Shift+E", "niri beenden", ["Mod+Shift+E"]]
             ]
           },
           {
@@ -396,6 +405,22 @@
           }
         ],
         [
+          {
+            "title": "Workspaces",
+            "keyWidth": 190,
+            "rows": [
+              ["PgDn PgUp / U I", "Workspace runter / hoch", ["Mod+Page_Down", "Mod+Page_Up", "Mod+U", "Mod+I"]],
+              ["Ctrl+PgDn PgUp / U I", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+Page_Down", "Mod+Ctrl+Page_Up", "Mod+Ctrl+U", "Mod+Ctrl+I"]],
+              ["Shift+PgDn PgUp / U I", "Workspace selbst verschieben", ["Mod+Shift+Page_Down", "Mod+Shift+Page_Up", "Mod+Shift+U", "Mod+Shift+I"]],
+              ["1 … 9", "Workspace 1–9", ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5", "Mod+6", "Mod+7", "Mod+8", "Mod+9"]],
+              ["Shift+1 … 9", "Fenster auf Workspace 1–9", ["Mod+Shift+1", "Mod+Shift+2", "Mod+Shift+3", "Mod+Shift+4", "Mod+Shift+5", "Mod+Shift+6", "Mod+Shift+7", "Mod+Shift+8", "Mod+Shift+9"]],
+              ["Ctrl+1 … 9", "Spalte auf Workspace 1–9", ["Mod+Ctrl+1", "Mod+Ctrl+2", "Mod+Ctrl+3", "Mod+Ctrl+4", "Mod+Ctrl+5", "Mod+Ctrl+6", "Mod+Ctrl+7", "Mod+Ctrl+8", "Mod+Ctrl+9"]],
+              ["Mausrad", "Workspace runter / hoch", ["Mod+WheelScrollDown", "Mod+WheelScrollUp"]],
+              ["Ctrl+Mausrad", "Spalte auf Workspace ↓ / ↑", ["Mod+Ctrl+WheelScrollDown", "Mod+Ctrl+WheelScrollUp"]],
+              ["Shift+Mausrad / Rad ←→", "Fokus Spalte links / rechts", ["Mod+Shift+WheelScrollDown", "Mod+Shift+WheelScrollUp", "Mod+WheelScrollRight", "Mod+WheelScrollLeft"]],
+              ["Ctrl+Shift+Mausrad", "Spalte verschieben", ["Mod+Ctrl+Shift+WheelScrollDown", "Mod+Ctrl+Shift+WheelScrollUp", "Mod+Ctrl+WheelScrollRight", "Mod+Ctrl+WheelScrollLeft"]]
+            ]
+          },
           {
             "title": "Programme und eigene Kürzel",
             "keyWidth": 190,
