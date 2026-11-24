@@ -118,6 +118,10 @@ in
           "..." = "cd ../..";
           "...." = "cd ../../..";
 
+          # Archives: 7-Zip ships its binary as 7zz (cli module), most
+          # how-tos and muscle memory say 7z
+          "7z" = "7zz";
+
           # Git
           gs = "git status";
           ga = "git add";
