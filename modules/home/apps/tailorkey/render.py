@@ -9,6 +9,8 @@ NN-cheat-<key>.svg per page of cheats.json (shortcut tables of programs;
 "source": "niri" is checked against and completed from the niri config: every
 bind a row lists must exist, binds with a hotkey-overlay-title and all
 remaining ones are added on their own, so the page cannot drift.
+Next to every page goes NN-<name>.txt, one line per key, card or row: the
+text the viewer's search (Ctrl+F) filters.
 """
 
 import html
@@ -260,7 +262,7 @@ def header(page_no, tabs, subtitle):
     return out
 
 
-HINT = ["1–9, 0 = Seite · ← → blättern · Esc schließt"]
+HINT = ["1–9, 0 = Seite · ← → blättern · Ctrl+F sucht · Esc schließt"]
 
 
 def footer(items, hint=None):
@@ -598,7 +600,27 @@ def main():
     tabs += [(page["key"], page["tab"]) for page in cheats]
     if cheats:
         letters = ", ".join(page["key"] for page in cheats)
-        HINT[0] = f"1–9, 0, {letters} = Seite · ← → blättern · Esc schließt"
+        HINT[0] = f"1–9, 0, {letters} = Seite · ← → blättern · Ctrl+F sucht · Esc schließt"
+
+    def write(name, body, lines):
+        (outdir / f"{name}.svg").write_text(svg(body))
+        (outdir / f"{name}.txt").write_text("".join(f"{line}\n" for line in lines))
+
+    def layer_text(keys):
+        """One line per key that does something: tap, hold, side of the board."""
+        for idx, (tap, hold, kind) in enumerate(keys):
+            if kind in ("none", "trans") or not (tap or hold):
+                continue
+            parts = [" ".join(part for part in face(tap) if part)] if tap else []
+            if hold:
+                parts.append(f"halten: {hold}")
+            yield f"{' · '.join(parts)}   [{side(idx)}]"
+
+    def cheat_text(page):
+        for sections in page["columns"]:
+            for section in sections:
+                for keys, what in section["rows"]:
+                    yield f"{keys:<26} {what}   [{section['title']}]"
 
     for no, name in enumerate(layer_names, start=1):
         li = names.index(name)
@@ -608,13 +630,14 @@ def main():
         else:
             subtitle = "  ·  ".join(t for _, t in how) or name
             highlight = {k for keys, _ in how for k in keys}
-        (outdir / f"{no:02d}-{name}.svg").write_text(svg(layer_page(no, tabs, subtitle, rendered[li], highlight)))
+        write(f"{no:02d}-{name}", layer_page(no, tabs, subtitle, rendered[li], highlight), layer_text(rendered[li]))
     for i, page in enumerate(hot_pages):
         no = len(layer_names) + i + 1
-        (outdir / f"{no:02d}-hotkeys{i + 1}.svg").write_text(svg(hotkey_page(no, tabs, page)))
+        lines = (f"{card['title']:<28} {' · '.join(line for line in card['lines'] if line)}" for card in page)
+        write(f"{no:02d}-hotkeys{i + 1}", hotkey_page(no, tabs, page), lines)
     for i, page in enumerate(cheats):
         no = len(names_in_order) + i + 1
-        (outdir / f"{no:02d}-cheat-{page['key']}.svg").write_text(svg(cheat_page(no, tabs, page)))
+        write(f"{no:02d}-cheat-{page['key']}", cheat_page(no, tabs, page), cheat_text(page))
 
 
 if __name__ == "__main__":

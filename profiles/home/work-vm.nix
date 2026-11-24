@@ -108,6 +108,16 @@
               default-column-width { fixed 1400; }
               default-window-height { fixed 730; }
           }
+
+          // Its search (Ctrl+F) floats on top of it.
+          window-rule {
+              match app-id=r#"^tailorkey-search$"#
+
+              open-floating true
+              open-focused true
+              default-column-width { fixed 900; }
+              default-window-height { fixed 460; }
+          }
         '';
       };
 

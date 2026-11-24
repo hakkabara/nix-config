@@ -44,7 +44,28 @@ let
           name="$(basename "$f" .svg)"
           rsvg-convert "$f" -o "$out/$name.png"
         done
+        cp svg/*.txt "$out"
       '';
+
+  # Ctrl+F in the viewer: the pages are pictures, so the search filters the
+  # text of the current page (NN-<name>.txt next to the PNG) in a small
+  # terminal. Typing narrows the lines, Esc or Enter closes it.
+  search = pkgs.writeShellApplication {
+    name = "tk-search";
+    runtimeInputs = [
+      pkgs.fzf
+      pkgs.kitty
+    ];
+    text = ''
+      lines="''${1%.png}.txt"
+      [ -r "$lines" ] || exit 0
+      # shellcheck disable=SC2016 # $1 belongs to the inner shell
+      exec kitty --class tailorkey-search --title "tk: Suche" sh -c '
+        fzf --exact --ignore-case --no-sort --layout=reverse --info=inline \
+          --prompt="Suche > " --header="Tippen filtert · Esc schließt" <"$1" >/dev/null || true
+      ' sh "$lines"
+    '';
+  };
 
   # Toggle: a second call closes the viewer again.
   tk = pkgs.writeShellApplication {
@@ -60,8 +81,10 @@ let
       # Pages are exactly 1400x730 and share the background colour, so no
       # bars show even if the compositor picks another size. 1-9 and 0 jump
       # to a page; a cheat page NN-cheat-<letter>.png is reached with its
-      # letter.
+      # letter. Ctrl+F searches the text of the page shown.
       args=(-s shrink -b 1a1b26 -W 1400 -H 730 -c 'bind <Escape> quit')
+      # shellcheck disable=SC2016 # imv sets $imv_current_file for the command
+      args+=(-c 'bind <Ctrl+f> exec ${lib.getExe search} "$imv_current_file"')
       for n in 1 2 3 4 5 6 7 8 9; do
         args+=(-c "bind $n goto $n")
       done
