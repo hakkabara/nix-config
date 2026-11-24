@@ -49,21 +49,32 @@ let
 
   # Ctrl+F in the viewer: the pages are pictures, so the search filters the
   # text of the current page (NN-<name>.txt next to the PNG) in a small
-  # terminal. Typing narrows the lines, Esc or Enter closes it.
+  # terminal. Typing narrows the lines; Esc, Enter or Ctrl+F closes it.
+  #
+  # It must return at once: imv runs the command with system() and handles
+  # nothing meanwhile, but its key-repeat timer keeps queueing Ctrl+F, and
+  # every queued one would open the search again after it was closed. Any
+  # repeat that still fires before the search has the focus finds it running.
   search = pkgs.writeShellApplication {
     name = "tk-search";
     runtimeInputs = [
       pkgs.fzf
       pkgs.kitty
+      pkgs.procps
+      pkgs.util-linux
     ];
     text = ''
       lines="''${1%.png}.txt"
       [ -r "$lines" ] || exit 0
+      if pgrep -f -- "--class tailorkey-search" >/dev/null; then
+        exit 0
+      fi
       # shellcheck disable=SC2016 # $1 belongs to the inner shell
-      exec kitty --class tailorkey-search --title "tk: Suche" sh -c '
+      setsid --fork kitty --class tailorkey-search --title "tk: Suche" sh -c '
         fzf --exact --ignore-case --no-sort --layout=reverse --info=inline \
+          --bind=ctrl-f:abort \
           --prompt="Suche > " --header="Tippen filtert · Esc schließt" <"$1" >/dev/null || true
-      ' sh "$lines"
+      ' sh "$lines" >/dev/null 2>&1
     '';
   };
 
