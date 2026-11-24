@@ -19,6 +19,10 @@
       meeting.enable = lib.mkDefault true;
     };
 
+    # Every host of the SSH config shows up in sshelf without a manual
+    # `sshelf-import-ssh`.
+    cli.sshelf.autoImport.enable = lib.mkDefault true;
+
     apps = {
       keepassxc.enable = lib.mkDefault true;
       copyq.enable = lib.mkDefault true;

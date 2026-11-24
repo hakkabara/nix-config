@@ -148,14 +148,73 @@ let
               sshelf import "$@"
     '';
   };
+
+  settingsFile = (pkgs.formats.toml { }).generate "sshelf-config.toml" cfg.settings;
 in
 {
-  options.hakkabara.cli.sshelf.enable = lib.mkEnableOption "sshelf SSH host manager";
+  options.hakkabara.cli.sshelf = {
+    enable = lib.mkEnableOption "sshelf SSH host manager";
+
+    autoImport.enable = lib.mkEnableOption ''
+      importing the hosts of ~/.ssh/config into sshelf at login and after
+      every Home Manager activation. The import only adds hosts whose name
+      sshelf does not know yet; it never changes or removes one
+    '';
+
+    settings = lib.mkOption {
+      inherit (pkgs.formats.toml { }) type;
+      default = { };
+      example = {
+        accent = "blue";
+        tmux = "window";
+      };
+      description = ''
+        Start values for ~/.config/sshelf/config.toml. sshelf saves its
+        settings screen (F2) to that file, so it is only written while it
+        does not exist; an existing file is left alone.
+      '';
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     home.packages = [
       sshelfPackage
       sshelfImportSsh
     ];
+
+    home.activation = {
+      sshelfSettings = lib.mkIf (cfg.settings != { }) (
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          sshelf_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/sshelf"
+          if [ ! -e "$sshelf_dir/config.toml" ]; then
+            run install -d -m 700 "$sshelf_dir"
+            run install -m 600 ${settingsFile} "$sshelf_dir/config.toml"
+          fi
+        ''
+      );
+
+      # A changed SSH config does not change the unit, so sd-switch would
+      # not start it again. No user manager (boot, first activation) is
+      # fine: the unit also runs at login.
+      sshelfAutoImport = lib.mkIf cfg.autoImport.enable (
+        lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
+          run ${pkgs.systemd}/bin/systemctl --user start --no-block sshelf-auto-import.service || true
+        ''
+      );
+    };
+
+    systemd.user.services.sshelf-auto-import = lib.mkIf cfg.autoImport.enable {
+      Unit = {
+        Description = "Import the hosts of ~/.ssh/config into sshelf";
+        ConditionPathExists = "%h/.ssh/config";
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = lib.getExe sshelfImportSsh;
+        # The import lists every host name; keep them out of the journal.
+        StandardOutput = "null";
+      };
+      Install.WantedBy = [ "default.target" ];
+    };
   };
 }
