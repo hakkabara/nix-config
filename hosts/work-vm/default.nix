@@ -595,13 +595,17 @@
   # note content outlives the NFS mount. Notes and vault settings live on
   # the SurfVM; obsidian.json (the vault list) stays, so the vault opens
   # again and Obsidian rebuilds the index on start.
+  #
+  # "Local Storage" stays: Obsidian keeps its per-device settings there,
+  # among them "Override config folder" and the restricted-mode choice of a
+  # vault. Without it the WorkVM falls back to the SurfVM's .obsidian folder
+  # (and its plugins) after every reboot. It holds settings, not the index.
   systemd.tmpfiles.rules =
     let
       dir = "${config.users.users.${config.hakkabara.accounts.primary.username}.home}/.config/obsidian";
     in
     map (sub: ''R "${dir}/${sub}" - - - -'') [
       "IndexedDB"
-      "Local Storage"
       "Session Storage"
       "Cache"
       "Code Cache"
