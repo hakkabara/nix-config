@@ -552,7 +552,9 @@
       "nofail"
       "noauto"
       "x-systemd.automount"
-      "x-systemd.mount-timeout=15"
+      # Short: an unreachable server should cost seconds, not block every
+      # program that looks at the folder.
+      "x-systemd.mount-timeout=5"
     ];
   };
 

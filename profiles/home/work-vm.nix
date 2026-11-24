@@ -116,9 +116,12 @@
       fileChooserPins = {
         enable = lib.mkDefault true;
         pins = [
+          # The parent folder, not /data/nfs/llm itself: file managers check
+          # every sidebar entry when they open, and touching an automount of
+          # a server that is off blocks them until the mount times out.
           {
-            path = "/data/nfs/llm";
-            label = "LLM (NFS)";
+            path = "/data/nfs";
+            label = "NFS (LLM, Obsidian)";
           }
           {
             path = "/data/share/clean";
