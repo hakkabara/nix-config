@@ -193,115 +193,129 @@ let
       };
     }
   );
+
+  # Extra CA files are appended to whatever an override already installs;
+  # the override attribute set itself is merged shallowly and would replace
+  # the list instead.
+  withCertificateFiles =
+    base:
+    base
+    // lib.optionalAttrs (cfg.certificateFiles != [ ]) {
+      Certificates = (base.Certificates or { }) // {
+        Install = (base.Certificates.Install or [ ]) ++ cfg.certificateFiles;
+      };
+    };
 in
 {
   # ============================================================
   # Shared Firefox-compatible enterprise policies
   # ============================================================
 
-  policies = lib.recursiveUpdate (
-    {
-      # Browser binaries themselves are updated through Nix.
-      DisableAppUpdate = true;
+  policies = withCertificateFiles (
+    lib.recursiveUpdate (
+      {
+        # Browser binaries themselves are updated through Nix.
+        DisableAppUpdate = true;
 
-      # Extensions may update independently.
-      ExtensionUpdate = true;
+        # Extensions may update independently.
+        ExtensionUpdate = true;
 
-      # XDG decides which browser is the system default.
-      DontCheckDefaultBrowser = true;
+        # XDG decides which browser is the system default.
+        DontCheckDefaultBrowser = true;
 
-      # Account/Sync policy is merged below so Firefox can opt into
-      # selective Sync while unsupported Gecko derivatives stay disabled.
+        # Account/Sync policy is merged below so Firefox can opt into
+        # selective Sync while unsupported Gecko derivatives stay disabled.
 
-      # ==========================================================
-      # Privacy / telemetry
-      # ==========================================================
+        # ==========================================================
+        # Privacy / telemetry
+        # ==========================================================
 
-      DisableTelemetry = true;
-      DisableFirefoxStudies = true;
-      DisableFeedbackCommands = true;
+        DisableTelemetry = true;
+        DisableFirefoxStudies = true;
+        DisableFeedbackCommands = true;
 
-      EnableTrackingProtection = {
-        Value = true;
-        Category = "strict";
+        EnableTrackingProtection = {
+          Value = true;
+          Category = "strict";
 
-        Cryptomining = true;
-        Fingerprinting = true;
-        EmailTracking = true;
-        SuspectedFingerprinting = true;
-        BaselineExceptions = true;
-        ConvenienceExceptions = false;
+          Cryptomining = true;
+          Fingerprinting = true;
+          EmailTracking = true;
+          SuspectedFingerprinting = true;
+          BaselineExceptions = true;
+          ConvenienceExceptions = false;
 
-        Locked = false;
-      };
-
-      # Remote search-engine suggestions are separate from local
-      # history/bookmark/open-tab results.
-      SearchSuggestEnabled = cfg.privacy.remoteSearchSuggestions.enable;
-
-      # ==========================================================
-      # Managed Gecko preferences
-      # ==========================================================
-
-      Preferences = {
-        "browser.translations.automaticallyPopup" = {
-          Value = false;
-          Status = "locked";
+          Locked = false;
         };
 
-        "browser.translations.neverTranslateLanguages" = {
-          Value = "de,en";
-          Status = "locked";
+        # Remote search-engine suggestions are separate from local
+        # history/bookmark/open-tab results.
+        SearchSuggestEnabled = cfg.privacy.remoteSearchSuggestions.enable;
+
+        # ==========================================================
+        # Managed Gecko preferences
+        # ==========================================================
+
+        Preferences = {
+          "browser.translations.automaticallyPopup" = {
+            Value = false;
+            Status = "locked";
+          };
+
+          "browser.translations.neverTranslateLanguages" = {
+            Value = "de,en";
+            Status = "locked";
+          };
+
+          "identity.fxaccounts.toolbar.enabled" = {
+            Value = false;
+            Status = "locked";
+          };
+
+          "identity.fxaccounts.toolbar.defaultVisible" = {
+            Value = false;
+            Status = "locked";
+          };
         };
 
-        "identity.fxaccounts.toolbar.enabled" = {
-          Value = false;
-          Status = "locked";
+        # ==========================================================
+        # DNS / HTTPS
+        # ==========================================================
+
+        DNSOverHTTPS = {
+          Enabled = false;
+          Locked = true;
         };
 
-        "identity.fxaccounts.toolbar.defaultVisible" = {
-          Value = false;
-          Status = "locked";
-        };
-      };
+        HttpsOnlyMode = "enabled";
 
-      # ==========================================================
-      # DNS / HTTPS
-      # ==========================================================
+        # ==========================================================
+        # Passwords / autofill
+        # ==========================================================
 
-      DNSOverHTTPS = {
-        Enabled = false;
-        Locked = true;
-      };
+        PasswordManagerEnabled = false;
+        OfferToSaveLogins = false;
 
-      HttpsOnlyMode = "enabled";
+        AutofillAddressEnabled = false;
+        AutofillCreditCardEnabled = false;
 
-      # ==========================================================
-      # Passwords / autofill
-      # ==========================================================
+        # ==========================================================
+        # Performance
+        # ==========================================================
 
-      PasswordManagerEnabled = false;
-      OfferToSaveLogins = false;
+        HardwareAcceleration = true;
 
-      AutofillAddressEnabled = false;
-      AutofillCreditCardEnabled = false;
+        # ==========================================================
+        # Extensions
+        # ==========================================================
 
-      # ==========================================================
-      # Performance
-      # ==========================================================
-
-      HardwareAcceleration = true;
-
-      # ==========================================================
-      # Extensions
-      # ==========================================================
-
-      ExtensionSettings = effectiveExtensionSettings;
-    }
-    // firefoxSyncPolicies
-    // antiClutterPolicies
-    // cookiePolicies
-  ) cfg.overrides.common.policies;
+        ExtensionSettings = effectiveExtensionSettings;
+      }
+      // firefoxSyncPolicies
+      // antiClutterPolicies
+      // cookiePolicies
+    ) cfg.overrides.common.policies
+  );
 
   # ============================================================
   # Shared profile preferences

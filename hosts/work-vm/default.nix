@@ -36,6 +36,8 @@
     ../../modules/nixos/services/hacktricks.nix
     # Enabled with the bookmark secret in nix-internal.
     ../../modules/nixos/desktop/managed-bookmarks.nix
+    # Enabled with the CA secret in nix-internal.
+    ../../modules/nixos/desktop/internal-ca.nix
 
     # Shared system policies.
     ../../modules/nixos/network/vpn-clients.nix

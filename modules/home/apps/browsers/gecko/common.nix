@@ -226,6 +226,19 @@ in
       '';
     };
 
+    certificateFiles = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "/run/internal-ca/ca-1.crt" ];
+      description = ''
+        CA certificates Firefox and Floorp trust in addition to their own
+        store (policy Certificates.Install): absolute runtime paths, one
+        certificate per file, PEM or DER. A path that does not exist is
+        skipped by the browser. The browser copies an installed CA into the
+        certificate database of its profile.
+      '';
+    };
+
     overrides = {
       common = lib.mkOption {
         type = browserOverrideType;
