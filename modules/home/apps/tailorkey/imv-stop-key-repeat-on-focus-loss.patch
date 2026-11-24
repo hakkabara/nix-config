@@ -1,0 +1,29 @@
+--- a/src/wl_window.c
++++ b/src/wl_window.c
+@@ -182,10 +182,25 @@
+ static void keyboard_leave(void *data, struct wl_keyboard *keyboard,
+     uint32_t serial, struct wl_surface *surface)
+ {
+-  (void)data;
+   (void)keyboard;
+   (void)serial;
+   (void)surface;
++  struct imv_window *window = data;
++
++  /* The release of a held key goes to the surface that has the focus by
++   * then, so stop repeating it here. Otherwise a bind that opens another
++   * window (exec) fires again and again. */
++  struct itimerspec off = {
++    .it_value = {
++      .tv_sec = 0,
++      .tv_nsec = 0,
++    },
++    .it_interval = {
++      .tv_sec = 0,
++      .tv_nsec = 0,
++    },
++  };
++  timer_settime(window->timer_id, 0, &off, NULL);
+ }
+ 
+ static void cleanup_event(struct imv_event *event)

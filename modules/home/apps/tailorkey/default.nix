@@ -67,11 +67,18 @@ let
     '';
   };
 
+  # imv repeats a held key itself and never stops when its window loses the
+  # focus before the key is released. Ctrl+F opens the search window, so
+  # without the patch the search reopens for ever after it is closed.
+  imv = pkgs.imv.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./imv-stop-key-repeat-on-focus-loss.patch ];
+  });
+
   # Toggle: a second call closes the viewer again.
   tk = pkgs.writeShellApplication {
     name = "tk";
     runtimeInputs = [
-      pkgs.imv
+      imv
       pkgs.procps
     ];
     text = ''
