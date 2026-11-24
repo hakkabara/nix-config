@@ -8,6 +8,7 @@
 {
   imports = [
     ./cli.nix
+    ../../modules/home/desktop/home-links.nix
   ];
 
   home.packages = [
@@ -20,6 +21,9 @@
   # these choices without requiring mkForce.
   hakkabara = {
     terminal.enable = lib.mkDefault true;
+
+    # ~/data -> /data (shared folders, NFS mounts).
+    desktop.homeLinks.data = lib.mkDefault "/data";
 
     # Shared SSH host TUI for workstation-like systems.
     cli.sshelf.enable = lib.mkDefault true;
