@@ -13,9 +13,11 @@
   ];
 
   hakkabara = {
-    # `timer 25m …` reminders and local `meeting` notes (~/Notes/meetings).
+    # `timer 25m …` reminders, `waitup <host>` (one notification when a host
+    # answers) and local `meeting` notes (~/Notes/meetings).
     cli.workHelpers = {
       timer.enable = lib.mkDefault true;
+      waitup.enable = lib.mkDefault true;
       meeting.enable = lib.mkDefault true;
     };
 

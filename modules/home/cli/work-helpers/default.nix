@@ -25,6 +25,26 @@ let
     text = builtins.readFile ./timer.sh;
   };
 
+  waitup = pkgs.writeShellApplication {
+    name = "waitup";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.gawk
+      pkgs.findutils
+      pkgs.iputils
+      pkgs.libnotify
+      pkgs.openssh
+      pkgs.pipewire
+      pkgs.systemd
+    ];
+    runtimeEnv = {
+      WAITUP_INTERVAL = toString cfg.waitup.interval;
+      WAITUP_SOUND = lib.optionalString cfg.waitup.sound.enable cfg.waitup.sound.file;
+      WAITUP_SOUND_VOLUME = cfg.waitup.sound.volume;
+    };
+    text = builtins.readFile ./waitup.sh;
+  };
+
   meeting = pkgs.writeShellApplication {
     name = "meeting";
     runtimeInputs = [
@@ -69,6 +89,37 @@ in
       };
     };
 
+    waitup = {
+      enable = lib.mkEnableOption "`waitup` command that reports once when a host answers ping or SSH";
+
+      interval = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 10;
+        description = "Seconds between two attempts unless the command line names another value.";
+      };
+
+      sound = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Play a short sound when the host answers.";
+        };
+
+        file = lib.mkOption {
+          type = lib.types.str;
+          default = "${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/service-login.oga";
+          defaultText = lib.literalExpression ''"''${pkgs.sound-theme-freedesktop}/share/sounds/freedesktop/stereo/service-login.oga"'';
+          description = "Sound file played with pw-play.";
+        };
+
+        volume = lib.mkOption {
+          type = lib.types.str;
+          default = "0.5";
+          description = "pw-play volume (0.0-1.0).";
+        };
+      };
+    };
+
     meeting = {
       enable = lib.mkEnableOption "`meeting` command for local Markdown meeting notes";
 
@@ -90,5 +141,7 @@ in
   };
 
   config.home.packages =
-    lib.optional cfg.timer.enable timer ++ lib.optional cfg.meeting.enable meeting;
+    lib.optional cfg.timer.enable timer
+    ++ lib.optional cfg.waitup.enable waitup
+    ++ lib.optional cfg.meeting.enable meeting;
 }

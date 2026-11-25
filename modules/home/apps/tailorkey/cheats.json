@@ -471,6 +471,10 @@
               ["kssh <host>", "SSH mit Kitty (kitten ssh)"],
               ["sshelf", "SSH-Hosts als Auswahl"],
               ["sshelf-import-ssh", "Hosts aus der SSH-Config"],
+              ["waitup <host>", "Meldet, sobald Host da ist"],
+              ["waitup <host> ssh 30", "Nur SSH, alle 30 s"],
+              ["waitup <h> ping|tcp:443", "Nur Ping / nur TCP-Port"],
+              ["waitup list | stop <id>", "Wachen zeigen / abbrechen"],
               ["myip", "Eigene IP-Adressen"],
               ["netcheck", "Netz-Schnelltest"],
               ["ports", "Offene Ports (ss -tulpn)"]
