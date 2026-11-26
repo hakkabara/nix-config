@@ -1,5 +1,6 @@
 # dms-bar-follow – keep the DMS "default" bar on the main monitor and a
 # mirrored "secondary" bar (minus some widgets) on all other monitors.
+# Notification popups follow the main monitor as well.
 #
 # DMS assigns bars by output name only, but VMware names the output that
 # hosts the VM window Virtual-1, so names swap with window placement.  The
@@ -59,7 +60,11 @@ apply() {
               | .rightWidgets = ((.rightWidgets // []) | strip)
             ]
         end
-    end' "$settings")" || return 0
+    end
+    # Popups only on the main monitor; with a single output they show there
+    # anyway (showOnLastDisplay), whatever its name is.
+    | .screenPreferences = ((.screenPreferences // {}) | .notifications = [$main])
+    | .showOnLastDisplay = ((.showOnLastDisplay // {}) | .notifications = true)' "$settings")" || return 0
 
   if [ "$(jq -S . <<<"$new")" != "$(jq -S . "$settings")" ]; then
     printf '%s\n' "$new" >"$settings.tmp"

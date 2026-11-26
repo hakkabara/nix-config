@@ -20,6 +20,7 @@
     ../../modules/nixos/apps/remote-desktop
     ../../modules/nixos/apps/teams.nix
     ../../modules/nixos/apps/thunar.nix
+    ../../modules/nixos/apps/documents.nix
     ../../modules/nixos/apps/kdeconnect-media
     ../../modules/nixos/flatpak
     ../../profiles/nixos/work-vm-tools.nix
@@ -188,6 +189,9 @@
         enable = true;
         user = "mko";
       };
+
+      # Image viewer and office suite (modules/nixos/apps/documents.nix).
+      documents.enable = true;
 
       # Remote support clients. All are started manually when needed;
       # no permanent RMM daemon is enabled.
